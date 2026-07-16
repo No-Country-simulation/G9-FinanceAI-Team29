@@ -1,0 +1,48 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: financeai-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/financeai
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    # Ejecuta data.sql DESPUÉS de que Hibernate cree las tablas
+    defer-datasource-initialization: true
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: false
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:data.sql
+      continue-on-error: false
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    com.financeai: INFO
+    org.hibernate.SQL: WARN
