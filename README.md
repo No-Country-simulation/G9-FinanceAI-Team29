@@ -1,10 +1,11 @@
-# TwentyNine Devs
+<p align="center">
+  <img src="logo.png" alt="FinSightAI" width="750">
+</p>
 
-# 🔎 FinSightAI
-
-> **Ver más allá de tus finanzas.**
-
-Plataforma inteligente de análisis financiero desarrollada durante el Hackathon **Oracle Next Education (ONE)** y **No Country**.
+<p align="center">
+  <strong>Proyecto desarrollado para el Hackathon Oracle Next Education (ONE) y No Country</strong><br>
+  Equipo: <strong>TwentyNine Devs</strong>
+</p>
 
 ---
 
