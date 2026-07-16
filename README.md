@@ -1,36 +1,40 @@
 # TwentyNine Devs
-# 💰 FinanceAI
 
-> Plataforma inteligente para el análisis de salud financiera desarrollada durante el Hackathon Oracle Next Education (ONE).
+# 🔎 FinSightAI
+
+> **Ver más allá de tus finanzas.**
+
+Plataforma inteligente de análisis financiero desarrollada durante el Hackathon **Oracle Next Education (ONE)** y **No Country**.
 
 ---
 
 # 📖 Descripción
 
-FinanceAI es una plataforma web que analiza el comportamiento financiero de los usuarios a partir de sus ingresos, nivel de endeudamiento, hábitos de ahorro y transacciones financieras.
+**FinSightAI** es una plataforma web que ayuda a los usuarios a comprender su situación financiera mediante técnicas de Ciencia de Datos, Machine Learning e Inteligencia Artificial.
 
-Mediante técnicas de Ciencia de Datos e Inteligencia Artificial, la aplicación clasifica automáticamente los gastos, identifica patrones de consumo, evalúa el perfil financiero del usuario y genera recomendaciones personalizadas para mejorar su salud financiera.
+A partir de los ingresos, deudas, hábitos de ahorro y transacciones financieras, la plataforma analiza el comportamiento económico del usuario, clasifica automáticamente sus gastos, identifica patrones de consumo y genera recomendaciones personalizadas para favorecer una mejor toma de decisiones.
 
 ---
 
 # 🎯 Problema
 
-Muchas personas tienen acceso a la información de sus ingresos y gastos, pero les resulta difícil transformar esos datos en información útil para tomar mejores decisiones financieras.
+Muchas personas registran sus ingresos y gastos, pero les resulta difícil transformar esos datos en información útil para comprender su situación financiera y mejorar su planificación económica.
 
-FinanceAI busca convertir esos datos en información clara, comprensible y accionable, ayudando a los usuarios a entender mejor sus hábitos de consumo y mejorar su planificación financiera.
+**FinSightAI** busca convertir los datos financieros en información clara, explicable y accionable mediante modelos de Machine Learning e indicadores financieros fáciles de interpretar.
 
 ---
 
 # 🚀 Funcionalidades
 
-- Clasificación automática de transacciones.
+- Clasificación automática de categorías de gastos.
 - Análisis del perfil financiero.
-- Resumen de gastos por categoría.
-- Identificación de patrones de consumo.
+- Financial Score personalizado.
+- Evaluación del nivel de riesgo financiero.
+- Explicación automática del análisis realizado.
+- Fortalezas y oportunidades de mejora.
 - Recomendaciones financieras personalizadas.
 - Dashboard interactivo.
-- Inicio de sesión mediante autenticación.
-- Historial de análisis financieros.
+- Historial de análisis.
 - API REST para integración con aplicaciones externas.
 
 ---
@@ -55,8 +59,10 @@ FinanceAI busca convertir esos datos en información clara, comprensible y accio
 
 - Python
 - Pandas
+- NumPy
 - Scikit-Learn
 - Joblib
+- FastAPI
 
 ## Base de datos y autenticación
 
@@ -64,8 +70,8 @@ FinanceAI busca convertir esos datos en información clara, comprensible y accio
 
 ## Cloud y despliegue
 
-- Vercel
 - Oracle Cloud Infrastructure (OCI)
+- Vercel
 
 ## DevOps
 
@@ -82,17 +88,21 @@ FinanceAI busca convertir esos datos en información clara, comprensible y accio
                   Usuario
                      │
                      ▼
-          Frontend (React + TS)
+          Frontend (React + TypeScript)
                      │
                      ▼
          Backend (Spring Boot API)
-               │              │
-               ▼              ▼
-     Modelo IA (Python)   Supabase
-                         (Datos y Auth)
-               │
-               ▼
- Oracle Cloud Infrastructure (OCI)
+                     │
+         POST /analysis
+                     │
+                     ▼
+       Microservicio IA (FastAPI)
+             │               │
+             ▼               ▼
+     Modelos ML (.joblib)   Supabase
+                               │
+                               ▼
+                      Datos y autenticación
 ```
 
 ---
@@ -102,7 +112,7 @@ FinanceAI busca convertir esos datos en información clara, comprensible y accio
 ```text
 backend/
 frontend/
-ml/
+ml-service/
 datasets/
 notebooks/
 docs/
@@ -117,11 +127,11 @@ Inicio de sesión
 
 ↓
 
-Carga de información financiera
+Registro de información financiera
 
 ↓
 
-Clasificación automática de transacciones
+Clasificación automática de gastos
 
 ↓
 
@@ -129,7 +139,7 @@ Análisis del perfil financiero
 
 ↓
 
-Generación de recomendaciones
+Generación de Score y recomendaciones
 
 ↓
 
@@ -138,80 +148,68 @@ Visualización de resultados en el Dashboard
 
 ---
 
-# 📌 Endpoint principal
+# 🤖 Ciencia de Datos
 
-### POST
-
-```
-/api/v1/financial-analysis
-```
-
-### Ejemplo de solicitud
-
-```json
-{
-  "monthlyIncome": 4500,
-  "monthlyDebt": 600,
-  "savingFrequency": "MEDIUM",
-  "transactions": [
-    {
-      "description": "Compra en supermercado",
-      "amount": 420
-    }
-  ]
-}
-```
-
----
-
-# 📈 Ciencia de Datos
-
-Para este proyecto se desarrolló un conjunto de datos sintético propio, diseñado específicamente para representar distintos perfiles financieros y hábitos de consumo.
-
-El proceso de Ciencia de Datos contempla las siguientes etapas:
+El módulo de Ciencia de Datos implementa un pipeline completo que incluye:
 
 - Generación de datasets sintéticos.
-- Análisis exploratorio de datos (EDA).
-- Preprocesamiento de datos.
+- Análisis Exploratorio de Datos (EDA).
+- Limpieza y preprocesamiento.
 - Ingeniería de atributos.
-- Entrenamiento y evaluación de modelos.
-- Integración del modelo con la API REST.
+- Entrenamiento de modelos de Machine Learning.
+- Validación cruzada y evaluación.
+- Interpretabilidad de modelos.
+- Serialización mediante Joblib.
+- Exposición mediante un microservicio desarrollado con FastAPI.
 
 ---
 
-# 📅 Roadmap
+# 🔌 API
 
-- ✅ Planificación del proyecto.
-- ✅ Diseño de la arquitectura.
+El microservicio de Machine Learning expone los siguientes endpoints:
+
+| Método | Endpoint | Descripción |
+|---------|----------|-------------|
+| GET | `/health` | Estado del servicio |
+| POST | `/predict/category` | Clasificación automática de gastos |
+| POST | `/analysis` | Análisis financiero completo |
+| GET | `/analysis/users/{usuario_id}` | Endpoint de prueba para datasets sintéticos |
+
+---
+
+# 📅 Estado del proyecto
+
+- ✅ Diseño de arquitectura.
 - ✅ Generación del dataset sintético.
 - ✅ Análisis Exploratorio de Datos (EDA).
-- 🔄 Desarrollo del Backend.
+- ✅ Entrenamiento de modelos de Machine Learning.
+- ✅ Desarrollo del microservicio FastAPI.
+- 🔄 Integración con Spring Boot.
 - 🔄 Desarrollo del Frontend.
 - 🔄 Integración con Supabase.
-- ⬜ Entrenamiento del modelo de IA.
-- ⬜ Integración con Oracle Cloud Infrastructure (OCI).
-- ⬜ Despliegue de la aplicación.
-- ⬜ Documentación final.
-- ⬜ Presentación del proyecto.
+- ⬜ Despliegue en Oracle Cloud Infrastructure (OCI).
+- ⬜ Despliegue del Frontend.
+- ⬜ Presentación final del proyecto.
 
 ---
 
 # 👥 Equipo
 
-G9 Latam Team 29
+**TwentyNine Devs**
+(G9 LATAM Team 29)
+
+Hackathon Oracle Next Education (ONE) + No Country
 
 ---
 
-# 📸 Capturas de pantalla
+# 📸 Capturas
 
-> Se incorporarán capturas del dashboard y de la aplicación a medida que avance el desarrollo del proyecto.
+Se incorporarán capturas del dashboard, la API y el flujo completo de la aplicación durante el desarrollo del proyecto.
 
 ---
 
-# 📄 Licencia y propósito
+# 📄 Licencia
 
-Este proyecto fue desarrollado con fines educativos como parte del **Hackathon Oracle Next Education (ONE)**, organizado por **Alura Latam** y **No Country**.
+Proyecto desarrollado con fines educativos para el **Hackathon Oracle Next Education (ONE)** organizado por **Alura Latam**, **Oracle** y **No Country**.
 
-Su objetivo es demostrar la aplicación de tecnologías de desarrollo web, Ciencia de Datos e Inteligencia Artificial para resolver un problema real relacionado con la educación financiera.
-
-El código fuente y la documentación fueron desarrollados exclusivamente para esta instancia de aprendizaje y evaluación dentro del programa **Oracle Next Education (ONE)**.
+Su propósito es demostrar la integración de tecnologías de desarrollo web, Ciencia de Datos, Machine Learning e Inteligencia Artificial para resolver un problema real relacionado con la educación financiera.
