@@ -1,4 +1,4 @@
-# G9-FinanceAI-Team29
+# TwentyNine Devs
 # 💰 FinanceAI
 
 > Plataforma inteligente para el análisis de salud financiera desarrollada durante el Hackathon Oracle Next Education (ONE).
