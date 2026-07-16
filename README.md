@@ -193,15 +193,21 @@ El microservicio de Machine Learning expone los siguientes endpoints:
 - ⬜ Presentación final del proyecto.
 
 ---
-
 # 👥 Equipo
 
-**TwentyNine Devs**
-(G9 LATAM Team 29)
+<p align="center">
+  <img src="logo_team.png" alt="TwentyNine Devs" width="500">
+</p>
 
-Hackathon Oracle Next Education (ONE) + No Country
+<h3 align="center">G9 LATAM Team 29</h3>
 
----
+<p align="center">
+Equipo multidisciplinario participante del Hackathon <strong>Oracle Next Education (ONE)</strong> y <strong>No Country</strong>.
+</p>
+
+<p align="center">
+Desarrollo de Frontend, Backend, Ciencia de Datos, Machine Learning, UX/UI y Gestión Ágil.
+</p>
 
 # 📸 Capturas
 
