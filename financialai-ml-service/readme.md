@@ -1,4 +1,4 @@
-# FinancialAI ML Service
+# FinancialAI ML Service (Legacy Archived)
 
 ## Requisitos
 
