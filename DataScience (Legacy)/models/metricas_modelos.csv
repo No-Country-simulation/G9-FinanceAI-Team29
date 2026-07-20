@@ -1,0 +1,5 @@
+modelo,accuracy,f1_macro,f1_weighted
+Clasificación de gastos (Hold-Out),1.0,1.0,1.0
+Clasificación de gastos (CV agrupada),0.567166571620688,0.5792734937079549,0.5678512120696424
+Perfil financiero (Hold-Out),0.892,0.8966843610601324,0.8914527475357122
+Perfil financiero (Validación Cruzada),0.891,0.8953856128252689,0.8900685204652194
