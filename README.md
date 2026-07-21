@@ -1,248 +1,103 @@
-# 📊 FinSightAI | Data Science
+# 🤖 FinSightAI | AI & Data Science
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
-![Pandas](https://img.shields.io/badge/Pandas-2.x-blue)
-![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-Machine%20Learning-orange)
-![FastAPI](https://img.shields.io/badge/FastAPI-REST%20API-009688)
-![Status](https://img.shields.io/badge/Status-Data%20Science%20Completed-brightgreen)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
+![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML-orange)
+![Status](https://img.shields.io/badge/Status-Development-success)
 
 ---
 
-# 📖 Descripción
+## 📖 Descripción
 
-Este repositorio contiene el desarrollo completo de la capa de **Ciencia de Datos** del proyecto **FinSightAI**, desarrollado por **TwentyNine Devs** para el **Hackathon Oracle Next Education (ONE) + Alura Latam + No Country**.
+Este repositorio contiene el desarrollo de la capa de Inteligencia Artificial y Ciencia de Datos de **FinSightAI**, proyecto desarrollado para el Hackathon **Oracle Next Education (ONE) + Alura Latam + No Country**.
 
-El objetivo del proyecto es analizar el comportamiento financiero de los usuarios mediante técnicas de Ciencia de Datos y Machine Learning para clasificar gastos, identificar perfiles financieros y generar recomendaciones personalizadas que ayuden a mejorar la salud financiera.
-
-Además del desarrollo de los modelos, esta rama incluye un microservicio desarrollado con **FastAPI**, encargado de exponer las capacidades de Machine Learning mediante una API REST consumida por el backend desarrollado en Spring Boot.
+Incluye el entrenamiento de modelos de Machine Learning, el microservicio de IA desarrollado con FastAPI, el material utilizado durante el desarrollo de Ciencia de Datos y scripts auxiliares para la carga de datos en Supabase.
 
 ---
 
-# 🎯 Objetivos
-
-- Explorar y limpiar datos financieros.
-- Procesar variables financieras y textuales.
-- Realizar ingeniería de atributos (Feature Engineering).
-- Clasificar automáticamente las transacciones.
-- Analizar el perfil financiero de los usuarios.
-- Entrenar y evaluar modelos de Machine Learning.
-- Interpretar los resultados obtenidos.
-- Serializar los modelos entrenados.
-- Exponer los modelos mediante FastAPI.
-- Integrar el microservicio con el backend Spring Boot.
-
----
-
-# 📂 Estructura del proyecto
+# 📂 Estructura del repositorio
 
 ```text
 .
-├── data/
-│   ├── raw/
-│   └── processed/
+├── AI-Service/                 # Microservicio FastAPI
 │
-├── notebooks/
+├── DataScience (Legacy)/       # Notebook y material utilizado durante el desarrollo
 │
-├── models/
-│
-├── app/
-│
-├── financialai-ml-service/
+├── scripts/
+│   └── database/               # Scripts para carga de datos en Supabase
 │
 └── README.md
 ```
 
 ---
 
-# 📁 Dataset
+# 🤖 AI-Service
 
-El proyecto utiliza datasets sintéticos especialmente diseñados para representar distintos perfiles financieros y hábitos de consumo.
+El directorio **AI-Service** contiene el microservicio desarrollado con FastAPI encargado de exponer las capacidades de Inteligencia Artificial mediante una API REST.
 
-## Usuarios
+Entre sus funcionalidades se encuentran:
 
-Cada usuario posee información como:
+- Clasificación automática de transacciones.
+- Análisis del perfil financiero.
+- Generación de recomendaciones financieras mediante un agente basado en LLMs.
+- Integración con modelos de Machine Learning serializados.
+- Documentación mediante Swagger/OpenAPI.
 
-- ID
-- Edad
-- Ingreso mensual
-- Deuda mensual
-- Capacidad de ahorro
-- Nivel educativo
-- Situación laboral
-
-## Transacciones
-
-Cada transacción contiene información como:
-
-- Usuario
-- Fecha
-- Categoría
-- Descripción
-- Método de pago
-- Monto
-- Movimiento
-- Indicador de recurrencia
-
----
-
-# 📓 Pipeline de Ciencia de Datos
-
-## 1. Exploración y limpieza de datos (EDA)
-
-- Estadísticas descriptivas
-- Distribuciones
-- Valores faltantes
-- Duplicados
-- Visualización de variables
-- Calidad de datos
-
----
-
-## 2. Procesamiento de variables
-
-Se procesaron variables tanto financieras como textuales para construir un dataset apto para Machine Learning.
-
-Incluye:
-
-- Normalización
-- Limpieza textual
-- Tokenización
-- Codificación de variables
-
----
-
-## 3. Ingeniería de atributos
-
-Se generaron variables derivadas como:
-
-- Gasto mensual promedio
-- Porcentaje de gasto
-- Nivel de endeudamiento
-- Capacidad de ahorro
-- Frecuencia de compras
-- Distribución por categorías
-- Indicadores financieros
-
----
-
-## 4. Clasificación automática de gastos
-
-Entrenamiento de un modelo capaz de clasificar automáticamente la categoría de una transacción utilizando su descripción.
-
----
-
-## 5. Perfil financiero
-
-Entrenamiento de un modelo para identificar el perfil financiero del usuario.
-
-Ejemplos:
-
-- Saludable
-- En observación
-- En riesgo
-
----
-
-## 6. Entrenamiento y evaluación
-
-Se entrenaron y evaluaron distintos modelos mediante:
-
-- Accuracy
-- Precision
-- Recall
-- F1 Score
-- Matriz de confusión
-- Validación cruzada
-- Evaluación agrupada para evitar fuga de información
-- Interpretabilidad del modelo
-
----
-
-## 7. Serialización
-
-Los modelos entrenados fueron serializados utilizando **Joblib**, permitiendo su reutilización durante la inferencia sin necesidad de reentrenar.
-
----
-
-# 🤖 Microservicio de Machine Learning
-
-La solución incorpora un microservicio desarrollado con **FastAPI**, responsable de cargar los modelos serializados y ofrecer inferencias mediante una API REST.
-
-Actualmente expone funcionalidades para:
-
-- Clasificación automática de categorías.
-- Análisis completo del perfil financiero.
-- Generación de recomendaciones.
-- Cálculo de indicadores financieros.
-- Respuestas estructuradas en formato JSON.
-
----
-
-# 🔗 Integración
-
-La arquitectura implementada desacopla completamente la capa de Inteligencia Artificial del backend principal.
+La documentación técnica completa del servicio se encuentra en:
 
 ```text
-Backend (Spring Boot)
-          │
-          ▼
- FastAPI (Python)
-          │
-          ▼
- Modelos Machine Learning (.joblib)
-          │
-          ▼
- Predicciones y recomendaciones
+AI-Service/README.md
 ```
 
-Durante el desarrollo del proyecto se verificó correctamente la integración entre Spring Boot y FastAPI, permitiendo consumir los modelos entrenados desde el backend mediante peticiones HTTP.
+---
+
+# 📊 Ciencia de Datos
+
+Durante el desarrollo del proyecto se construyó un pipeline completo de Ciencia de Datos que incluye:
+
+- Exploración y limpieza de datos (EDA).
+- Procesamiento de variables financieras y textuales.
+- Ingeniería de atributos.
+- Entrenamiento y evaluación de modelos.
+- Serialización mediante Joblib.
+
+El material utilizado durante esta etapa se conserva en:
+
+```text
+DataScience (Legacy)/
+```
+
+---
+
+# 🗄 Dataset
+
+El proyecto utiliza datasets sintéticos diseñados para representar distintos perfiles financieros y hábitos de consumo.
+
+Los datos procesados utilizados por los modelos se encuentran dentro del AI-Service.
+
+---
+
+# ⚙ Scripts
+
+El directorio `scripts/` contiene herramientas auxiliares utilizadas durante el desarrollo.
+
+Actualmente incluye:
+
+- Carga del dataset sintético en Supabase.
 
 ---
 
 # 🛠 Tecnologías
 
 - Python 3.12
+- FastAPI
 - Pandas
 - NumPy
 - Scikit-Learn
 - Joblib
-- FastAPI
-- Uvicorn
 - Pydantic
-- Matplotlib
+- Uvicorn
 - Google Colab
+- Supabase
 
 ---
-
-# 🚀 Estado del proyecto
-
-- ✅ Organización del proyecto
-- ✅ Generación del dataset sintético
-- ✅ Exploración y limpieza de datos (EDA)
-- ✅ Procesamiento de variables financieras y textuales
-- ✅ Ingeniería de atributos (Feature Engineering)
-- ✅ Clasificación automática de gastos
-- ✅ Construcción del perfil financiero
-- ✅ Entrenamiento de modelos
-- ✅ Evaluación y validación
-- ✅ Interpretabilidad del modelo
-- ✅ Serialización con Joblib
-- ✅ Desarrollo del microservicio FastAPI
-- ✅ Integración con Spring Boot
-- ⏳ Integración con Frontend
-- ⏳ Despliegue en Oracle Cloud Infrastructure (OCI)
-
----
-
-# 👥 Equipo
-
-## TwentyNine Devs
-
-**Hackathon Oracle Next Education (ONE)**  
-**Alura Latam + No Country**
-
-### Proyecto
-
-# 💰 FinSightAI
-
-**Ver más allá de tus finanzas**
