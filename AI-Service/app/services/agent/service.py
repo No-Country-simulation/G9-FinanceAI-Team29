@@ -15,15 +15,25 @@ class FinSightAgentService:
         provider: str | None = None,
     ) -> LLMResponse:
         """
-        Obtiene el análisis financiero del usuario y lo utiliza
-        como contexto para generar una respuesta con el LLM.
+        Obtiene el análisis financiero del usuario y utiliza
+        únicamente la información relevante como contexto del LLM.
         """
 
         analisis = analizar_usuario(usuario_id)
 
+        context = {
+            "financial_score": analisis["financial_score"],
+            "score_status": analisis["score_status"],
+            "nivel_riesgo": analisis["nivel_riesgo"],
+            "perfil_financiero": analisis["perfil_financiero"],
+            "confianza_perfil": analisis["confianza_perfil"],
+            "metricas": analisis["metricas"],
+            "categorias_principales": analisis["categorias_principales"],
+        }
+
         messages = PromptBuilder.build(
             question=question,
-            context=analisis,
+            context=context,
         )
 
         return await self.llm.generate(

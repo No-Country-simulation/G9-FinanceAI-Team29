@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import joblib
-import numpy as np
 import pandas as pd
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODELS_DIR = BASE_DIR / "models"
@@ -15,25 +15,34 @@ modelo_gastos = joblib.load(
     RUTA_MODELO_GASTOS
 )
 
+print("===================================")
+print("Ruta del modelo:", RUTA_MODELO_GASTOS)
+print("Clases cargadas:")
+print(modelo_gastos.classes_)
+print("===================================")
+
 
 def preparar_transaccion(
     descripcion: str,
-    monto: float,
     fecha: str,
     medio_pago: str,
     recurrente: str,
 ) -> pd.DataFrame:
 
-    fecha_convertida = pd.to_datetime(fecha)
+    fecha_convertida = pd.to_datetime(
+        fecha,
+        errors="raise",
+    )
 
     descripcion_limpia = (
-        descripcion.lower().strip()
+        descripcion
+        .lower()
+        .strip()
     )
 
     return pd.DataFrame([
         {
             "descripcion_limpia": descripcion_limpia,
-            "monto": float(monto),
             "mes": fecha_convertida.month,
             "dia_semana": fecha_convertida.dayofweek,
             "es_fin_de_semana": int(
@@ -56,12 +65,16 @@ def generar_advertencias(
     monto: float,
 ) -> list[str]:
 
-    advertencias = []
+    advertencias: list[str] = []
 
-    descripcion = descripcion.lower()
+    descripcion_limpia = (
+        descripcion
+        .lower()
+        .strip()
+    )
 
     if (
-        "alquiler" in descripcion
+        "alquiler" in descripcion_limpia
         and monto < 100
     ):
         advertencias.append(
@@ -70,7 +83,9 @@ def generar_advertencias(
 
     if monto >= 5000:
         advertencias.append(
-            "Monto muy elevado. La confianza del modelo puede disminuir para valores extremos."
+            "El monto está fuera del rango habitual. "
+            "La categoría fue determinada sin utilizar "
+            "el monto de la transacción."
         )
 
     return advertencias
@@ -86,7 +101,6 @@ def predecir_categoria(
 
     entrada = preparar_transaccion(
         descripcion=descripcion,
-        monto=monto,
         fecha=fecha,
         medio_pago=medio_pago,
         recurrente=recurrente,
@@ -100,22 +114,31 @@ def predecir_categoria(
         entrada
     )[0]
 
-    clases = list(modelo_gastos.classes_)
-    indice = clases.index(categoria)
+    clases = list(
+        modelo_gastos.classes_
+    )
+
+    indice_categoria = clases.index(
+        categoria
+    )
 
     confianza = float(
-        probabilidades[indice]
+        probabilidades[indice_categoria]
+    )
+
+    advertencias = generar_advertencias(
+        descripcion=descripcion,
+        monto=monto,
     )
 
     return {
-        "categoria_predicha": str(categoria),
+        "categoria_predicha": str(
+            categoria
+        ),
         "confianza": round(
             confianza,
             4,
         ),
-        "advertencias": generar_advertencias(
-            descripcion,
-            monto,
-        ),
-        "modelo_version": "7.0.0",
+        "advertencias": advertencias,
+        "modelo_version": "8.0.0",
     }

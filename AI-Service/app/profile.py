@@ -378,7 +378,7 @@ def construir_respuesta_analisis(
         },
         "categorias_principales": categorias_principales,
         "recomendaciones": generar_recomendaciones(fila_metricas),
-        "modelo_version": "7.0.0",
+        "modelo_version": "8.0.0",
     }
 
 
