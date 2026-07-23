@@ -1,27 +1,34 @@
-import Swal from "sweetalert2"
+import Swal from 'sweetalert2';
 
-const themedSwal = Swal.mixin({
-  background: "#1e293b",
-  color: "#f1f5f9",
-  confirmButtonColor: "#2563eb",
-  customClass: { popup: "rounded-2xl" },
-})
+function isDarkMode(): boolean {
+  return document.documentElement.classList.contains('dark');
+}
+
+function themedSwal() {
+  const dark = isDarkMode();
+  return Swal.mixin({
+    background: dark ? '#1e2635' : '#ffffff',
+    color: dark ? '#e5e7eb' : '#1f2937',
+    confirmButtonColor: '#465fff',
+    customClass: { popup: 'rounded-2xl' },
+  });
+}
 
 export function mostrarError(titulo: string, texto?: string) {
-  return themedSwal.fire({
-    icon: "error",
+  return themedSwal().fire({
+    icon: 'error',
     title: titulo,
     text: texto,
-    confirmButtonText: "Entendido",
-  })
+    confirmButtonText: 'Entendido',
+  });
 }
 
 export function mostrarExito(titulo: string, texto?: string) {
-  return themedSwal.fire({
-    icon: "success",
+  return themedSwal().fire({
+    icon: 'success',
     title: titulo,
     text: texto,
     timer: 2500,
     showConfirmButton: false,
-  })
+  });
 }
