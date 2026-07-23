@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import PageMeta from "../../components/common/PageMeta";
 import ProfileCard from "../../components/finance/ProfileCard";
 import IncomeExpensesChart from "../../components/finance/IncomeExpensesChart";
+import MonthlyExpensesChart from "../../components/finance/MonthlyExpensesChart";
+import MonthlyStatsCard from "../../components/finance/MonthlyStatsCard";
 import CategoryPieChart from "../../components/finance/CategoryPieChart";
 import SavingsGauge from "../../components/finance/SavingsGauge";
 import DebtBadge from "../../components/finance/DebtBadge";
@@ -102,6 +104,14 @@ export default function Home() {
 
         <div className="col-span-12 xl:col-span-9">
           <IncomeExpensesChart ingresos={totalIngresos} gastos={totalGastos} />
+        </div>
+
+        <div className="col-span-12 xl:col-span-9">
+          <MonthlyExpensesChart transacciones={transacciones} />
+        </div>
+
+        <div className="col-span-12 xl:col-span-3">
+          <MonthlyStatsCard transacciones={transacciones} />
         </div>
 
         <div className="col-span-12 md:col-span-6 xl:col-span-4">

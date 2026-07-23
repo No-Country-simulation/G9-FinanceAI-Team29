@@ -12,7 +12,6 @@ import {
   UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
-import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
   name: string;
@@ -279,10 +278,11 @@ const AppSidebar: React.FC = () => {
             />
           ) : (
             <img
-              src="/images/logo/logo-icon.svg"
+              src="/logo_crop.png"
               alt="Logo"
               width={32}
               height={32}
+              className="rounded-lg object-cover"
             />
           )}
         </Link>
@@ -299,7 +299,7 @@ const AppSidebar: React.FC = () => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
+                  "Menú"
                 ) : (
                   <HorizontaLDots className="size-6" />
                 )}
@@ -315,7 +315,7 @@ const AppSidebar: React.FC = () => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Others"
+                  "Otros"
                 ) : (
                   <HorizontaLDots />
                 )}
@@ -324,7 +324,6 @@ const AppSidebar: React.FC = () => {
             </div>
           </div>
         </nav>
-        {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null}
       </div>
     </aside>
   );

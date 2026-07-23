@@ -11,13 +11,19 @@ export default function DebtBadge({ nivelEndeudamiento }: DebtBadgeProps) {
 
   const nivel = getNivel(nivelEndeudamiento);
 
+  const getMensaje = (nivelTexto: string) => {
+    if (nivelTexto === 'Bajo') return 'Tu endeudamiento está en un nivel saludable, dentro del rango recomendado.';
+    if (nivelTexto === 'Moderado') return 'Tu endeudamiento es moderado. Evitá tomar nuevas deudas hasta bajar del 30%.';
+    return 'Tu endeudamiento es alto. Priorizá pagar las deudas de mayor interés primero.';
+  };
+
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full flex flex-col">
       <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
         Nivel de Endeudamiento
       </h3>
 
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center flex-1">
         <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mb-4 ${nivel.color}`}>
           {nivel.texto}
         </span>
@@ -50,6 +56,10 @@ export default function DebtBadge({ nivelEndeudamiento }: DebtBadgeProps) {
             <span className="font-medium text-error-600">&gt; 50%</span>
           </div>
         </div>
+
+        <p className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400 text-center">
+          {getMensaje(nivel.texto)}
+        </p>
       </div>
     </div>
   );

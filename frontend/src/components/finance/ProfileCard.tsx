@@ -27,8 +27,12 @@ export default function ProfileCard({ perfil, loading }: ProfileCardProps) {
     }
   };
 
+  const ingreso = perfil?.ingresoMensual ?? 0;
+  const ahorro = perfil?.ahorroEstimado ?? 0;
+  const ratioAhorro = ingreso > 0 ? Math.max(0, Math.min(100, (ahorro / ingreso) * 100)) : 0;
+
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full flex flex-col">
       <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
         Perfil Financiero
       </h3>
@@ -69,6 +73,19 @@ export default function ProfileCard({ perfil, loading }: ProfileCardProps) {
           <span className="font-medium text-success-600">
             ${perfil?.ahorroEstimado?.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
           </span>
+        </div>
+      </div>
+
+      <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800 flex-1 flex flex-col justify-end">
+        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1.5">
+          <span>Ahorro sobre ingreso</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{ratioAhorro.toFixed(0)}%</span>
+        </div>
+        <div className="w-full h-2 bg-gray-200 rounded-full dark:bg-gray-700">
+          <div
+            className="h-2 rounded-full bg-brand-500"
+            style={{ width: `${ratioAhorro}%` }}
+          ></div>
         </div>
       </div>
     </div>

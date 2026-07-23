@@ -11,13 +11,20 @@ export default function SavingsGauge({ porcentajeAhorro, totalIngresos, totalGas
     return 'text-error-600';
   };
 
+  const getMensaje = (pct: number) => {
+    if (pct >= 20) return 'Tu capacidad de ahorro es sólida. Mantené este ritmo y considerá destinar el excedente a una meta a largo plazo.';
+    if (pct >= 10) return 'Estás ahorrando, pero hay margen para mejorar. Revisá tus categorías de gasto variable.';
+    if (pct >= 0) return 'Tu ahorro es bajo este período. Ajustar gastos no esenciales puede darte más margen.';
+    return 'Estás gastando más de lo que ingresás este mes. Priorizá reducir gastos variables antes de fin de mes.';
+  };
+
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full flex flex-col">
       <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
         Capacidad de Ahorro
       </h3>
 
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center flex-1">
         <div className="relative w-32 h-32 mb-4">
           <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
             <circle
@@ -68,6 +75,10 @@ export default function SavingsGauge({ porcentajeAhorro, totalIngresos, totalGas
             </span>
           </div>
         </div>
+
+        <p className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400 text-center">
+          {getMensaje(porcentajeAhorro)}
+        </p>
       </div>
     </div>
   );
