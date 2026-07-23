@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://aws-1-sa-east-1.pooler.supabase.com:6543/postgres?prepareThreshold=0
+    username: postgres.wfypvyfhpworindwllsz
+    password: G9LATAMTeam292026
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://wfypvyfhpworindwllsz.supabase.co/auth/v1

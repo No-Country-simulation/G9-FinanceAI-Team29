@@ -1,0 +1,59 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: financeai-backend
+
+  datasource:
+    # URL de Supabase con SSL activado obligatoriamente
+    url: jdbc:postgresql://aws-1-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
+    username: postgres.wfypvyfhpworindwllsz
+    password: G9LATAMTeam292026
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    # Ejecuta data.sql DESPUÉS de que Hibernate cree las tablas
+    defer-datasource-initialization: true
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: false
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:data.sql
+      continue-on-error: false
+
+# Microservicio de ML (FastAPI). Si está caído, el backend usa las reglas internas.
+ml:
+  service:
+    enabled: true
+    url: http://127.0.0.1:8000
+    connect-timeout-ms: 2000
+    read-timeout-ms: 5000
+    # Confianza mínima para aceptar la categoría del modelo; por debajo se usan las reglas.
+    classification-confidence-threshold: 0.5
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    com.financeai: INFO
+    org.hibernate.SQL: WARN
