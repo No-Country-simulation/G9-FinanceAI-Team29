@@ -1,33 +1,35 @@
-G:\FinSight\Backend\backend\src\main\java\com\financeai\bootstrap\DataLoader.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\config\OpenApiConfig.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\config\WebConfig.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\controller\AnalisisController.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\controller\TransaccionController.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\controller\UsuarioController.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\AnalisisRequest.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\AnalisisResponse.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\ml\MlAnalysisRequest.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\ml\MlAnalysisResponse.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\ml\MlPredictResponse.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\ml\MlTransaccion.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\TransaccionDTO.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\TransaccionResponseDTO.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\exception\ErrorResponse.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\exception\GlobalExceptionHandler.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\FinanceAIApplication.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\model\Categoria.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\model\PerfilHistorial.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\model\Recomendacion.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\model\ResumenGastos.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\model\Transaccion.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\model\Usuario.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\CategoriaRepository.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\PerfilHistorialRepository.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\RecomendacionRepository.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\ResumenGastosRepository.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\TransaccionRepository.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\UsuarioRepository.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\service\AnalisisService.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\service\ClasificacionService.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\service\MlService.java
-G:\FinSight\Backend\backend\src\main\java\com\financeai\service\RecomendacionService.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\bootstrap\DataLoader.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\config\OpenApiConfig.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\config\WebConfig.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\controller\AnalisisController.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\controller\LoginController.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\controller\TransaccionController.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\controller\UsuarioController.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\AnalisisRequest.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\AnalisisResponse.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\LoginUidRequest.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\ml\MlAnalysisRequest.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\ml\MlAnalysisResponse.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\ml\MlPredictResponse.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\ml\MlTransaccion.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\TransaccionDTO.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\TransaccionResponseDTO.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\exception\ErrorResponse.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\exception\GlobalExceptionHandler.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\FinanceAIApplication.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\model\Categoria.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\model\PerfilHistorial.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\model\Recomendacion.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\model\ResumenGastos.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\model\Transaccion.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\model\Usuario.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\repository\CategoriaRepository.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\repository\PerfilHistorialRepository.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\repository\RecomendacionRepository.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\repository\ResumenGastosRepository.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\repository\TransaccionRepository.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\repository\UsuarioRepository.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\service\AnalisisService.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\service\ClasificacionService.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\service\MlService.java
+C:\Users\moto\Desktop\Nueva carpeta\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\service\RecomendacionService.java

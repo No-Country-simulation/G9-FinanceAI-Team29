@@ -2,7 +2,9 @@ import { useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PromptComposer from "../../components/ai/PromptComposer";
 import { PlusIcon, ChatIcon } from "../../icons";
-import { mostrarExito } from "../../utils/alerts";
+import { mostrarExito, mostrarError } from "../../utils/alerts";
+import { preguntarAgente } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 interface Message {
   id: number;
@@ -24,18 +26,40 @@ const sugerencias = [
   "Explica qué significa mi perfil financiero",
 ];
 
-const respuestaDemo = (prompt: string) =>
-  `Esta es una respuesta de demostración a: "${prompt}". Conecta este asistente a un modelo de IA real para obtener recomendaciones basadas en tus transacciones.`;
-
 export default function AsistenteIA() {
+  const { usuarioId } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [enviando, setEnviando] = useState(false);
 
-  const handleSubmit = (prompt: string) => {
+  const handleSubmit = async (prompt: string) => {
+    if (enviando) return;
     setMessages((prev) => [
       ...prev,
       { id: prev.length + 1, role: "user", text: prompt },
-      { id: prev.length + 2, role: "assistant", text: respuestaDemo(prompt) },
     ]);
+    setEnviando(true);
+    try {
+      const { answer } = await preguntarAgente(prompt, usuarioId);
+      setMessages((prev) => [
+        ...prev,
+        { id: prev.length + 1, role: "assistant", text: answer },
+      ]);
+    } catch {
+      mostrarError(
+        "No se pudo consultar el asistente",
+        "Revisa que el AI-Service (:8000) esté levantado y que tenga configurada la GROQ_API_KEY."
+      );
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: prev.length + 1,
+          role: "assistant",
+          text: "Ahora mismo no puedo responder. Verifica que el servicio de IA esté disponible.",
+        },
+      ]);
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const nuevoChat = () => {
@@ -116,6 +140,16 @@ export default function AsistenteIA() {
                     </div>
                   </div>
                 ))}
+                {enviando && (
+                  <div className="flex justify-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-500 dark:bg-brand-500/15">
+                      <ChatIcon className="size-4" />
+                    </div>
+                    <div className="rounded-2xl bg-gray-100 px-4 py-3 text-theme-sm text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                      Escribiendo…
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

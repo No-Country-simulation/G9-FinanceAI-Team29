@@ -13,6 +13,7 @@ import { obtenerUsuario, obtenerTransacciones, obtenerResumen, analizarFinanzas 
 import { PerfilUsuario, Transaccion, ResumenTransacciones } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { mostrarError } from "../../utils/alerts";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Home() {
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
@@ -22,7 +23,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const usuarioId = import.meta.env.VITE_USER_ID ?? 'USR0001';
+  const { usuarioId } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -51,7 +52,7 @@ export default function Home() {
     };
 
     fetchData();
-  }, []);
+  }, [usuarioId]);
 
   if (loading) {
     return (

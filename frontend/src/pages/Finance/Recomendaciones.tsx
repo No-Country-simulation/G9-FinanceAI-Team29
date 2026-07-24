@@ -4,14 +4,16 @@ import { analizarFinanzas, obtenerUsuario, obtenerTransacciones } from "../../se
 import { AnalisisResponse } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { mostrarError } from "../../utils/alerts";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Recomendaciones() {
   const [resultado, setResultado] = useState<AnalisisResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const usuarioId = import.meta.env.VITE_USER_ID ?? 'USR0001';
+  const { usuarioId } = useAuth();
 
   useEffect(() => {
+    setLoading(true);
     const fetchData = async () => {
       try {
         const [perfil, transacciones] = await Promise.all([
@@ -30,7 +32,7 @@ export default function Recomendaciones() {
     };
 
     fetchData();
-  }, []);
+  }, [usuarioId]);
 
   const getPrioridadColor = (index: number) => {
     if (index === 0) return 'border-l-error-500 bg-error-50 dark:bg-error-500/10';

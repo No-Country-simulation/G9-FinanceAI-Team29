@@ -10,15 +10,18 @@ import Transacciones from "./pages/Finance/Transacciones";
 import Analisis from "./pages/Finance/Analisis";
 import Recomendaciones from "./pages/Finance/Recomendaciones";
 import AsistenteIA from "./pages/Ai/AsistenteIA";
+import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 export default function App() {
   return (
     <>
       <Router>
+        <AuthProvider>
         <ScrollToTop />
         <Routes>
-          {/* Dashboard Layout */}
-          <Route element={<AppLayout />}>
+          {/* Dashboard Layout (rutas privadas) */}
+          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index path="/" element={<Home />} />
             
             {/* Finance Pages */}
@@ -38,6 +41,7 @@ export default function App() {
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </AuthProvider>
       </Router>
     </>
   );

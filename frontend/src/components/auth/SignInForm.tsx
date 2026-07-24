@@ -6,13 +6,16 @@ import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import { mostrarError, mostrarExito } from "../../utils/alerts";
+import { useAuth } from "../../context/AuthContext";
 
 export default function SignInForm() {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,8 +28,25 @@ export default function SignInForm() {
       return;
     }
 
-    await mostrarExito("¡Bienvenido!", "Has iniciado sesión correctamente.");
-    navigate("/");
+    setEnviando(true);
+    try {
+      await signIn(email.trim(), password);
+      await mostrarExito("¡Bienvenido!", "Has iniciado sesión correctamente.");
+      navigate("/");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[Login] Supabase auth error:", msg, err);
+      // Traducimos los errores más comunes de Supabase Auth.
+      let texto = msg;
+      if (/email not confirmed/i.test(msg)) {
+        texto = "El correo no está confirmado. Confírmalo en Supabase → Authentication → Users (o recrea el usuario con 'Auto Confirm User').";
+      } else if (/invalid login credentials/i.test(msg)) {
+        texto = "Correo o contraseña incorrectos.";
+      }
+      await mostrarError("Inicio de sesión fallido", texto);
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -101,8 +121,8 @@ export default function SignInForm() {
                   </Link>
                 </div>
                 <div>
-                  <Button className="w-full" size="sm">
-                    Iniciar sesión
+                  <Button className="w-full" size="sm" disabled={enviando}>
+                    {enviando ? "Iniciando…" : "Iniciar sesión"}
                   </Button>
                 </div>
               </div>

@@ -4,15 +4,17 @@ import { obtenerTransacciones } from "../../services/api";
 import { Transaccion } from "../../types/finance";
 import { getCategoriaColor } from "../../utils/categoriaColors";
 import { mostrarError } from "../../utils/alerts";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Transacciones() {
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('Todos');
 
-  const usuarioId = import.meta.env.VITE_USER_ID ?? 'USR0001';
+  const { usuarioId } = useAuth();
 
   useEffect(() => {
+    setLoading(true);
     const fetchData = async () => {
       try {
         const data = await obtenerTransacciones(usuarioId);
@@ -26,7 +28,7 @@ export default function Transacciones() {
     };
 
     fetchData();
-  }, []);
+  }, [usuarioId]);
 
   const filtradas = filtro === 'Todos'
     ? transacciones

@@ -43,17 +43,17 @@ public class TransaccionController {
         List<Transaccion> transacciones = transaccionRepository.findByUsuarioId(usuarioId);
 
         java.math.BigDecimal totalGastos = transacciones.stream()
-            .filter(t -> "Gasto".equals(t.getTipo()))
+            .filter(t -> "GASTO".equalsIgnoreCase(t.getTipo()))
             .map(Transaccion::getMonto)
             .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
 
         java.math.BigDecimal totalIngresos = transacciones.stream()
-            .filter(t -> "Ingreso".equals(t.getTipo()))
+            .filter(t -> "INGRESO".equalsIgnoreCase(t.getTipo()))
             .map(Transaccion::getMonto)
             .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
 
         Map<String, java.math.BigDecimal> porCategoria = transacciones.stream()
-            .filter(t -> "Gasto".equals(t.getTipo()) && t.getCategoria() != null)
+            .filter(t -> "GASTO".equalsIgnoreCase(t.getTipo()) && t.getCategoria() != null)
             .collect(Collectors.groupingBy(
                 t -> t.getCategoria().getNombre(),
                 Collectors.reducing(java.math.BigDecimal.ZERO, Transaccion::getMonto, java.math.BigDecimal::add)

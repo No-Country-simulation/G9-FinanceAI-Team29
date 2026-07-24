@@ -1,29 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PageMeta from "../../components/common/PageMeta";
-import { analizarFinanzas } from "../../services/api";
+import { analizarFinanzas, obtenerUsuario, obtenerTransacciones } from "../../services/api";
 import { AnalisisRequest, AnalisisResponse } from "../../types/finance";
+import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
+import { useAuth } from "../../context/AuthContext";
 import { mostrarError, mostrarExito } from "../../utils/alerts";
 
 export default function Analisis() {
-  const [formData, setFormData] = useState<AnalisisRequest>({
-    ingresoMensual: 5000,
-    nivelEndeudamiento: 25,
-    frecuenciaAhorro: 'Mensual',
-    transacciones: [
-      { descripcion: 'Salario', valor: 5000 },
-      { descripcion: 'Alquiler', valor: -1200 },
-      { descripcion: 'Supermercado', valor: -400 },
-      { descripcion: 'Transporte', valor: -150 },
-    ],
-  });
+  const [formData, setFormData] = useState<AnalisisRequest | null>(null);
   const [resultado, setResultado] = useState<AnalisisResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [cargandoDatos, setCargandoDatos] = useState(true);
+
+  const { usuarioId } = useAuth();
+
+  // El formulario se llena con el perfil y las transacciones reales de la
+  // cuenta activa. Al cambiar de usuario se vuelve a pedir todo.
+  useEffect(() => {
+    setCargandoDatos(true);
+    obtenerDatosReales();
+    async function obtenerDatosReales() {
+      try {
+        const [perfil, transacciones] = await Promise.all([
+          obtenerUsuario(usuarioId),
+          obtenerTransacciones(usuarioId),
+        ]);
+        setFormData(construirAnalisisRequest(perfil, transacciones));
+      } catch (err) {
+        console.error(err);
+        setFormData(null);
+        mostrarError('No se pudieron cargar tus datos', 'Verifica que el backend esté disponible e intenta de nuevo.');
+      } finally {
+        setCargandoDatos(false);
+      }
+    }
+  }, [usuarioId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData) return;
     setLoading(true);
     try {
-      const result = await analizarFinanzas(formData);
+      const result = await analizarFinanzas(formData, usuarioId);
       setResultado(result);
       mostrarExito('Análisis completado', `Perfil financiero: ${result.perfilFinanciero}`);
     } catch (err) {
@@ -53,6 +71,15 @@ export default function Analisis() {
           <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">Datos de Entrada</h2>
             
+            {cargandoDatos ? (
+              <div className="flex items-center justify-center h-64 text-gray-500">
+                Cargando tus datos...
+              </div>
+            ) : !formData ? (
+              <div className="flex items-center justify-center h-64 text-gray-500">
+                No se pudieron cargar tus datos. Reintenta más tarde.
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -87,9 +114,9 @@ export default function Analisis() {
                   onChange={(e) => setFormData({ ...formData, frecuenciaAhorro: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 >
-                  <option value="Diaria">Diaria</option>
-                  <option value="Semanal">Semanal</option>
-                  <option value="Mensual">Mensual</option>
+                  <option value="Alta">Alta</option>
+                  <option value="Media">Media</option>
+                  <option value="Baja">Baja</option>
                   <option value="Nunca">Nunca</option>
                 </select>
               </div>
@@ -102,6 +129,7 @@ export default function Analisis() {
                 {loading ? 'Analizando...' : 'Analizar Finanzas'}
               </button>
             </form>
+            )}
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
