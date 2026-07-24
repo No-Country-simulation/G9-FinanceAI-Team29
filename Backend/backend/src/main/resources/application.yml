@@ -5,10 +5,18 @@ spring:
   application:
     name: financeai-backend
 
+#conexion local
+#  datasource:
+#    url: jdbc:postgresql://localhost:5432/financeai
+#    username: postgres
+#    password: postgres
+#    driver-class-name: org.postgresql.Driver
+
   datasource:
-    url: jdbc:postgresql://localhost:5432/financeai
-    username: postgres
-    password: postgres
+    # URL de Supabase con SSL activado obligatoriamente
+    url: jdbc:postgresql://aws-1-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0
+    username: postgres.wfypvyfhpworindwllsz
+    password: G9LATAMTeam292026
     driver-class-name: org.postgresql.Driver
 
   jpa:

@@ -1,0 +1,57 @@
+{
+  "version": "10.0.0",
+  "notebook_version": "10.0.0",
+  "random_state": 42,
+  "modelo_categoria": {
+    "archivo": "artefactos_financeai_v10/modelos/clasificador_gastos.joblib",
+    "features": [
+      "descripcion_limpia"
+    ],
+    "clases": [
+      "Alimentación",
+      "Compras",
+      "Educación",
+      "Ocio",
+      "Otros",
+      "Reintegro",
+      "Salario",
+      "Salud",
+      "Servicios",
+      "Transferencia recibida",
+      "Transporte",
+      "Venta",
+      "Vivienda"
+    ]
+  },
+  "modelo_perfil": {
+    "archivo": "artefactos_financeai_v10/modelos/clasificador_perfil.joblib",
+    "features": [
+      "nivel_endeudamiento",
+      "porcentaje_gastos_ingreso",
+      "cantidad_transacciones",
+      "cantidad_recurrentes",
+      "cantidad_transacciones_grandes",
+      "categorias_distintas",
+      "ratio_deuda_ingreso_calculado",
+      "ratio_gasto_ingreso_calculado",
+      "ratio_ahorro_ingreso_calculado",
+      "frecuencia_ahorro"
+    ],
+    "clases": [
+      "En observación",
+      "En riesgo",
+      "Saludable"
+    ]
+  },
+  "contrato_usuario_id": "Formato USRXXXX",
+  "wallet": {
+    "columnas_persistidas": [
+      "saldo_total",
+      "saldo_reservado"
+    ],
+    "columna_derivada": "saldo_disponible",
+    "formula": "saldo_total - saldo_reservado",
+    "incluida_en_modelo_perfil": false
+  },
+  "nota": "Los modelos fueron entrenados con datos sintéticos. Antes de un entorno productivo deberán reentrenarse y validarse utilizando datos reales."
+}

@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "usuarios")
 public class Usuario {
-
+    // datos de la tabla usuario
     @Id
     @Column(name = "id", length = 10)
     private String id;
@@ -41,6 +41,13 @@ public class Usuario {
 
     @Column(name = "activo")
     private Boolean activo = true;
+
+    //agregamos campos necesarios de auth.users
+    @Column(name = "email", length = 100)
+    private String email;
+
+    @Column(name = "auth_user_id", length = 36)
+    private String authUserId;
 
     public Usuario() {}
 
@@ -85,6 +92,12 @@ public class Usuario {
 
     public LocalDateTime getFechaRegistro() { return fechaRegistro; }
     public void setFechaRegistro(LocalDateTime fechaRegistro) { this.fechaRegistro = fechaRegistro; }
+
+    public String getAuthUserId() {return authUserId; }
+    public void setAuthUserId(String authUserId) { this.authUserId = authUserId; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
     public Boolean getActivo() { return activo; }
     public void setActivo(Boolean activo) { this.activo = activo; }
