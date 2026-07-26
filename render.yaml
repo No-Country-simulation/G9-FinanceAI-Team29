@@ -1,0 +1,68 @@
+# Blueprint de Render para FinanceAI (Team29)
+# Uso: en Render -> New -> Blueprint -> conectar este repo -> rama "frontend".
+# Crea los DOS servicios de golpe. Las variables marcadas "sync: false"
+# NO se guardan en el repo: Render te las pide al crear el Blueprint.
+#
+# Orden sugerido tras crear:
+#   1) Esperá a que despliegue "finance-ai-service" y copiá su URL pública.
+#   2) Pegá esa URL en ML_SERVICE_URL del backend (y en VITE_AI_URL de Vercel).
+#   3) Cuando tengas la URL de Vercel, pegala en ALLOWED_ORIGINS del AI-Service.
+#
+# El Frontend NO va acá: se despliega en Vercel (root "frontend").
+
+services:
+  # ----------------------------------------------------------------------
+  # AI-Service (FastAPI + agente LLM)  ->  Docker
+  # ----------------------------------------------------------------------
+  - type: web
+    name: finance-ai-service
+    runtime: docker
+    plan: free
+    branch: frontend
+    rootDir: AI-Service
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: LLM_PROVIDER
+        value: groq
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_EMBEDDING_MODEL
+        value: gemini-embedding-001
+      # --- Secretos: pegalos en el dashboard (no se guardan en git) ---
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      # URL pública del frontend en Vercel (para CORS). Ej: https://tu-app.vercel.app
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+  # ----------------------------------------------------------------------
+  # Backend (Spring Boot / Java 21)  ->  Docker
+  # ----------------------------------------------------------------------
+  - type: web
+    name: finance-backend
+    runtime: docker
+    plan: free
+    branch: frontend
+    rootDir: Backend/backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      # URL pública del AI-Service (paso 2 de arriba).
+      # Ej: https://finance-ai-service.onrender.com
+      - key: ML_SERVICE_URL
+        sync: false
+      # Password de Supabase como secreto (sobreescribe el default del application.yml).
+      - key: DB_PASS
+        sync: false
+      # DB_URL y DB_USER son opcionales: el application.yml ya trae los valores
+      # de Supabase como default. Descomentá si querés setearlos por env var:
+      # - key: DB_URL
+      #   sync: false
+      # - key: DB_USER
+      #   sync: false

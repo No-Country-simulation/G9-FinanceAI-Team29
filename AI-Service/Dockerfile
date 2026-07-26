@@ -14,6 +14,9 @@ COPY models ./models
 COPY data ./data
 COPY storage ./storage
 
+# Render/hosts inyectan el puerto en $PORT; localmente cae a 8000.
+ENV PORT=8000
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Forma shell para que ${PORT} se expanda en runtime.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

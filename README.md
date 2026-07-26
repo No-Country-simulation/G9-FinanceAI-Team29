@@ -72,15 +72,20 @@ Muchas personas registran sus ingresos y gastos, pero les resulta difícil trans
 
 ## Cloud y despliegue
 
+- Render (Backend + AI-Service, contenedores Docker)
+- Vercel (Frontend)
 - Oracle Cloud Infrastructure (OCI)
-- Vercel
+
+> 📘 Guía completa de despliegue (Docker, Render Blueprint y Vercel) en
+> [`DEPLOY.md`](./DEPLOY.md).
 
 ## DevOps
 
 - Git
 - GitHub
 - GitHub Projects
-- Docker
+- Docker (Backend y AI-Service contenerizados)
+- Render Blueprint (`render.yaml`)
 
 ---
 
@@ -112,12 +117,14 @@ Muchas personas registran sus ingresos y gastos, pero les resulta difícil trans
 # 📂 Estructura del proyecto
 
 ```text
-backend/
-frontend/
-ml-service/
-datasets/
-notebooks/
-docs/
+Backend/
+  backend/            # Spring Boot API (pom.xml, Dockerfile, src/)
+AI-Service/           # Microservicio FastAPI + agente LLM (Dockerfile)
+  app/  models/  data/
+frontend/             # React + Vite (se despliega en Vercel)
+DataScience/          # Notebooks de EDA/entrenamiento y ml-service legacy
+render.yaml           # Blueprint de Render (Backend + AI-Service)
+DEPLOY.md             # Guía de despliegue (Docker / Render / Vercel)
 ```
 
 ---
@@ -186,11 +193,14 @@ El microservicio de Machine Learning expone los siguientes endpoints:
 - ✅ Análisis Exploratorio de Datos (EDA).
 - ✅ Entrenamiento de modelos de Machine Learning.
 - ✅ Desarrollo del microservicio FastAPI.
-- 🔄 Integración con Spring Boot.
-- 🔄 Desarrollo del Frontend.
-- 🔄 Integración con Supabase.
+- ✅ Integración con Spring Boot.
+- ✅ Desarrollo del Frontend.
+- ✅ Integración con Supabase.
+- ✅ Agente conversacional (LLM) integrado en el AI-Service.
+- ✅ Contenerización con Docker (Backend + AI-Service).
+- ✅ Blueprint de Render (`render.yaml`) y guía de despliegue (`DEPLOY.md`).
+- 🔄 Despliegue en Render (Backend + AI-Service) y Vercel (Frontend).
 - ⬜ Despliegue en Oracle Cloud Infrastructure (OCI).
-- ⬜ Despliegue del Frontend.
 - ⬜ Presentación final del proyecto.
 
 ---
