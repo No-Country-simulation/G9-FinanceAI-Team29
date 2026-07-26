@@ -319,13 +319,11 @@ AI-Service ni de DataScience.
 
 ## 11. Pendientes
 
-- [ ] `POST /analisis-financiero` cae a `motorAnalisis: "reglas"` en vez de `"ML"` — revisar por
-      qué el backend no usa el AI-Service en ese path (posible contrato distinto).
-- [ ] Reentrenar el clasificador de gastos (baja confianza en algunas descripciones).
-- [ ] OCI Object Storage (requisito obligatorio del hackathon) — hoy desactivado.
-- [ ] Rotar la contraseña de Supabase del backend (texto plano) y pasar a env vars.
-- [ ] Rotar las API keys (Groq/Gemini) al finalizar.
-- [ ] Endpoints de Presupuestos y Metas (no existen).
+- Rotar las API keys al final del hackathon.
+- Sacar el default de DB_PASS de application.yml si el repo se hace público.
+- Borrar el proyecto Vercel duplicado que falló.
+- Limpiar el archivo suelto git y backend.zip sin trackear (del git).
+- Los free tiers de Render "duermen" tras inactividad (~30-60s el primer request) — tenelo en cuenta para la demo: pegale un request antes de presentar para "despertarlos".
 
 ---
 
