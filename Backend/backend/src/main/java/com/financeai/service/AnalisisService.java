@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -60,15 +61,67 @@ public class AnalisisService {
 
         // 1) Clasificar cada transacción (ML o reglas) y acumular gastos por categoría.
         Map<String, BigDecimal> gastosPorCategoria = new LinkedHashMap<>();
-        BigDecimal totalGastos = BigDecimal.ZERO;
-        List<MlTransaccion> transaccionesMl = new ArrayList<>();
+        BigDecimal totalGastosHistoricos = BigDecimal.ZERO;
+List<MlTransaccion> transaccionesMl = new ArrayList<>();
 
-        for (TransaccionDTO t : request.getTransacciones()) {
-            String categoria = clasificar(t, mlUp);
-            gastosPorCategoria.merge(categoria, t.getValor(), BigDecimal::add);
-            totalGastos = totalGastos.add(t.getValor());
-            transaccionesMl.add(aMlTransaccion(t, categoria));
+LocalDate fechaMin = null;
+LocalDate fechaMax = null;
+
+for (TransaccionDTO t : request.getTransacciones()) {
+
+    String categoria = clasificar(t, mlUp);
+
+    gastosPorCategoria.merge(
+        categoria,
+        t.getValor(),
+        BigDecimal::add
+    );
+
+    totalGastosHistoricos = totalGastosHistoricos.add(
+        t.getValor()
+    );
+
+    if (t.getFecha() != null) {
+
+        if (fechaMin == null || t.getFecha().isBefore(fechaMin)) {
+            fechaMin = t.getFecha();
         }
+
+        if (fechaMax == null || t.getFecha().isAfter(fechaMax)) {
+            fechaMax = t.getFecha();
+        }
+    }
+
+    transaccionesMl.add(
+        aMlTransaccion(t, categoria)
+    );
+}
+
+long cantidadMeses = 12;
+
+BigDecimal divisor = BigDecimal.valueOf(cantidadMeses);
+
+BigDecimal totalGastos = totalGastosHistoricos.divide(
+    divisor,
+    2,
+    RoundingMode.HALF_UP
+);
+
+gastosPorCategoria.replaceAll(
+    (categoria, totalCategoria) ->
+        totalCategoria.divide(
+            divisor,
+            2,
+            RoundingMode.HALF_UP
+        )
+);
+
+log.info(
+    "Período analizado: {} meses ({} a {})",
+    cantidadMeses,
+    fechaMin,
+    fechaMax
+);
 
         // 2) Métricas derivadas.
         BigDecimal porcentajeGastos = BigDecimal.ZERO;
@@ -194,7 +247,7 @@ public class AnalisisService {
         BigDecimal deudaMensual = ingreso
             .multiply(request.getNivelEndeudamiento())
             .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
-        BigDecimal ahorroEstimado = ingreso.subtract(totalGastos).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal ahorroEstimado = ingreso.subtract(totalGastos).subtract(deudaMensual).setScale(2, RoundingMode.HALF_UP);
 
         MlAnalysisRequest mlReq = new MlAnalysisRequest();
         mlReq.setUsuarioId(usuarioId != null ? usuarioId : "USR0001");
