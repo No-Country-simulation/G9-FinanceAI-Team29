@@ -1,0 +1,77 @@
+// Database schema for Financial Analysis Hackathon
+// Use in dbdiagram.io
+
+Table usuarios {
+  id varchar(10) [pk] // USR0001
+  ingreso_mensual decimal(12,2)
+  deuda_mensual decimal(12,2)
+  nivel_endeudamiento decimal(5,2)
+  gasto_mensual_promedio decimal(12,2)
+  ahorro_mensual_estimado decimal(12,2)
+  porcentaje_gastos_ingreso decimal(5,2)
+  frecuencia_ahorro varchar(20) // Alta, Media, Baja, Nunca
+  perfil_financiero varchar(30) // Saludable, En observación, En riesgo (LABEL)
+  fecha_registro timestamp
+  activo boolean [default: true]
+}
+
+Table categorias {
+  id serial [pk]
+  nombre varchar(50) [unique] // Alimentación, Transporte, etc.
+  descripcion varchar(200)
+  icono varchar(50)
+  color varchar(7)
+}
+
+Table transacciones {
+  id varchar(10) [pk] // TX000001
+  usuario_id varchar(10)
+  categoria_id int
+  descripcion varchar(255)
+  monto decimal(12,2)
+  moneda varchar(3) // USD
+  recurrente boolean
+  medio_pago varchar(50) // Débito automático, Tarjeta de crédito, etc.
+  fecha date
+  tipo varchar(10) // Ingreso, Gasto
+  origen varchar(50) // Manual, API, CSV
+}
+
+Table perfiles_historial {
+  id serial [pk]
+  usuario_id varchar(10)
+  perfil_predicho varchar(30)
+  perfil_real varchar(30)
+  probabilidad decimal(5,4)
+  fecha_analisis timestamp
+  detalles jsonb
+}
+
+Table resumen_gastos {
+  id serial [pk]
+  usuario_id varchar(10)
+  categoria_id int
+  total decimal(12,2)
+  porcentaje decimal(5,2)
+  cantidad_transacciones int
+  periodo_inicio date
+  periodo_fin date
+}
+
+Table recomendaciones {
+  id serial [pk]
+  usuario_id varchar(10)
+  texto varchar(500)
+  prioridad varchar(10) // Alta, Media, Baja
+  categoria_recomendada varchar(50)
+  activa boolean [default: true]
+  fecha_creacion timestamp
+}
+
+// Relaciones
+Ref: transacciones.usuario_id > usuarios.id
+Ref: transacciones.categoria_id > categorias.id
+Ref: perfiles_historial.usuario_id > usuarios.id
+Ref: resumen_gastos.usuario_id > usuarios.id
+Ref: resumen_gastos.categoria_id > categorias.id
+Ref: recomendaciones.usuario_id > usuarios.id
