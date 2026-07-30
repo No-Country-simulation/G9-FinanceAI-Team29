@@ -17,13 +17,13 @@ export default function AccountSwitcher() {
   if (!email) return null;
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex min-w-0 flex-nowrap items-center gap-1.5 sm:gap-3">
       {isAdmin && (
         <select
           value={usuarioId}
           onChange={(e) => setUsuarioId(e.target.value)}
           title="Cambiar de perfil (admin)"
-          className="rounded-lg border border-gray-300 bg-transparent px-3 py-1.5 text-theme-xs font-medium text-gray-600 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+          className="h-11 min-w-0 max-w-[9.5rem] rounded-lg border border-gray-300 bg-transparent px-4 text-center text-theme-xs font-medium text-gray-600 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 sm:max-w-none sm:px-4"
         >
           {cuentas.map((c) => (
             <option key={c.usuarioId} value={c.usuarioId}>
@@ -42,7 +42,7 @@ export default function AccountSwitcher() {
 
       <button
         onClick={handleLogout}
-        className="rounded-lg border border-gray-200 px-3 py-1.5 text-theme-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+        className="hidden shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-theme-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03] sm:inline-block"
       >
         Salir
       </button>

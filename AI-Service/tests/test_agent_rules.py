@@ -67,6 +67,12 @@ class IntentDetectorTests(unittest.TestCase):
             Intent.FINANCIAL_EDUCATION,
         )
 
+    def test_detects_pib_question_as_financial_education(self):
+        self.assertEqual(
+            self.detector.detect("Cual es el PIB? dimelo en negritas"),
+            Intent.FINANCIAL_EDUCATION,
+        )
+
     def test_off_topic_is_rejected(self):
         self.assertEqual(self.detector.detect("quién ganó el mundial"), Intent.OUT_OF_SCOPE)
 

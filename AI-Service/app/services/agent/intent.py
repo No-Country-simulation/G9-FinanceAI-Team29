@@ -555,8 +555,22 @@ class IntentDetector:
         return IntentResult(Intent.UNKNOWN)
 
     def _is_financial_education(self, normalized: str) -> bool:
-        starters = {"que es", "que significa", "explicame", "como funciona", "para que sirve", "cual es la diferencia"}
-        return self._contains_any(normalized, starters) and self._contains_any(normalized, self._FINANCIAL_DOMAIN_TERMS)
+        starters = {
+            "que es",
+            "que significa",
+            "explicame",
+            "como funciona",
+            "para que sirve",
+            "cual es la diferencia",
+        }
+        is_definition_question = self._contains_any(normalized, starters)
+        is_general_which_question = (
+            self._contains_term(normalized, "cual es")
+            and re.search(r"\bcual es (?:mi|mis)\b", normalized) is None
+        )
+        return (
+            is_definition_question or is_general_which_question
+        ) and self._contains_any(normalized, self._FINANCIAL_DOMAIN_TERMS)
 
     @classmethod
     def has_monetary_amount(cls, question: str) -> bool:

@@ -47,13 +47,13 @@ export default function IncomeExpensesChart({ ingresos, gastos }: IncomeExpenses
   ];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6 h-full flex flex-col">
       <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
         Ingresos vs Gastos
       </h3>
 
-      <div className="max-w-full overflow-x-auto custom-scrollbar">
-        <div className="-ml-5 min-w-[400px] xl:min-w-full pl-2">
+      <div className="max-w-full overflow-x-auto custom-scrollbar flex-1 flex items-center">
+        <div className="-ml-5 min-w-[400px] xl:min-w-full pl-2 w-full">
           <Chart options={options} series={series} type="bar" height={180} />
         </div>
       </div>

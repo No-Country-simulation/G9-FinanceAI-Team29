@@ -56,7 +56,7 @@ export default function AuthLayout({
             )}
           </div>
         </div>
-        <div className="fixed z-50 hidden bottom-6 right-6 sm:block">
+        <div className="fixed z-50 bottom-4 right-4 sm:bottom-6 sm:right-6">
           <ThemeTogglerTwo />
         </div>
       </div>
