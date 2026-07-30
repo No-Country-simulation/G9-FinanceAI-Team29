@@ -36,7 +36,7 @@ export default function MonthlyExpensesChart({ transacciones }: MonthlyExpensesC
     chart: {
       fontFamily: 'Outfit, sans-serif',
       type: 'bar',
-      height: 180,
+      height: 240,
       toolbar: { show: false },
     },
     plotOptions: {
@@ -76,19 +76,19 @@ export default function MonthlyExpensesChart({ transacciones }: MonthlyExpensesC
   ];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 py-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:py-6">
       <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
         Gastos Mensuales
       </h3>
 
       {data.length > 0 ? (
-        <div className="max-w-full overflow-x-auto custom-scrollbar">
-          <div className="-ml-5 min-w-[400px] xl:min-w-full pl-2">
-            <Chart options={options} series={series} type="bar" height={180} />
+        <div className="custom-scrollbar flex flex-1 items-center overflow-x-auto">
+          <div className="-ml-5 w-full min-w-[400px] pl-2 xl:min-w-full">
+            <Chart options={options} series={series} type="bar" height={240} />
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-center h-32 text-gray-500">
+        <div className="flex min-h-60 flex-1 items-center justify-center text-gray-500">
           No hay gastos registrados
         </div>
       )}

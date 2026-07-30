@@ -11,7 +11,7 @@ export default function AccountSwitcher() {
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/signin', { replace: true });
+    navigate('/signin', { replace: true, state: { loggedOut: true } });
   };
 
   if (!email) return null;

@@ -1,43 +1,135 @@
-import { useState } from "react";
-import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { Link } from "react-router";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import {
+  obtenerMetas,
+  obtenerResumen,
+  obtenerTransacciones,
+  obtenerUsuario,
+} from '../../services/api';
+import {
+  buildFinancialNotifications,
+  FinancialNotification,
+} from '../../utils/financialNotifications';
+import { Dropdown } from '../ui/dropdown/Dropdown';
+import { DropdownItem } from '../ui/dropdown/DropdownItem';
+
+const storageKey = (usuarioId: string) =>
+  `finsight:notifications:read:${usuarioId}`;
+
+function readStoredIds(usuarioId: string): string[] {
+  try {
+    const storedValue = localStorage.getItem(storageKey(usuarioId));
+    if (!storedValue) return [];
+
+    const parsedValue: unknown = JSON.parse(storedValue);
+    return Array.isArray(parsedValue)
+      ? parsedValue.filter((value): value is string => typeof value === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function NotificationDropdown() {
+  const { usuarioId } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [notifying, setNotifying] = useState(true);
+  const [notifications, setNotifications] = useState<FinancialNotification[]>([]);
+  const [readIds, setReadIds] = useState<string[]>(() => readStoredIds(usuarioId));
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
-  function toggleDropdown() {
-    setIsOpen(!isOpen);
-  }
+  const loadNotifications = useCallback(async () => {
+    setLoading(true);
+    setHasError(false);
 
-  function closeDropdown() {
-    setIsOpen(false);
-  }
+    const [profileResult, summaryResult, transactionsResult, goalsResult] =
+      await Promise.allSettled([
+        obtenerUsuario(usuarioId),
+        obtenerResumen(usuarioId),
+        obtenerTransacciones(usuarioId),
+        obtenerMetas(usuarioId),
+      ]);
 
-  const handleClick = () => {
-    toggleDropdown();
-    setNotifying(false);
+    const allFailed = [
+      profileResult,
+      summaryResult,
+      transactionsResult,
+      goalsResult,
+    ].every((result) => result.status === 'rejected');
+
+    if (allFailed) {
+      setNotifications([]);
+      setHasError(true);
+      setLoading(false);
+      return;
+    }
+
+    setNotifications(
+      buildFinancialNotifications({
+        perfil: profileResult.status === 'fulfilled' ? profileResult.value : undefined,
+        resumen: summaryResult.status === 'fulfilled' ? summaryResult.value : undefined,
+        transacciones:
+          transactionsResult.status === 'fulfilled'
+            ? transactionsResult.value
+            : undefined,
+        metas: goalsResult.status === 'fulfilled' ? goalsResult.value : undefined,
+      }),
+    );
+    setLoading(false);
+  }, [usuarioId]);
+
+  useEffect(() => {
+    setReadIds(readStoredIds(usuarioId));
+    void loadNotifications();
+  }, [loadNotifications, usuarioId]);
+
+  const unreadIds = useMemo(
+    () =>
+      notifications
+        .filter((notification) => !readIds.includes(notification.id))
+        .map((notification) => notification.id),
+    [notifications, readIds],
+  );
+
+  const markAllAsRead = () => {
+    if (unreadIds.length === 0) return;
+
+    const updatedIds = Array.from(new Set([...readIds, ...unreadIds]));
+    setReadIds(updatedIds);
+    localStorage.setItem(storageKey(usuarioId), JSON.stringify(updatedIds));
   };
+
+  const toggleDropdown = () => {
+    const willOpen = !isOpen;
+    setIsOpen(willOpen);
+    if (willOpen) markAllAsRead();
+  };
+
   return (
     <div className="relative">
       <button
-        className="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full dropdown-toggle hover:text-gray-700 h-11 w-11 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
-        onClick={handleClick}
+        type="button"
+        className="dropdown-toggle relative flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+        onClick={toggleDropdown}
+        aria-label={
+          unreadIds.length > 0
+            ? `${unreadIds.length} notificaciones sin leer`
+            : 'Notificaciones'
+        }
       >
-        <span
-          className={`absolute right-0 top-0.5 z-10 h-2 w-2 rounded-full bg-orange-400 ${
-            !notifying ? "hidden" : "flex"
-          }`}
-        >
-          <span className="absolute inline-flex w-full h-full bg-orange-400 rounded-full opacity-75 animate-ping"></span>
-        </span>
+        {unreadIds.length > 0 && (
+          <span className="absolute right-0 top-0.5 z-10 flex h-2 w-2 rounded-full bg-orange-400">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
+          </span>
+        )}
+
         <svg
           className="fill-current"
           width="20"
           height="20"
           viewBox="0 0 20 20"
           xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
         >
           <path
             fillRule="evenodd"
@@ -47,18 +139,26 @@ export default function NotificationDropdown() {
           />
         </svg>
       </button>
+
       <Dropdown
         isOpen={isOpen}
-        onClose={closeDropdown}
+        onClose={() => setIsOpen(false)}
         className="absolute -right-[240px] mt-[17px] flex h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px] lg:right-0"
       >
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
-          <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
-            Notificaciones
-          </h5>
+        <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-700">
+          <div>
+            <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              Notificaciones
+            </h5>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Perfil {usuarioId}
+            </p>
+          </div>
           <button
-            onClick={toggleDropdown}
-            className="text-gray-500 transition dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="text-gray-500 transition hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            aria-label="Cerrar notificaciones"
           >
             <svg
               className="fill-current"
@@ -66,6 +166,7 @@ export default function NotificationDropdown() {
               height="24"
               viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
             >
               <path
                 fillRule="evenodd"
@@ -76,108 +177,74 @@ export default function NotificationDropdown() {
             </svg>
           </button>
         </div>
-        <ul className="flex flex-col h-auto overflow-y-auto custom-scrollbar">
-          {[
-            {
-              icono: "🔴",
-              iconBg: "bg-error-50 dark:bg-error-500/10 text-error-600",
-              titulo: "Presupuesto de Alimentación superado",
-              detalle: "Gastaste $420.00 este mes, un 15% más que tu límite mensual.",
-              tipo: "Alerta de presupuesto",
-              tiempo: "5 min",
-            },
-            {
-              icono: "📉",
-              iconBg: "bg-blue-50 dark:bg-blue-500/10 text-blue-600",
-              titulo: "Nueva transacción registrada",
-              detalle: "Pago de Servicios por $85.50 se agregó a tus transacciones recientes.",
-              tipo: "Transacción",
-              tiempo: "8 min",
-            },
-            {
-              icono: "🟡",
-              iconBg: "bg-warning-50 dark:bg-warning-500/10 text-warning-600",
-              titulo: "Nivel de endeudamiento moderado",
-              detalle: "Tu endeudamiento subió a 35%. Evitá tomar nuevas deudas hasta bajar del 30%.",
-              tipo: "Endeudamiento",
-              tiempo: "15 min",
-            },
-            {
-              icono: "🔵",
-              iconBg: "bg-info-50 dark:bg-info-500/10 text-info-600",
-              titulo: "Recomendación de ahorro disponible",
-              detalle: "Reducí gastos en Ocio un 10% para alcanzar tu meta de ahorro este mes.",
-              tipo: "Recomendación",
-              tiempo: "1 hr",
-            },
-            {
-              icono: "📈",
-              iconBg: "bg-success-50 dark:bg-success-500/10 text-success-600",
-              titulo: "Ingreso registrado",
-              detalle: "Se registró un ingreso de $1,200.00 en tu cuenta.",
-              tipo: "Transacción",
-              tiempo: "2 hr",
-            },
-            {
-              icono: "🔴",
-              iconBg: "bg-error-50 dark:bg-error-500/10 text-error-600",
-              titulo: "Presupuesto de Transporte superado",
-              detalle: "Gastaste $180.00 este mes, superando tu límite de $150.00.",
-              tipo: "Alerta de presupuesto",
-              tiempo: "3 hr",
-            },
-            {
-              icono: "🎯",
-              iconBg: "bg-purple-50 dark:bg-purple-500/10 text-purple-600",
-              titulo: "Meta de ahorro alcanzada",
-              detalle: "Llegaste al 80% de tu meta de ahorro mensual. ¡Seguí así!",
-              tipo: "Ahorro",
-              tiempo: "5 hr",
-            },
-            {
-              icono: "📉",
-              iconBg: "bg-blue-50 dark:bg-blue-500/10 text-blue-600",
-              titulo: "Nueva transacción registrada",
-              detalle: "Compra en Vivienda por $650.00 se agregó a tus transacciones recientes.",
-              tipo: "Transacción",
-              tiempo: "1 día",
-            },
-          ].map((n, index) => (
-            <li key={index}>
-              <DropdownItem
-                onItemClick={closeDropdown}
-                className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
+
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-gray-500">
+              <span className="h-7 w-7 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+              Calculando alertas…
+            </div>
+          ) : hasError ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-5 text-center">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                No fue posible cargar los datos financieros.
+              </span>
+              <button
+                type="button"
+                onClick={() => void loadNotifications()}
+                className="text-sm font-medium text-brand-600 hover:text-brand-700"
               >
-                <span
-                  className={`relative flex items-center justify-center w-10 h-10 rounded-full z-1 max-w-10 text-lg shrink-0 ${n.iconBg}`}
-                >
-                  {n.icono}
-                </span>
-
-                <span className="block">
-                  <span className="mb-1.5 block text-theme-sm text-gray-500 dark:text-gray-400">
-                    <span className="font-medium text-gray-800 dark:text-white/90">
-                      {n.titulo}
+                Reintentar
+              </button>
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="flex h-full items-center justify-center px-5 text-center text-sm text-gray-500 dark:text-gray-400">
+              No hay alertas financieras para este usuario.
+            </div>
+          ) : (
+            <ul className="flex flex-col">
+              {notifications.map((notification) => (
+                <li key={notification.id}>
+                  <DropdownItem
+                    onItemClick={() => setIsOpen(false)}
+                    className="flex gap-3 rounded-lg border-b border-gray-100 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
+                  >
+                    <span
+                      className={`relative z-1 flex h-10 max-w-10 shrink-0 items-center justify-center rounded-full text-lg font-semibold ${notification.iconBg}`}
+                      aria-hidden="true"
+                    >
+                      {notification.icono}
                     </span>
-                    <span className="block mt-0.5">{n.detalle}</span>
-                  </span>
 
-                  <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                    <span>{n.tipo}</span>
-                    <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                    <span>hace {n.tiempo}</span>
-                  </span>
-                </span>
-              </DropdownItem>
-            </li>
-          ))}
-        </ul>
-        <Link
-          to="/"
-          className="block px-4 py-2 mt-3 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                    <span className="block min-w-0">
+                      <span className="mb-1.5 block text-theme-sm text-gray-500 dark:text-gray-400">
+                        <span className="font-medium text-gray-800 dark:text-white/90">
+                          {notification.titulo}
+                        </span>
+                        <span className="mt-0.5 block">{notification.detalle}</span>
+                      </span>
+
+                      <span className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
+                        <span>{notification.tipo}</span>
+                        <span className="h-1 w-1 rounded-full bg-gray-400" />
+                        <span>{notification.tiempo}</span>
+                      </span>
+                    </span>
+                  </DropdownItem>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => void loadNotifications()}
+          disabled={loading}
+          className="mt-3 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-wait disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
         >
-          Ver todas las notificaciones
-        </Link>
+          Actualizar notificaciones
+        </button>
       </Dropdown>
     </div>
   );

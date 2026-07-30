@@ -274,13 +274,23 @@ const AppSidebar: React.FC = () => {
       >
         <Link to="/">
           {isExpanded || isHovered || isMobileOpen ? (
-            <img
-              src="/images/logo/logo.png"
-              alt="FinSightAI"
-              width={150}
-              height={40}
-              className="h-10 w-auto object-contain"
-            />
+            <>
+              <img
+                src="/images/logo/logo.png"
+                alt="FinSightAI"
+                width={150}
+                height={40}
+                className="h-10 w-auto object-contain dark:hidden"
+              />
+              <img
+                src="/images/logo/logo_white_cropped.png"
+                alt=""
+                width={150}
+                height={40}
+                className="hidden h-10 w-auto object-contain dark:block"
+                aria-hidden="true"
+              />
+            </>
           ) : (
             <img
               src="/logo_crop.png"

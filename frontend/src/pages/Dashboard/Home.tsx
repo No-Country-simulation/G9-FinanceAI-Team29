@@ -33,6 +33,7 @@ export default function Home() {
   const [recomendaciones, setRecomendaciones] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mostrarDetalles, setMostrarDetalles] = useState(false);
 
   const { usuarioId } = useAuth();
 
@@ -215,17 +216,38 @@ export default function Home() {
           />
         </div>
 
-        <div className="col-span-12 xl:col-span-6">
-          <RecentTransactions
-            transacciones={transacciones}
-          />
+        <div className="col-span-12 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setMostrarDetalles((visible) => !visible)}
+            aria-expanded={mostrarDetalles}
+            aria-controls="detalles-financieros"
+            className="inline-flex items-center justify-center rounded-lg border border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-500 transition-colors hover:bg-brand-50 focus:outline-none focus:ring-3 focus:ring-brand-500/20 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-brand-500/10"
+          >
+            {mostrarDetalles
+              ? 'Ocultar últimas transacciones y recomendaciones'
+              : 'Mostrar últimas transacciones y recomendaciones'}
+          </button>
         </div>
 
-        <div className="col-span-12 xl:col-span-6">
-          <RecommendationsList
-            recomendaciones={recomendaciones}
-          />
-        </div>
+        {mostrarDetalles && (
+          <div
+            id="detalles-financieros"
+            className="col-span-12 grid grid-cols-12 gap-4 md:gap-6"
+          >
+            <div className="col-span-12 xl:col-span-6">
+              <RecentTransactions
+                transacciones={transacciones}
+              />
+            </div>
+
+            <div className="col-span-12 xl:col-span-6">
+              <RecommendationsList
+                recomendaciones={recomendaciones}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
