@@ -1,16 +1,29 @@
 package com.financeai.model;
 
 import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "usuarios")
 public class Usuario {
-    // datos de la tabla usuario
+
     @Id
     @Column(name = "id", length = 10)
     private String id;
+
+    @Column(name = "nombre", length = 80)
+    private String nombre;
+
+    @Column(name = "apellido", length = 80)
+    private String apellido;
+
+    @Column(name = "email", length = 100)
+    private String email;
+
+    @Column(name = "auth_user_id", length = 36)
+    private String authUserId;
 
     @Column(name = "ingreso_mensual", precision = 12, scale = 2)
     private BigDecimal ingresoMensual;
@@ -42,17 +55,17 @@ public class Usuario {
     @Column(name = "activo")
     private Boolean activo = true;
 
-    //agregamos campos necesarios de auth.users
-    @Column(name = "email", length = 100)
-    private String email;
+    public Usuario() {
+    }
 
-    @Column(name = "auth_user_id", length = 36)
-    private String authUserId;
-
-    public Usuario() {}
-
-    public Usuario(String id, BigDecimal ingresoMensual, BigDecimal deudaMensual,
-                   BigDecimal nivelEndeudamiento, String frecuenciaAhorro, String perfilFinanciero) {
+    public Usuario(
+            String id,
+            BigDecimal ingresoMensual,
+            BigDecimal deudaMensual,
+            BigDecimal nivelEndeudamiento,
+            String frecuenciaAhorro,
+            String perfilFinanciero
+    ) {
         this.id = id;
         this.ingresoMensual = ingresoMensual;
         this.deudaMensual = deudaMensual;
@@ -63,42 +76,123 @@ public class Usuario {
         this.activo = true;
     }
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    public String getId() {
+        return id;
+    }
 
-    public BigDecimal getIngresoMensual() { return ingresoMensual; }
-    public void setIngresoMensual(BigDecimal ingresoMensual) { this.ingresoMensual = ingresoMensual; }
+    public void setId(String id) {
+        this.id = id;
+    }
 
-    public BigDecimal getDeudaMensual() { return deudaMensual; }
-    public void setDeudaMensual(BigDecimal deudaMensual) { this.deudaMensual = deudaMensual; }
+    public String getNombre() {
+        return nombre;
+    }
 
-    public BigDecimal getNivelEndeudamiento() { return nivelEndeudamiento; }
-    public void setNivelEndeudamiento(BigDecimal nivelEndeudamiento) { this.nivelEndeudamiento = nivelEndeudamiento; }
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
 
-    public BigDecimal getGastoMensualPromedio() { return gastoMensualPromedio; }
-    public void setGastoMensualPromedio(BigDecimal gastoMensualPromedio) { this.gastoMensualPromedio = gastoMensualPromedio; }
+    public String getApellido() {
+        return apellido;
+    }
 
-    public BigDecimal getAhorroMensualEstimado() { return ahorroMensualEstimado; }
-    public void setAhorroMensualEstimado(BigDecimal ahorroMensualEstimado) { this.ahorroMensualEstimado = ahorroMensualEstimado; }
+    public void setApellido(String apellido) {
+        this.apellido = apellido;
+    }
 
-    public BigDecimal getPorcentajeGastosIngreso() { return porcentajeGastosIngreso; }
-    public void setPorcentajeGastosIngreso(BigDecimal porcentajeGastosIngreso) { this.porcentajeGastosIngreso = porcentajeGastosIngreso; }
+    public String getEmail() {
+        return email;
+    }
 
-    public String getFrecuenciaAhorro() { return frecuenciaAhorro; }
-    public void setFrecuenciaAhorro(String frecuenciaAhorro) { this.frecuenciaAhorro = frecuenciaAhorro; }
+    public void setEmail(String email) {
+        this.email = email;
+    }
 
-    public String getPerfilFinanciero() { return perfilFinanciero; }
-    public void setPerfilFinanciero(String perfilFinanciero) { this.perfilFinanciero = perfilFinanciero; }
+    public String getAuthUserId() {
+        return authUserId;
+    }
 
-    public LocalDateTime getFechaRegistro() { return fechaRegistro; }
-    public void setFechaRegistro(LocalDateTime fechaRegistro) { this.fechaRegistro = fechaRegistro; }
+    public void setAuthUserId(String authUserId) {
+        this.authUserId = authUserId;
+    }
 
-    public String getAuthUserId() {return authUserId; }
-    public void setAuthUserId(String authUserId) { this.authUserId = authUserId; }
+    public BigDecimal getIngresoMensual() {
+        return ingresoMensual;
+    }
 
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+    public void setIngresoMensual(BigDecimal ingresoMensual) {
+        this.ingresoMensual = ingresoMensual;
+    }
 
-    public Boolean getActivo() { return activo; }
-    public void setActivo(Boolean activo) { this.activo = activo; }
+    public BigDecimal getDeudaMensual() {
+        return deudaMensual;
+    }
+
+    public void setDeudaMensual(BigDecimal deudaMensual) {
+        this.deudaMensual = deudaMensual;
+    }
+
+    public BigDecimal getNivelEndeudamiento() {
+        return nivelEndeudamiento;
+    }
+
+    public void setNivelEndeudamiento(BigDecimal nivelEndeudamiento) {
+        this.nivelEndeudamiento = nivelEndeudamiento;
+    }
+
+    public BigDecimal getGastoMensualPromedio() {
+        return gastoMensualPromedio;
+    }
+
+    public void setGastoMensualPromedio(BigDecimal gastoMensualPromedio) {
+        this.gastoMensualPromedio = gastoMensualPromedio;
+    }
+
+    public BigDecimal getAhorroMensualEstimado() {
+        return ahorroMensualEstimado;
+    }
+
+    public void setAhorroMensualEstimado(BigDecimal ahorroMensualEstimado) {
+        this.ahorroMensualEstimado = ahorroMensualEstimado;
+    }
+
+    public BigDecimal getPorcentajeGastosIngreso() {
+        return porcentajeGastosIngreso;
+    }
+
+    public void setPorcentajeGastosIngreso(BigDecimal porcentajeGastosIngreso) {
+        this.porcentajeGastosIngreso = porcentajeGastosIngreso;
+    }
+
+    public String getFrecuenciaAhorro() {
+        return frecuenciaAhorro;
+    }
+
+    public void setFrecuenciaAhorro(String frecuenciaAhorro) {
+        this.frecuenciaAhorro = frecuenciaAhorro;
+    }
+
+    public String getPerfilFinanciero() {
+        return perfilFinanciero;
+    }
+
+    public void setPerfilFinanciero(String perfilFinanciero) {
+        this.perfilFinanciero = perfilFinanciero;
+    }
+
+    public LocalDateTime getFechaRegistro() {
+        return fechaRegistro;
+    }
+
+    public void setFechaRegistro(LocalDateTime fechaRegistro) {
+        this.fechaRegistro = fechaRegistro;
+    }
+
+    public Boolean getActivo() {
+        return activo;
+    }
+
+    public void setActivo(Boolean activo) {
+        this.activo = activo;
+    }
 }

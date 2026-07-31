@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState, ComponentType } from 'react';
 import PageMeta from "../../components/common/PageMeta";
 import ProfileCard from "../../components/finance/ProfileCard";
 import IncomeExpensesChart from "../../components/finance/IncomeExpensesChart";
@@ -9,6 +9,13 @@ import SavingsGauge from "../../components/finance/SavingsGauge";
 import DebtBadge from "../../components/finance/DebtBadge";
 import RecentTransactions from "../../components/finance/RecentTransactions";
 import RecommendationsList from "../../components/finance/RecommendationsList";
+import {
+  PieChartIcon,
+  BoltIcon,
+  TaskIcon,
+  ListIcon,
+  FileIcon,
+} from "../../icons";
 import {
   obtenerUsuario,
   obtenerTransacciones,
@@ -33,63 +40,104 @@ export default function Home() {
   const [recomendaciones, setRecomendaciones] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mostrarDetalles, setMostrarDetalles] = useState(false);
 
-  const { usuarioId } = useAuth();
+  const { usuarioId, loading: authLoading } = useAuth();
+
+  const cargarDatos = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log("usuarioId:", usuarioId);
+
+      const perfilData = await obtenerUsuario(usuarioId);
+      console.log("✓ Perfil", perfilData);
+
+      const transData = await obtenerTransacciones(usuarioId);
+      console.log("✓ Transacciones", transData);
+
+      setPerfil(perfilData);
+      setTransacciones(transData);
+      setAnalisis(null);
+      setRecomendaciones([]);
+
+      // Un usuario recién registrado todavía no tiene movimientos.
+      // No pedimos el resumen porque algunos backends responden 404 en ese caso.
+      if (transData.length === 0) {
+        setResumen(null);
+        return;
+      }
+
+      const resumenData = await obtenerResumen(usuarioId);
+      console.log("✓ Resumen", resumenData);
+      setResumen(resumenData);
+
+      const analisisData = await analizarFinanzas(
+        construirAnalisisRequest(perfilData, transData),
+        usuarioId
+      );
+
+      setAnalisis(analisisData);
+      setRecomendaciones(analisisData.recomendaciones ?? []);
+    } catch (err) {
+      console.error("ERROR COMPLETO:", err);
+
+      let mensaje = "Error desconocido";
+
+      if (err instanceof Error) {
+        mensaje = err.message;
+
+        if (
+          mensaje.includes("NetworkError") ||
+          mensaje.includes("Failed to fetch") ||
+          mensaje.includes("Load failed")
+        ) {
+          mensaje =
+            "No se pudo conectar con el servidor. Verificá que el backend esté iniciado.";
+        }
+      }
+
+      setError(mensaje);
+
+      await mostrarError(
+        "No se pudieron cargar tus datos",
+        mensaje,
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [usuarioId]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
+  if (authLoading) return;
+  if (!usuarioId) return;
 
-        const [perfilData, transData, resumenData] = await Promise.all([
-          obtenerUsuario(usuarioId),
-          obtenerTransacciones(usuarioId),
-          obtenerResumen(usuarioId),
-        ]);
+  void cargarDatos();
+}, [authLoading, usuarioId, cargarDatos]);
 
-        setPerfil(perfilData);
-        setTransacciones(transData);
-        setResumen(resumenData);
+if (authLoading) {
+  return (
+    <div className="flex h-screen items-center justify-center">
+      Cargando sesión...
+    </div>
+  );
+}
 
-        if (transData.length > 0) {
-          const analisisData = await analizarFinanzas(
-            construirAnalisisRequest(perfilData, transData),
-            usuarioId
-          );
 
-          setAnalisis(analisisData);
-          setRecomendaciones(analisisData.recomendaciones);
-        }
-      } catch (err) {
-        setError('Error al cargar datos del servidor');
-        console.error(err);
-
-        mostrarError(
-          'No se pudieron cargar tus datos',
-          'Verifica que el backend esté disponible e intenta de nuevo.'
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [usuarioId]);
 
   if (loading) {
     return (
       <>
         <PageMeta
-          title="FinanceAI | Dashboard"
+          title="FinSightAI | Dashboard"
           description="Dashboard de análisis financiero"
         />
 
-        <div className="flex items-center justify-center h-64">
+        <div className="flex h-64 items-center justify-center">
           <div className="text-center">
-            <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
 
-            <p className="text-gray-500">
+            <p className="text-gray-500 dark:text-gray-400">
               Cargando datos financieros...
             </p>
           </div>
@@ -102,19 +150,132 @@ export default function Home() {
     return (
       <>
         <PageMeta
-          title="FinanceAI | Dashboard"
+          title="FinSightAI | Dashboard"
           description="Dashboard de análisis financiero"
         />
 
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center text-error-600">
-            <p className="text-lg font-semibold">
-              Error
-            </p>
+        <div className="flex min-h-[420px] items-center justify-center">
+          <div className="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-error-50 text-2xl dark:bg-error-500/10">
+              !
+            </div>
 
-            <p className="text-gray-500">
+            <h1 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
+              No pudimos cargar el dashboard
+            </h1>
+
+            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
               {error}
             </p>
+
+            <button
+              type="button"
+              onClick={() => void cargarDatos()}
+              className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-brand-600"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const esUsuarioNuevo = transacciones.length === 0;
+
+  if (esUsuarioNuevo) {
+    return (
+      <>
+        <PageMeta
+          title="FinSightAI | Bienvenida"
+          description="Comenzá tu análisis financiero con FinSightAI"
+        />
+
+        <div className="mx-auto flex min-h-[620px] max-w-5xl items-center justify-center px-4 py-8">
+          <div className="w-full overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-lg dark:border-gray-800 dark:bg-gray-900">
+            <div className="bg-gradient-to-br from-brand-500 via-brand-600 to-purple-600 px-6 py-12 text-white sm:px-12">
+              <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-white/80">
+                Ver más allá de tus finanzas
+              </p>
+
+              <h1 className="mb-4 text-3xl font-bold sm:text-4xl">
+                Bienvenido a FinSightAI
+              </h1>
+
+              <p className="max-w-2xl text-base leading-7 text-white/90 sm:text-lg">
+                Ya creamos tu cuenta. Ahora subí tus movimientos para armar tu
+                dashboard y entender de un vistazo en qué se te va la plata.
+              </p>
+            </div>
+
+            <div className="grid gap-8 px-6 py-10 sm:px-10 lg:grid-cols-[1fr_0.9fr] lg:px-12">
+              <div>
+                <h2 className="mb-5 text-xl font-semibold text-gray-800 dark:text-white/90">
+                  Qué vas a encontrar acá
+                </h2>
+
+                <div className="space-y-4">
+                  {(
+                    [
+                      [PieChartIcon, 'Dashboard financiero', 'Ingresos, gastos y cómo evolucionan mes a mes.'],
+                      [BoltIcon, 'Análisis con IA', 'Patrones en tus gastos y recomendaciones a tu medida.'],
+                      [TaskIcon, 'Perfil financiero', 'Tu nivel de ahorro y endeudamiento, en un vistazo.'],
+                      [ListIcon, 'Categorías automáticas', 'Cada movimiento clasificado para saber dónde se va la plata.'],
+                    ] as [ComponentType<{ className?: string }>, string, string][]
+                  ).map(([Icono, titulo, descripcion]) => (
+                    <div
+                      key={titulo}
+                      className="flex gap-4 rounded-2xl border border-gray-100 p-4 dark:border-gray-800"
+                    >
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-500/10">
+                        <Icono className="h-5 w-5 text-brand-500" />
+                      </div>
+
+                      <div>
+                        <h3 className="font-semibold text-gray-800 dark:text-white/90">
+                          {titulo}
+                        </h3>
+                        <p className="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">
+                          {descripcion}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-center rounded-2xl bg-gray-50 p-6 dark:bg-white/[0.03] sm:p-8">
+                <div className="mb-6 text-center">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-100 dark:bg-brand-500/15">
+                    <FileIcon className="h-7 w-7 text-brand-500" />
+                  </div>
+
+                  <h2 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
+                    Subí tu primer archivo
+                  </h2>
+
+                  <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
+                    Elegí el CSV con tus movimientos y nosotros nos encargamos
+                    de procesarlo y armar tu análisis.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = "/importar-csv";
+                  }}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-brand-600"
+                >
+                  <FileIcon className="h-4 w-4" />
+                  Cargar CSV
+                </button>
+
+                <p className="mt-4 text-center text-xs leading-5 text-gray-400">
+                  Tus datos se usan solo para generar tu análisis financiero.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </>
@@ -124,6 +285,7 @@ export default function Home() {
   const totalIngresos =
     analisis?.totalIngresos ??
     perfil?.ingresoMensual ??
+    resumen?.totalIngresos ??
     0;
 
   const totalGastosHistoricos =
@@ -163,7 +325,7 @@ export default function Home() {
   return (
     <>
       <PageMeta
-        title="FinanceAI | Dashboard"
+        title="FinSightAI | Dashboard"
         description="Dashboard de análisis financiero personal"
       />
 
@@ -216,38 +378,17 @@ export default function Home() {
           />
         </div>
 
-        <div className="col-span-12 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setMostrarDetalles((visible) => !visible)}
-            aria-expanded={mostrarDetalles}
-            aria-controls="detalles-financieros"
-            className="inline-flex items-center justify-center rounded-lg border border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-500 transition-colors hover:bg-brand-50 focus:outline-none focus:ring-3 focus:ring-brand-500/20 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-brand-500/10"
-          >
-            {mostrarDetalles
-              ? 'Ocultar últimas transacciones y recomendaciones'
-              : 'Mostrar últimas transacciones y recomendaciones'}
-          </button>
+        <div className="col-span-12 xl:col-span-6">
+          <RecentTransactions
+            transacciones={transacciones}
+          />
         </div>
 
-        {mostrarDetalles && (
-          <div
-            id="detalles-financieros"
-            className="col-span-12 grid grid-cols-12 gap-4 md:gap-6"
-          >
-            <div className="col-span-12 xl:col-span-6">
-              <RecentTransactions
-                transacciones={transacciones}
-              />
-            </div>
-
-            <div className="col-span-12 xl:col-span-6">
-              <RecommendationsList
-                recomendaciones={recomendaciones}
-              />
-            </div>
-          </div>
-        )}
+        <div className="col-span-12 xl:col-span-6">
+          <RecommendationsList
+            recomendaciones={recomendaciones}
+          />
+        </div>
       </div>
     </>
   );

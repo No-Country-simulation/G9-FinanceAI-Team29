@@ -11,13 +11,41 @@ import java.util.Optional;
 
 @Repository
 public interface UsuarioRepository extends JpaRepository<Usuario, String> {
+
     List<Usuario> findByPerfilFinanciero(String perfilFinanciero);
+
     List<Usuario> findByActivo(Boolean activo);
-    // 1. Busca el usuario por su authUserId de forma directa
+
     Optional<Usuario> findByAuthUserId(String authUserId);
 
-    // 2. Valida si el email y el ID coinciden en la tabla auth.users de Supabase
-    @Query(value = "SELECT COUNT(*) > 0 FROM auth.users WHERE email = :email AND id::text = :uid", nativeQuery = true)
-    boolean existeEnAuthSupabase(@Param("email") String email, @Param("uid") String uid);
-}
+    boolean existsByAuthUserId(String authUserId);
 
+    boolean existsByEmailIgnoreCase(String email);
+
+    @Query(
+            value = """
+                    SELECT COALESCE(
+                        MAX(CAST(SUBSTRING(id FROM 4) AS INTEGER)),
+                        1000
+                    )
+                    FROM usuarios
+                    WHERE id ~ '^USR[0-9]+$'
+                    """,
+            nativeQuery = true
+    )
+    Integer obtenerMaximoNumeroUsuario();
+
+    @Query(
+            value = """
+                    SELECT COUNT(*) > 0
+                    FROM auth.users
+                    WHERE email = :email
+                      AND id::text = :uid
+                    """,
+            nativeQuery = true
+    )
+    boolean existeEnAuthSupabase(
+            @Param("email") String email,
+            @Param("uid") String uid
+    );
+}

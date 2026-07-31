@@ -1,7 +1,2 @@
-.env
-**/.env
-.venv/
-__pycache__/
-*.pyc
-
-iniciar-servidores.bat
+frontend/node_modules.backup-20260731/
+.m2/

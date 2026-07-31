@@ -19,6 +19,11 @@ from app.services.llm.prompt_builder import PromptBuilder
 from app.services.llm.schemas import LLMResponse
 from app.services.llm.service import LLMService
 from app.services.goals.repository import GoalRepository
+from app.services.backend_financial_data import (
+    BackendDataError,
+    fetch_live_analysis,
+    fetch_user_transactions,
+)
 
 
 class FinSightAgentService:
@@ -114,7 +119,7 @@ class FinSightAgentService:
                 goals = self.goal_repository.list_by_user(usuario_id)
                 content = DeterministicGoalResponder.respond(goals)
             else:
-                analysis = analizar_usuario(usuario_id)
+                analysis = self._get_analysis(usuario_id)
                 content = DeterministicFinancialResponder.respond(
                     intent=intent_result.intent,
                     analysis=analysis,
@@ -129,7 +134,7 @@ class FinSightAgentService:
         context = {}
         used_context = route == AgentRoute.LLM_WITH_CONTEXT
         if used_context:
-            analysis = analizar_usuario(usuario_id)
+            analysis = self._get_analysis(usuario_id)
             rules = FinancialRulesEngine.evaluate(analysis)
             context = self.context_builder.build(
                 intent=intent_result.intent,
@@ -155,6 +160,14 @@ class FinSightAgentService:
         )
         return response
 
+    @staticmethod
+    def _get_analysis(usuario_id: str) -> dict:
+        """Usa Spring para usuarios reales y CSV sólo como respaldo demo."""
+        try:
+            return fetch_live_analysis(usuario_id)
+        except BackendDataError:
+            return analizar_usuario(usuario_id)
+
     @classmethod
     def _recent_expenses_response(
         cls,
@@ -162,15 +175,18 @@ class FinSightAgentService:
         limit: int,
     ) -> str:
         """Devuelve los gastos más recientes del usuario, ordenados por fecha."""
-        profile_data._ensure_resources_loaded()
-        transactions = profile_data.transacciones
-
-        if transactions is None:
-            return "No pude acceder a tus transacciones en este momento."
-
-        user_transactions = transactions[
-            transactions["usuario_id"].astype(str) == str(usuario_id)
-        ].copy()
+        try:
+            live_transactions = fetch_user_transactions(usuario_id)
+            user_transactions = profile_data.pd.DataFrame(live_transactions)
+        except BackendDataError:
+            # Respaldo para las cuentas demo cuando Spring no está levantado.
+            profile_data._ensure_resources_loaded()
+            transactions = profile_data.transacciones
+            if transactions is None:
+                return "No pude acceder a tus transacciones en este momento."
+            user_transactions = transactions[
+                transactions["usuario_id"].astype(str) == str(usuario_id)
+            ].copy()
 
         if "tipo" in user_transactions.columns:
             user_transactions = user_transactions[

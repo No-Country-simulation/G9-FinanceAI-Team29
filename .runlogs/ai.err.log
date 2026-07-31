@@ -1,0 +1,5 @@
+INFO:     Started server process [8084]
+INFO:     Waiting for application startup.
+2026-07-31 10:58:01,012 | INFO | app.main | Iniciando FinSightAI AI Service 1.0.0
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
