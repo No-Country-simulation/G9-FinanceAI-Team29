@@ -78,3 +78,104 @@ export function stopTypingSound(): void {
     typingIntervalId = null;
   }
 }
+
+function noiseSweep(
+  ctx: AudioContext,
+  startTime: number,
+  duration: number,
+  peakGain = 0.04,
+  freqFrom = 1800,
+  freqTo = 5200
+) {
+  const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i += 1) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.Q.value = 0.9;
+  filter.frequency.setValueAtTime(freqFrom, startTime);
+  filter.frequency.linearRampToValueAtTime(freqTo, startTime + duration);
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(peakGain, startTime + duration * 0.25);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+  source.connect(filter).connect(gain).connect(ctx.destination);
+  source.start(startTime);
+  source.stop(startTime + duration + 0.02);
+}
+
+/** Campanita cálida y ascendente al abrir el modal de bienvenida del recorrido. */
+export function playWelcomeChime(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  tone(ctx, 659.25, now, 0.32, "sine", 0.09);
+  tone(ctx, 987.77, now + 0.09, 0.36, "sine", 0.08);
+  tone(ctx, 1318.51, now + 0.18, 0.4, "sine", 0.06);
+}
+
+/** Barrido suave al iniciar el recorrido guiado. */
+export function playTourStart(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  noiseSweep(ctx, now, 0.22, 0.035);
+  tone(ctx, 392, now, 0.18, "triangle", 0.06);
+  tone(ctx, 587.33, now + 0.08, 0.22, "triangle", 0.07);
+}
+
+/** Clic corto tipo "pop" para los botones Siguiente / Anterior. */
+export function playStepClick(direction: "forward" | "back" = "forward"): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const freq = direction === "forward" ? 720 : 540;
+  tone(ctx, freq, now, 0.1, "sine", 0.08);
+  tone(ctx, freq * 1.5, now + 0.02, 0.08, "sine", 0.03);
+}
+
+/** Sonido de "resorte" cuando el ítem del menú se resalta al abrir el siguiente paso. */
+export function playMenuHighlight(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  tone(ctx, 880, now, 0.09, "triangle", 0.05);
+  noiseSweep(ctx, now, 0.14, 0.02, 2400, 3600);
+}
+
+/** Aparición del recuadro de foco (spotlight) sobre el nuevo elemento. */
+export function playReveal(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  tone(ctx, 493.88, now, 0.16, "sine", 0.06);
+  tone(ctx, 740, now + 0.05, 0.18, "sine", 0.05);
+}
+
+/** Arpegio ascendente de éxito al finalizar el recorrido. */
+export function playTourComplete(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  [523.25, 659.25, 783.99, 1046.5].forEach((freq, index) => {
+    tone(ctx, freq, now + index * 0.09, 0.28, "sine", 0.08);
+  });
+}
+
+/** Tono descendente y breve al cerrar o saltar el recorrido. */
+export function playDismiss(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  tone(ctx, 587.33, now, 0.14, "sine", 0.06);
+  tone(ctx, 392, now + 0.06, 0.18, "sine", 0.05);
+}

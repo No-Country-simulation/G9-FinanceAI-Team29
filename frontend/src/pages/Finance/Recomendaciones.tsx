@@ -65,7 +65,7 @@ export default function Recomendaciones() {
           </div>
         ) : resultado ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div id="perfil-financiero-recomendaciones" className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
               <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">Tu Perfil Financiero</h2>
               
               <div className="space-y-4">
@@ -96,7 +96,7 @@ export default function Recomendaciones() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div id="recomendaciones-personalizadas" className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
               <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">Recomendaciones Personalizadas</h2>
               
               {resultado.recomendaciones.length > 0 ? (

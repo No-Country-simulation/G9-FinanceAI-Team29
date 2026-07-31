@@ -22,7 +22,7 @@ export default function AuthLayout({
   );
 
   return (
-    <div className="relative p-6 pb-24 bg-white z-1 dark:bg-gray-900 sm:p-0">
+    <div className="relative p-6 bg-white z-1 dark:bg-gray-900 sm:p-0 lg:pb-24">
       <div className="relative flex flex-col justify-center w-full min-h-screen lg:h-screen lg:flex-row dark:bg-gray-900 sm:p-0">
         <div className="relative flex flex-col justify-center flex-1">
           <GraphSpiralBackground />
@@ -58,6 +58,18 @@ export default function AuthLayout({
         </div>
         <div className="fixed z-50 bottom-4 right-4 sm:bottom-6 sm:right-6">
           <ThemeTogglerTwo />
+        </div>
+        <div className="static z-1 mt-8 flex flex-col items-center gap-1 px-4 pb-4 text-sm text-center text-gray-500 dark:text-gray-400 lg:absolute lg:mt-0 lg:bottom-4 lg:left-1/2 lg:-translate-x-1/2 lg:pb-0">
+          <p>&copy; {new Date().getFullYear()} - TwentyNineDevs</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+            <Link to="/terminos" className="whitespace-nowrap hover:text-gray-700 dark:hover:text-gray-300">
+              Términos y Condiciones
+            </Link>
+            <span aria-hidden="true">&middot;</span>
+            <Link to="/privacidad" className="whitespace-nowrap hover:text-gray-700 dark:hover:text-gray-300">
+              Política de Privacidad
+            </Link>
+          </div>
         </div>
       </div>
     </div>

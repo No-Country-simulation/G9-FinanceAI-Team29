@@ -90,7 +90,7 @@ export default function Metas() {
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Convertí tus objetivos en un plan medible y seguí el progreso.</p>
       </div>
 
-      <form onSubmit={submit} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <form id="formulario-meta" data-tour="page-goals" onSubmit={submit} className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="mb-4 flex items-center justify-between"><h2 className="font-semibold text-gray-900 dark:text-white">{editing ? 'Editar meta' : 'Nueva meta'}</h2>{editing && <button type="button" onClick={() => { setEditing(null); setForm(emptyForm); }} className="text-sm text-gray-500">Cancelar edición</button>}</div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <input className="h-11 rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:text-white" placeholder="Nombre de la meta" value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} />

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, ComponentType } from 'react';
+import { useLocation } from 'react-router';
 import PageMeta from "../../components/common/PageMeta";
 import ProfileCard from "../../components/finance/ProfileCard";
 import IncomeExpensesChart from "../../components/finance/IncomeExpensesChart";
@@ -40,8 +41,19 @@ export default function Home() {
   const [recomendaciones, setRecomendaciones] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mostrarDetalles, setMostrarDetalles] = useState(false);
 
   const { usuarioId, loading: authLoading } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (
+      location.hash === "#ultimas-transacciones-dashboard" ||
+      location.hash === "#recomendaciones-dashboard"
+    ) {
+      setMostrarDetalles(true);
+    }
+  }, [location.hash]);
 
   const cargarDatos = useCallback(async () => {
     try {
@@ -329,8 +341,8 @@ if (authLoading) {
         description="Dashboard de análisis financiero personal"
       />
 
-      <div className="grid grid-cols-12 gap-4 md:gap-6">
-        <div className="col-span-12 xl:col-span-3">
+      <div data-tour="dashboard-summary" className="scroll-mt-24 grid grid-cols-12 gap-4 md:gap-6">
+        <div id="perfil-financiero" className="col-span-12 scroll-mt-24 xl:col-span-3">
           <ProfileCard
             perfil={perfil}
             analisis={analisis}
@@ -338,33 +350,33 @@ if (authLoading) {
           />
         </div>
 
-        <div className="col-span-12 xl:col-span-9">
+        <div id="ingresos-vs-gastos" className="col-span-12 scroll-mt-24 xl:col-span-9">
           <IncomeExpensesChart
             ingresos={totalIngresos}
             gastos={gastoMensualPromedio}
           />
         </div>
 
-        <div className="col-span-12 xl:col-span-9">
+        <div id="gastos-mensuales" className="col-span-12 scroll-mt-24 xl:col-span-9">
           <MonthlyExpensesChart
             transacciones={transacciones}
           />
         </div>
 
-        <div className="col-span-12 xl:col-span-3">
+        <div id="estadisticas-del-periodo" className="col-span-12 scroll-mt-24 xl:col-span-3">
           <MonthlyStatsCard
             transacciones={transacciones}
           />
         </div>
 
-        <div className="col-span-12 md:col-span-6 xl:col-span-4">
+        <div id="gastos-por-categoria" className="col-span-12 scroll-mt-24 md:col-span-6 xl:col-span-4">
           <CategoryPieChart
             porCategoria={porCategoria}
             porcentajes={porcentajes}
           />
         </div>
 
-        <div className="col-span-12 md:col-span-6 xl:col-span-4">
+        <div id="capacidad-de-ahorro" className="col-span-12 scroll-mt-24 md:col-span-6 xl:col-span-4">
           <SavingsGauge
             porcentajeAhorro={porcentajeAhorro}
             totalIngresos={totalIngresos}
@@ -372,23 +384,44 @@ if (authLoading) {
           />
         </div>
 
-        <div className="col-span-12 md:col-span-6 xl:col-span-4">
+        <div id="nivel-endeudamiento" className="col-span-12 scroll-mt-24 md:col-span-6 xl:col-span-4">
           <DebtBadge
             nivelEndeudamiento={perfil?.nivelEndeudamiento || 0}
           />
         </div>
 
-        <div className="col-span-12 xl:col-span-6">
-          <RecentTransactions
-            transacciones={transacciones}
-          />
+        <div className="col-span-12 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setMostrarDetalles((visible) => !visible)}
+            aria-expanded={mostrarDetalles}
+            aria-controls="detalles-financieros"
+            className="inline-flex items-center justify-center rounded-lg border border-brand-500 px-4 py-2.5 text-sm font-medium text-brand-500 transition-colors hover:bg-brand-50 focus:outline-none focus:ring-3 focus:ring-brand-500/20 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-brand-500/10"
+          >
+            {mostrarDetalles
+              ? 'Ocultar últimas transacciones y recomendaciones'
+              : 'Mostrar últimas transacciones y recomendaciones'}
+          </button>
         </div>
 
-        <div className="col-span-12 xl:col-span-6">
-          <RecommendationsList
-            recomendaciones={recomendaciones}
-          />
-        </div>
+        {mostrarDetalles && (
+          <div
+            id="detalles-financieros"
+            className="col-span-12 grid grid-cols-12 gap-4 md:gap-6"
+          >
+            <div id="ultimas-transacciones-dashboard" className="col-span-12 scroll-mt-24 xl:col-span-6">
+              <RecentTransactions
+                transacciones={transacciones}
+              />
+            </div>
+
+            <div id="recomendaciones-dashboard" className="col-span-12 scroll-mt-24 xl:col-span-6">
+              <RecommendationsList
+                recomendaciones={recomendaciones}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

@@ -7,6 +7,7 @@ import {
   Goal,
   GoalInput,
 } from '../types/finance';
+import { NotFoundError } from './errors';
 
 const API_BASE =
   import.meta.env.VITE_API_URL ?? 'http://localhost:8081/api';
@@ -160,6 +161,9 @@ export async function obtenerUsuario(
   );
 
   if (!response.ok) {
+    if (response.status === 404) {
+      throw new NotFoundError('El usuario solicitado no existe.');
+    }
     throw new Error('Error al obtener usuario');
   }
 
@@ -341,6 +345,9 @@ export async function actualizarMeta(
   );
 
   if (!response.ok) {
+    if (response.status === 404) {
+      throw new NotFoundError('La meta solicitada no existe.');
+    }
     throw new Error(await parseApiError(response));
   }
 
@@ -363,6 +370,9 @@ export async function agregarAhorroMeta(
   );
 
   if (!response.ok) {
+    if (response.status === 404) {
+      throw new NotFoundError('La meta solicitada no existe.');
+    }
     throw new Error(await parseApiError(response));
   }
 
@@ -380,6 +390,9 @@ export async function cancelarMeta(
   );
 
   if (!response.ok) {
+    if (response.status === 404) {
+      throw new NotFoundError('La meta solicitada no existe.');
+    }
     throw new Error(await parseApiError(response));
   }
 

@@ -248,13 +248,21 @@ export default function SignUpForm() {
 
                 <p className="inline-block text-sm font-normal text-gray-500 dark:text-gray-400">
                   Acepto los{" "}
-                  <span className="text-gray-800 dark:text-white/90">
+                  <Link
+                    to="/terminos"
+                    state={{ from: "/signup" }}
+                    className="text-gray-800 underline hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400"
+                  >
                     términos y condiciones
-                  </span>{" "}
+                  </Link>{" "}
                   y la{" "}
-                  <span className="text-gray-800 dark:text-white">
+                  <Link
+                    to="/privacidad"
+                    state={{ from: "/signup" }}
+                    className="text-gray-800 underline hover:text-brand-500 dark:text-white dark:hover:text-brand-400"
+                  >
                     política de privacidad
-                  </span>
+                  </Link>
                   .
                 </p>
               </div>

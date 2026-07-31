@@ -1820,3 +1820,149 @@ Unconditional classes:
 2026-07-31T11:09:25.844-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
 2026-07-31T11:09:25.844-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
 2026-07-31T11:09:25.844-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:11:29.885-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-8] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/perfil", parameters={}
+2026-07-31T11:11:29.885-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-8] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.UsuarioController#obtenerPerfil(String)
+2026-07-31T11:11:30.052-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-8] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:11:30.052-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-8] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{perfilFinanciero=Sin clasificar, ahorroEstimado=null, apellido=Nuevo Test, nivelEndeudamiento=null, (truncated)...]
+2026-07-31T11:11:30.068-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-8] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:11:30.069-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T11:11:30.069-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T11:11:30.202-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:11:30.202-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T11:11:30.218-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:11:53.884-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/perfil", parameters={}
+2026-07-31T11:11:53.884-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.UsuarioController#obtenerPerfil(String)
+2026-07-31T11:11:54.062-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:11:54.062-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{perfilFinanciero=Sin clasificar, ahorroEstimado=null, apellido=Nuevo Test, nivelEndeudamiento=null, (truncated)...]
+2026-07-31T11:11:54.062-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:11:54.067-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T11:11:54.068-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T11:11:54.197-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:11:54.197-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T11:11:54.198-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:12:05.885-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/perfil", parameters={}
+2026-07-31T11:12:05.885-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.UsuarioController#obtenerPerfil(String)
+2026-07-31T11:12:06.058-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:12:06.059-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{perfilFinanciero=Sin clasificar, ahorroEstimado=null, apellido=Nuevo Test, nivelEndeudamiento=null, (truncated)...]
+2026-07-31T11:12:06.060-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:12:06.063-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T11:12:06.064-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T11:12:06.196-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:12:06.196-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T11:12:06.196-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:12:09.884-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/perfil", parameters={}
+2026-07-31T11:12:09.884-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.UsuarioController#obtenerPerfil(String)
+2026-07-31T11:12:10.074-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:12:10.075-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{perfilFinanciero=Sin clasificar, ahorroEstimado=null, apellido=Nuevo Test, nivelEndeudamiento=null, (truncated)...]
+2026-07-31T11:12:10.076-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:12:10.080-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-6] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T11:12:10.081-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-6] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T11:12:10.218-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-6] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:12:10.219-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-6] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T11:12:10.220-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-6] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:12:12.883-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-9] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/perfil", parameters={}
+2026-07-31T11:12:12.883-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-9] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.UsuarioController#obtenerPerfil(String)
+2026-07-31T11:12:13.050-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-9] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:12:13.050-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-9] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{perfilFinanciero=Sin clasificar, ahorroEstimado=null, apellido=Nuevo Test, nivelEndeudamiento=null, (truncated)...]
+2026-07-31T11:12:13.065-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-9] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:12:13.068-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-7] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T11:12:13.068-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-7] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T11:12:13.149-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-7] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:12:13.149-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-7] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T11:12:13.149-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-7] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:13:43.631-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/perfil", parameters={}
+2026-07-31T11:13:43.633-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones/resumen", parameters={}
+2026-07-31T11:13:43.632-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T11:13:43.636-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.UsuarioController#obtenerPerfil(String)
+2026-07-31T11:13:43.636-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T11:13:43.637-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#resumenTransacciones(String)
+2026-07-31T11:13:43.642-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/metas", parameters={}
+2026-07-31T11:13:43.653-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.GoalController#list(String, String)
+2026-07-31T11:13:43.849-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:13:43.849-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:13:43.849-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{totalIngresos=0, porCategoria={}, totalGastos=0, cantidadTransacciones=0}]
+2026-07-31T11:13:43.849-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T11:13:43.849-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:13:43.849-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:13:43.862-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:13:43.862-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{perfilFinanciero=Sin clasificar, ahorroEstimado=null, apellido=Nuevo Test, nivelEndeudamiento=null, (truncated)...]
+2026-07-31T11:13:43.862-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:13:43.862-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/perfil", parameters={}
+2026-07-31T11:13:43.877-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.UsuarioController#obtenerPerfil(String)
+2026-07-31T11:13:43.932-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] m.m.a.RequestResponseBodyMethodProcessor : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:13:43.932-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] m.m.a.RequestResponseBodyMethodProcessor : Writing [[]]
+2026-07-31T11:13:43.932-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:13:43.997-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:13:43.998-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{perfilFinanciero=Sin clasificar, ahorroEstimado=null, apellido=Nuevo Test, nivelEndeudamiento=null, (truncated)...]
+2026-07-31T11:13:43.998-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T11:13:43.998-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T11:13:43.998-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T11:13:44.064-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T11:13:44.064-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T11:13:44.064-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:45:00.438-04:00  WARN 19228 --- [financeai-backend] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=3h28m49s737ms990µs600ns).
+2026-07-31T14:47:45.283-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/metas", parameters={}
+2026-07-31T14:47:45.283-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/perfil", parameters={}
+2026-07-31T14:47:45.283-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones/resumen", parameters={}
+2026-07-31T14:47:45.283-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T14:47:45.285-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.UsuarioController#obtenerPerfil(String)
+2026-07-31T14:47:45.286-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#resumenTransacciones(String)
+2026-07-31T14:47:45.286-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.GoalController#list(String, String)
+2026-07-31T14:47:45.286-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T14:47:45.516-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:45.516-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{perfilFinanciero=Sin clasificar, ahorroEstimado=null, apellido=Nuevo Test, nivelEndeudamiento=null, (truncated)...]
+2026-07-31T14:47:45.520-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:45.520-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/perfil", parameters={}
+2026-07-31T14:47:45.520-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.UsuarioController#obtenerPerfil(String)
+2026-07-31T14:47:45.559-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] m.m.a.RequestResponseBodyMethodProcessor : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:45.559-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] m.m.a.RequestResponseBodyMethodProcessor : Writing [[]]
+2026-07-31T14:47:45.559-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:45.636-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:45.636-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{perfilFinanciero=Sin clasificar, ahorroEstimado=null, apellido=Nuevo Test, nivelEndeudamiento=null, (truncated)...]
+2026-07-31T14:47:45.636-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:45.943-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:45.943-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:45.943-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{totalIngresos=0, porCategoria={}, totalGastos=0, cantidadTransacciones=0}]
+2026-07-31T14:47:45.943-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T14:47:45.943-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-5] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:45.943-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-4] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:45.946-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T14:47:45.946-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T14:47:46.026-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:46.026-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T14:47:46.026-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-3] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:53.499-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-6] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T14:47:53.499-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-6] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T14:47:53.628-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-6] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:53.628-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-6] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T14:47:53.641-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-6] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:53.645-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-7] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T14:47:53.645-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-7] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T14:47:53.743-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-7] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:53.743-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-7] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T14:47:53.743-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-7] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:57.714-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-8] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones/resumen", parameters={}
+2026-07-31T14:47:57.714-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T14:47:57.714-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/metas", parameters={}
+2026-07-31T14:47:57.714-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-9] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/perfil", parameters={}
+2026-07-31T14:47:57.714-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-8] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#resumenTransacciones(String)
+2026-07-31T14:47:57.714-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T14:47:57.714-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.GoalController#list(String, String)
+2026-07-31T14:47:57.714-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-9] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.UsuarioController#obtenerPerfil(String)
+2026-07-31T14:47:58.176-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:58.176-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T14:47:58.176-04:00 DEBUG 19228 --- [financeai-backend] [io-8081-exec-10] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:58.176-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : GET "/api/usuarios/USR1002/transacciones", parameters={}
+2026-07-31T14:47:58.176-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] s.w.s.m.m.a.RequestMappingHandlerMapping : Mapped to com.financeai.controller.TransaccionController#listarTransacciones(String)
+2026-07-31T14:47:58.176-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-8] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:58.176-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-8] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{totalIngresos=0, porCategoria={}, totalGastos=0, cantidadTransacciones=0}]
+2026-07-31T14:47:58.176-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-8] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:58.191-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-9] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:58.193-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-9] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{perfilFinanciero=Sin clasificar, ahorroEstimado=null, apellido=Nuevo Test, nivelEndeudamiento=null, (truncated)...]
+2026-07-31T14:47:58.193-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-9] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:58.242-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:58.242-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [[]]
+2026-07-31T14:47:58.242-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+2026-07-31T14:47:58.276-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] m.m.a.RequestResponseBodyMethodProcessor : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
+2026-07-31T14:47:58.276-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] m.m.a.RequestResponseBodyMethodProcessor : Writing [[]]
+2026-07-31T14:47:58.276-04:00 DEBUG 19228 --- [financeai-backend] [nio-8081-exec-2] o.s.web.servlet.DispatcherServlet        : Completed 200 OK

@@ -105,8 +105,8 @@ export default function Analisis() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">Análisis Financiero</h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div data-tour="page-analysis" className="scroll-mt-24 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div id="datos-entrada" className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">Datos de Entrada</h2>
             
             {cargandoDatos ? (
@@ -170,7 +170,7 @@ export default function Analisis() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+          <div id="resultado-analisis" className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">Resultado del Análisis</h2>
             
             {resultado ? (

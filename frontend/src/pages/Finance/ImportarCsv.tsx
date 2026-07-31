@@ -96,7 +96,7 @@ export default function ImportarCsv() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
+        <div data-tour="page-import" className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="rounded-xl border-2 border-dashed border-gray-300 p-8 text-center dark:border-gray-700">
             <input
               id="archivo-csv"

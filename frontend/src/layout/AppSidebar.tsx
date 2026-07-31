@@ -14,14 +14,14 @@ import {
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 
-type NavItem = {
+export type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
-const navItems: NavItem[] = [
+export const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
@@ -59,7 +59,7 @@ const navItems: NavItem[] = [
   },
 ];
 
-const othersItems: NavItem[] = [
+export const othersItems: NavItem[] = [
   {
     icon: <UserCircleIcon />,
     name: "Mi Perfil",
@@ -143,6 +143,7 @@ const AppSidebar: React.FC = () => {
           {nav.subItems ? (
             <button
               onClick={() => handleSubmenuToggle(index, menuType)}
+              data-tour={nav.name === "Dashboard" ? "nav-dashboard-menu" : undefined}
               className={`menu-item group ${
                 openSubmenu?.type === menuType && openSubmenu?.index === index
                   ? "menu-item-active"
@@ -180,6 +181,17 @@ const AppSidebar: React.FC = () => {
             nav.path && (
               <Link
                 to={nav.path}
+                data-tour={
+                  nav.path === "/importar-csv"
+                    ? "nav-import"
+                    : nav.path === "/analisis"
+                    ? "nav-analysis"
+                    : nav.path === "/metas"
+                    ? "nav-goals"
+                    : nav.path === "/asistente-ia"
+                    ? "nav-assistant"
+                    : undefined
+                }
                 onClick={() => isMobileOpen && closeMobileSidebar()}
                 className={`menu-item group ${
                   isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
@@ -218,6 +230,7 @@ const AppSidebar: React.FC = () => {
                   <li key={subItem.name}>
                     <Link
                       to={subItem.path}
+                      data-tour={subItem.path === "/" ? "nav-dashboard" : undefined}
                       onClick={() => isMobileOpen && closeMobileSidebar()}
                       className={`menu-dropdown-item ${
                         isActive(subItem.path)

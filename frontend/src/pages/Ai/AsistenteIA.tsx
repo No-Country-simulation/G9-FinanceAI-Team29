@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import PromptComposer from "../../components/ai/PromptComposer";
 import { PlusIcon, ChatIcon, BoltIcon, TrashBinIcon, CloseIcon } from "../../icons";
@@ -7,6 +8,8 @@ import { preguntarAgente } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { speakText, stopSpeaking, isSpeechSupported } from "../../utils/speech";
 import { playSendSound, playReceiveSound, playErrorSound, startTypingSound, stopTypingSound } from "../../utils/sound";
+import { renderMensajeAsistente } from "../../utils/renderMensajeAsistente";
+import { setAgentTabStatus } from "../../utils/tabTitle";
 
 interface Message {
   id: number;
@@ -37,53 +40,6 @@ function cargarChatsGuardados(usuarioId: string): ChatGuardado[] {
 
 function guardarChatsGuardados(usuarioId: string, chats: ChatGuardado[]) {
   localStorage.setItem(CHATS_STORAGE_KEY(usuarioId), JSON.stringify(chats));
-}
-
-function renderConNegritas(text: string) {
-  const partes = text.split(/(\*\*[^*]+\*\*)/g);
-  return partes.map((parte, i) => {
-    const match = parte.match(/^\*\*([^*]+)\*\*$/);
-    if (match) {
-      return <strong key={i}>{match[1]}</strong>;
-    }
-    return parte;
-  });
-}
-
-function renderMensajeAsistente(text: string) {
-  const lineas = text.split("\n");
-  const bloques: ReactNode[] = [];
-  let viñetaActual: string[] = [];
-
-  const cerrarViñetas = () => {
-    if (viñetaActual.length > 0) {
-      bloques.push(
-        <ul key={`ul-${bloques.length}`} className="list-disc space-y-1 pl-5">
-          {viñetaActual.map((item, i) => (
-            <li key={i}>{renderConNegritas(item)}</li>
-          ))}
-        </ul>
-      );
-      viñetaActual = [];
-    }
-  };
-
-  lineas.forEach((linea, i) => {
-    const match = linea.match(/^\s*[*-]\s+(.*)$/);
-    if (match) {
-      viñetaActual.push(match[1]);
-    } else {
-      cerrarViñetas();
-      if (linea.trim() !== "") {
-        bloques.push(<p key={`p-${bloques.length}`}>{renderConNegritas(linea)}</p>);
-      } else if (i !== lineas.length - 1) {
-        bloques.push(<div key={`br-${bloques.length}`} className="h-2" />);
-      }
-    }
-  });
-  cerrarViñetas();
-
-  return <div className="space-y-2">{bloques}</div>;
 }
 
 function PersonaHablandoIcon({ className }: { className?: string }) {
@@ -139,7 +95,10 @@ const sugerencias = [
 
 export default function AsistenteIA() {
   const { usuarioId } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const mensajesTraidos = (location.state as { messages?: Message[] } | null)?.messages;
+  const [messages, setMessages] = useState<Message[]>(mensajesTraidos ?? []);
   const [enviando, setEnviando] = useState(false);
   const [vozActiva, setVozActiva] = useState(
     () => localStorage.getItem("asistenteVozActiva") === "true"
@@ -155,8 +114,13 @@ export default function AsistenteIA() {
 
   useEffect(() => {
     setChatsGuardados(cargarChatsGuardados(usuarioId));
-    setMessages([]);
-    setChatActualId(null);
+    if (!mensajesTraidos) {
+      setMessages([]);
+      setChatActualId(null);
+    } else {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuarioId]);
 
   useEffect(() => {
@@ -207,6 +171,7 @@ export default function AsistenteIA() {
       { id: prev.length + 1, role: "user", text: prompt },
     ]);
     setEnviando(true);
+    setAgentTabStatus("💬 El agente está escribiendo...");
     if (sonidoActivo) {
       playSendSound();
       startTypingSound();
@@ -217,6 +182,7 @@ export default function AsistenteIA() {
         ...prev,
         { id: prev.length + 1, role: "assistant", text: answer },
       ]);
+      setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playReceiveSound();
       if (vozActiva) speakText(answer);
     } catch {
@@ -224,6 +190,7 @@ export default function AsistenteIA() {
         "No se pudo consultar el asistente",
         "Revisa que el AI-Service (:8000) esté levantado y que tenga configurada la GROQ_API_KEY."
       );
+      setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playErrorSound();
       setMessages((prev) => [
         ...prev,
@@ -368,7 +335,7 @@ export default function AsistenteIA() {
         </div>
 
         {/* Conversación */}
-        <section className="flex flex-1 flex-col overflow-hidden">
+        <section data-tour="page-assistant" className="scroll-mt-24 flex flex-1 flex-col overflow-hidden">
           <div className="mb-3 flex items-center justify-between gap-2">
             <button
               onClick={() => setHistorialAbierto(true)}
@@ -464,7 +431,7 @@ export default function AsistenteIA() {
             )}
           </div>
 
-          <div className="mt-4">
+          <div data-tour="assistant-composer" className="scroll-mb-4 mt-4">
             <PromptComposer onSubmit={handleSubmit} />
           </div>
         </section>

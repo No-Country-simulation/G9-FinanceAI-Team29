@@ -12,9 +12,12 @@ import Recomendaciones from "./pages/Finance/Recomendaciones";
 import AsistenteIA from "./pages/Ai/AsistenteIA";
 import Metas from "./pages/Finance/Metas";
 import ImportarCsv from "./pages/Finance/ImportarCsv";
+import Terminos from "./pages/Legal/Terminos";
+import PoliticaPrivacidad from "./pages/Legal/PoliticaPrivacidad";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { usePageVisibilityTitle } from "./hooks/usePageVisibilityTitle";
+import { ConsoleBanner } from "./components/common/ConsoleBanner";
 
 export default function App() {
   usePageVisibilityTitle();
@@ -22,6 +25,7 @@ export default function App() {
   return (
     <>
       <Router>
+        <ConsoleBanner />
         <AuthProvider>
         <ScrollToTop />
         <Routes>
@@ -44,6 +48,8 @@ export default function App() {
           {/* Auth Layout */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/terminos" element={<Terminos />} />
+          <Route path="/privacidad" element={<PoliticaPrivacidad />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />
