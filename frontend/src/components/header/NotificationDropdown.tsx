@@ -143,7 +143,7 @@ export default function NotificationDropdown() {
       <Dropdown
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        className="absolute right-0 mt-[17px] flex h-[480px] w-[calc(100vw-2rem)] max-w-[361px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
+        className="max-sm:left-0 max-sm:right-auto max-sm:w-[75vw] max-sm:max-w-[300px] absolute right-0 mt-[17px] flex h-[480px] w-[calc(100vw-2rem)] max-w-[361px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
       >
         <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-700">
           <div>

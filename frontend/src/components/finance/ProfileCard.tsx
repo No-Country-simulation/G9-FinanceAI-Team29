@@ -99,7 +99,7 @@ export default function ProfileCard({
           </span>
 
           <span className="font-medium text-gray-800 dark:text-white/90">
-            ${ingreso.toLocaleString('es-AR', {
+            ${Number(ingreso).toLocaleString('es-AR', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}
@@ -144,7 +144,7 @@ export default function ProfileCard({
                 : 'text-error-600'
             }`}
           >
-            ${ahorroEstimado.toLocaleString('es-AR', {
+            ${Number(ahorroEstimado).toLocaleString('es-AR', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}

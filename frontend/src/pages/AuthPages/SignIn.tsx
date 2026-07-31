@@ -6,7 +6,7 @@ export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="SignIn | FinanceAI - FinSightAI"
+        title="Registrarse | FinanceAI - FinSightAI"
         description="This is React.js SignIn Tables Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
       />
       <AuthLayout showSideBranding={false}>

@@ -56,7 +56,7 @@ function buildMonthlyTotals(transacciones: Transaccion[]) {
       if (Number.isNaN(date.getTime())) return;
 
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      totals.set(key, (totals.get(key) ?? 0) + transaction.monto);
+      totals.set(key, (totals.get(key) ?? 0) + Number(transaction.monto));
     });
 
   return Array.from(totals.entries()).sort(([monthA], [monthB]) =>

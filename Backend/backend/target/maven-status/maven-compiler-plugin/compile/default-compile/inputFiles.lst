@@ -2,12 +2,14 @@ C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\c
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\config\OpenApiConfig.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\config\WebConfig.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\controller\AnalisisController.java
+C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\controller\CsvImportController.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\controller\GoalController.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\controller\LoginController.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\controller\TransaccionController.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\controller\UsuarioController.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\AnalisisRequest.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\AnalisisResponse.java
+C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\csv\CsvImportResponse.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\GoalAmountRequest.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\GoalCreateRequest.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\dto\GoalResponse.java
@@ -39,6 +41,7 @@ C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\c
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\repository\UsuarioRepository.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\service\AnalisisService.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\service\ClasificacionService.java
+C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\service\CsvImportService.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\service\GoalService.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\service\MlService.java
 C:\Users\fp\Desktop\Hackaton\G9-FinanceAI-Team29\Backend\backend\src\main\java\com\financeai\service\RecomendacionService.java

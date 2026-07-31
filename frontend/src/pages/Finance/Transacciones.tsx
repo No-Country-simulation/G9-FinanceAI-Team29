@@ -84,7 +84,7 @@ export default function Transacciones() {
                       }`}
                     >
                       {t.tipo === 'Ingreso' ? '+' : '-'}$
-                      {t.monto.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                      {Number(t.monto).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
 
@@ -141,7 +141,7 @@ export default function Transacciones() {
                         <td className={`px-6 py-4 text-sm font-semibold text-right ${
                           t.tipo === 'Ingreso' ? 'text-success-600' : 'text-error-600'
                         }`}>
-                          {t.tipo === 'Ingreso' ? '+' : '-'}${t.monto.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                          {t.tipo === 'Ingreso' ? '+' : '-'}${Number(t.monto).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                       </tr>
                     ))}

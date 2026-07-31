@@ -12,7 +12,7 @@ export default function MonthlyStatsCard({ transacciones }: MonthlyStatsCardProp
     .forEach(t => {
       const fecha = new Date(t.fecha);
       const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
-      totalesPorMes.set(clave, (totalesPorMes.get(clave) || 0) + t.monto);
+      totalesPorMes.set(clave, (totalesPorMes.get(clave) || 0) + Number(t.monto));
     });
 
   const clavesOrdenadas = Array.from(totalesPorMes.keys()).sort();
@@ -57,7 +57,7 @@ export default function MonthlyStatsCard({ transacciones }: MonthlyStatsCardProp
         <div>
           <span className="text-sm text-gray-500 dark:text-gray-400">Promedio mensual</span>
           <p className="text-xl font-bold text-gray-800 dark:text-white/90">
-            ${promedio.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+            ${Number(promedio).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </div>
 
@@ -66,7 +66,7 @@ export default function MonthlyStatsCard({ transacciones }: MonthlyStatsCardProp
           <div className="flex justify-between items-center">
             <span className="font-medium text-gray-800 dark:text-white/90">{formatearEtiqueta(claveMax)}</span>
             <span className="font-medium text-error-600">
-              ${(totalesPorMes.get(claveMax) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+              ${Number(totalesPorMes.get(claveMax) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function MonthlyStatsCard({ transacciones }: MonthlyStatsCardProp
           <div className="flex justify-between items-center">
             <span className="font-medium text-gray-800 dark:text-white/90">{formatearEtiqueta(claveMin)}</span>
             <span className="font-medium text-success-600">
-              ${(totalesPorMes.get(claveMin) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+              ${Number(totalesPorMes.get(claveMin) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>

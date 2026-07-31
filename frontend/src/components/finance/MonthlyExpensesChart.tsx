@@ -14,7 +14,7 @@ export default function MonthlyExpensesChart({ transacciones }: MonthlyExpensesC
     .forEach(t => {
       const fecha = new Date(t.fecha);
       const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
-      totalesPorMes.set(clave, (totalesPorMes.get(clave) || 0) + t.monto);
+      totalesPorMes.set(clave, (totalesPorMes.get(clave) || 0) + Number(t.monto));
     });
 
   const clavesOrdenadas = Array.from(totalesPorMes.keys()).sort();
@@ -58,13 +58,16 @@ export default function MonthlyExpensesChart({ transacciones }: MonthlyExpensesC
     yaxis: {
       title: { text: undefined },
       labels: {
-        formatter: (val: number) => `$${Math.round(val).toLocaleString('es-ES')}`,
+        formatter: (val: number) => `$${Math.round(Number(val)).toLocaleString('es-AR', { useGrouping: true })}`,
       },
     },
     grid: { yaxis: { lines: { show: true } } },
     fill: { opacity: 1 },
     tooltip: {
-      y: { formatter: (val: number) => `$${val.toLocaleString('es-ES', { minimumFractionDigits: 2 })}` },
+      y: {
+        formatter: (val: number) =>
+          `$${Number(val).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}`,
+      },
     },
   };
 

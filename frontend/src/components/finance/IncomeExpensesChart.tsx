@@ -6,6 +6,13 @@ interface IncomeExpensesChartProps {
   gastos: number;
 }
 
+const formatMoney = (val: number) =>
+  Number(val || 0).toLocaleString('es-AR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: true,
+  });
+
 export default function IncomeExpensesChart({ ingresos, gastos }: IncomeExpensesChartProps) {
   const options: ApexOptions = {
     colors: ['#465fff', '#E5484D'],
@@ -35,7 +42,7 @@ export default function IncomeExpensesChart({ ingresos, gastos }: IncomeExpenses
     grid: { yaxis: { lines: { show: true } } },
     fill: { opacity: 1 },
     tooltip: {
-      y: { formatter: (val: number) => `$${val.toLocaleString('es-ES', { minimumFractionDigits: 2 })}` },
+      y: { formatter: (val: number) => `$${formatMoney(val)}` },
     },
   };
 
@@ -62,19 +69,19 @@ export default function IncomeExpensesChart({ ingresos, gastos }: IncomeExpenses
         <div className="text-center">
           <p className="text-sm text-gray-500">Ingresos</p>
           <p className="text-lg font-bold text-success-600">
-            ${ingresos?.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+            ${formatMoney(ingresos)}
           </p>
         </div>
         <div className="text-center">
           <p className="text-sm text-gray-500">Gastos</p>
           <p className="text-lg font-bold text-error-600">
-            ${gastos?.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+            ${formatMoney(gastos)}
           </p>
         </div>
         <div className="text-center">
           <p className="text-sm text-gray-500">Balance</p>
-          <p className={`text-lg font-bold ${(ingresos - gastos) >= 0 ? 'text-success-600' : 'text-error-600'}`}>
-            ${(ingresos - gastos)?.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+          <p className={`text-lg font-bold ${(Number(ingresos) - Number(gastos)) >= 0 ? 'text-success-600' : 'text-error-600'}`}>
+            ${formatMoney(Number(ingresos) - Number(gastos))}
           </p>
         </div>
       </div>

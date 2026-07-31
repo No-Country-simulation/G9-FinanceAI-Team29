@@ -78,13 +78,13 @@ export default function Recomendaciones() {
                   <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                     <p className="text-sm text-gray-500">Ingresos</p>
                     <p className="text-lg font-bold text-success-600">
-                      ${resultado.totalIngresos.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                      ${Number(resultado.totalIngresos).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                     <p className="text-sm text-gray-500">Gastos</p>
                     <p className="text-lg font-bold text-error-600">
-                      ${resultado.totalGastos.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                      ${Number(resultado.totalGastos).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>

@@ -55,6 +55,39 @@ export async function analizarFinanzas(
   return response.json();
 }
 
+export interface ImportacionCsvResponse {
+  mensaje: string;
+  usuarioId: string;
+  perfilFinanciero: string;
+  resumen: {
+    cantidadTransacciones: number;
+    cantidadMeses: number;
+    totalIngresos: number;
+    totalGastos: number;
+    moneda: string;
+  };
+}
+
+// Backend (Spring :8081) — reenvía el CSV al AI-Service y persiste usuario+transacciones.
+export async function importarCsv(
+  usuarioId: string,
+  archivo: File,
+): Promise<ImportacionCsvResponse> {
+  const formData = new FormData();
+  formData.append('archivo', archivo);
+
+  const response = await fetch(
+    `${API_BASE}/usuarios/${usuarioId}/importar-csv`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  );
+
+  if (!response.ok) throw new Error(await parseApiError(response));
+  return response.json();
+}
+
 export async function obtenerUsuario(usuarioId: string): Promise<PerfilUsuario> {
   const response = await fetch(`${API_BASE}/usuarios/${usuarioId}/perfil`);
   if (!response.ok) throw new Error('Error al obtener usuario');

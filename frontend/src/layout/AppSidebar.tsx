@@ -5,6 +5,7 @@ import {
   BoltIcon,
   CalenderIcon,
   ChevronDownIcon,
+  FileIcon,
   GridIcon,
   HorizontaLDots,
   ListIcon,
@@ -30,6 +31,11 @@ const navItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "Transacciones",
     path: "/transacciones",
+  },
+  {
+    icon: <FileIcon />,
+    name: "Importar CSV",
+    path: "/importar-csv",
   },
   {
     icon: <PieChartIcon />,

@@ -35,6 +35,11 @@ interface AuthContextValue {
   cuentas: typeof CUENTAS_DEMO;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    datos?: { nombre?: string; apellido?: string }
+  ) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -74,6 +79,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   };
 
+  const signUp = async (
+    correo: string,
+    password: string,
+    datos?: { nombre?: string; apellido?: string }
+  ) => {
+    const { error } = await supabase.auth.signUp({
+      email: correo,
+      password,
+      options: {
+        data: {
+          first_name: datos?.nombre,
+          last_name: datos?.apellido,
+        },
+      },
+    });
+    if (error) throw error;
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
@@ -89,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         cuentas: CUENTAS_DEMO,
         loading,
         signIn,
+        signUp,
         signOut,
       }}
     >

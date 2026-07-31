@@ -11,10 +11,14 @@ import Analisis from "./pages/Finance/Analisis";
 import Recomendaciones from "./pages/Finance/Recomendaciones";
 import AsistenteIA from "./pages/Ai/AsistenteIA";
 import Metas from "./pages/Finance/Metas";
+import ImportarCsv from "./pages/Finance/ImportarCsv";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import { usePageVisibilityTitle } from "./hooks/usePageVisibilityTitle";
 
 export default function App() {
+  usePageVisibilityTitle();
+
   return (
     <>
       <Router>
@@ -27,6 +31,7 @@ export default function App() {
             
             {/* Finance Pages */}
             <Route path="/transacciones" element={<Transacciones />} />
+            <Route path="/importar-csv" element={<ImportarCsv />} />
             <Route path="/analisis" element={<Analisis />} />
             <Route path="/recomendaciones" element={<Recomendaciones />} />
             <Route path="/metas" element={<Metas />} />

@@ -22,8 +22,8 @@ export default function AuthLayout({
   );
 
   return (
-    <div className="relative p-6 bg-white z-1 dark:bg-gray-900 sm:p-0">
-      <div className="relative flex flex-col justify-center w-full h-screen lg:flex-row dark:bg-gray-900 sm:p-0">
+    <div className="relative p-6 pb-24 bg-white z-1 dark:bg-gray-900 sm:p-0">
+      <div className="relative flex flex-col justify-center w-full min-h-screen lg:h-screen lg:flex-row dark:bg-gray-900 sm:p-0">
         <div className="relative flex flex-col justify-center flex-1">
           <GraphSpiralBackground />
           <div className="relative z-10 flex flex-col flex-1">{children}</div>
@@ -35,7 +35,7 @@ export default function AuthLayout({
               src={imagenFondo}
               alt=""
               aria-hidden="true"
-              className="absolute inset-0 object-cover w-full h-full scale-105 opacity-90 blur-[2px]"
+              className="absolute inset-0 object-cover w-full h-full opacity-90 animate-auth-pan"
             />
             <div className="absolute inset-0 bg-brand-950/30 dark:bg-gray-900/40" />
             {showSideBranding && (

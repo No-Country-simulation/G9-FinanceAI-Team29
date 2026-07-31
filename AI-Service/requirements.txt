@@ -3,6 +3,7 @@ uvicorn[standard]
 pydantic
 pydantic-settings
 python-dotenv
+python-multipart
 
 groq>=0.31.0
 google-genai>=1.30.0

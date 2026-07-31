@@ -291,6 +291,44 @@ layer(base);
   }
 }
 
+@keyframes auth-side-zoom {
+  0%,
+  100% {
+    transform: scale(1.08);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@keyframes auth-side-blur-blink {
+  0%,
+  55%,
+  100% {
+    filter: blur(2px);
+  }
+  65%,
+  80% {
+    filter: blur(18px);
+  }
+  90% {
+    filter: blur(2px);
+  }
+}
+
+.animate-auth-pan {
+  animation:
+    auth-side-zoom 26s ease-in-out infinite,
+    auth-side-blur-blink 6s ease-in-out infinite;
+  will-change: transform, filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-auth-pan {
+    animation: none;
+  }
+}
+
 .tableCheckbox:checked ~ span span {
   @apply opacity-100;
 }
