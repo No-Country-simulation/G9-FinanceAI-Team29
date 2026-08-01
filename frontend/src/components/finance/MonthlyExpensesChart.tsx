@@ -1,0 +1,100 @@
+import Chart from 'react-apexcharts';
+import { ApexOptions } from 'apexcharts';
+import { Transaccion } from '../../types/finance';
+
+interface MonthlyExpensesChartProps {
+  transacciones: Transaccion[];
+}
+
+export default function MonthlyExpensesChart({ transacciones }: MonthlyExpensesChartProps) {
+  const totalesPorMes = new Map<string, number>();
+
+  transacciones
+    .filter(t => t.tipo === 'Gasto')
+    .forEach(t => {
+      const fecha = new Date(t.fecha);
+      const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+      totalesPorMes.set(clave, (totalesPorMes.get(clave) || 0) + Number(t.monto));
+    });
+
+  const clavesOrdenadas = Array.from(totalesPorMes.keys()).sort();
+  const mostrarAnio = new Set(clavesOrdenadas.map(c => c.split('-')[0])).size > 1;
+
+  const categorias = clavesOrdenadas.map(clave => {
+    const [anio, mes] = clave.split('-');
+    const etiqueta = new Date(Number(anio), Number(mes) - 1, 1)
+      .toLocaleDateString('es-ES', { month: 'short' })
+      .replace('.', '');
+    const capitalizada = etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1);
+    return mostrarAnio ? `${capitalizada} ${anio.slice(2)}` : capitalizada;
+  });
+
+  const data = clavesOrdenadas.map(clave => totalesPorMes.get(clave) || 0);
+
+  const options: ApexOptions = {
+    colors: ['#465fff'],
+    chart: {
+      fontFamily: 'Outfit, sans-serif',
+      type: 'bar',
+      height: 240,
+      toolbar: { show: false },
+    },
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: '39%',
+        borderRadius: 5,
+        borderRadiusApplication: 'end',
+      },
+    },
+    dataLabels: { enabled: false },
+    stroke: { show: true, width: 4, colors: ['transparent'] },
+    xaxis: {
+      categories: categorias,
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+    },
+    legend: { show: false },
+    yaxis: {
+      title: { text: undefined },
+      labels: {
+        formatter: (val: number) => `$${Math.round(Number(val)).toLocaleString('es-AR', { useGrouping: true })}`,
+      },
+    },
+    grid: { yaxis: { lines: { show: true } } },
+    fill: { opacity: 1 },
+    tooltip: {
+      y: {
+        formatter: (val: number) =>
+          `$${Number(val).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true })}`,
+      },
+    },
+  };
+
+  const series = [
+    {
+      name: 'Gastos',
+      data,
+    },
+  ];
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 py-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:py-6">
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
+        Gastos Mensuales
+      </h3>
+
+      {data.length > 0 ? (
+        <div className="custom-scrollbar flex flex-1 items-center overflow-x-auto">
+          <div className="-ml-5 w-full min-w-[400px] pl-2 xl:min-w-full">
+            <Chart options={options} series={series} type="bar" height={240} />
+          </div>
+        </div>
+      ) : (
+        <div className="flex min-h-60 flex-1 items-center justify-center text-gray-500">
+          No hay gastos registrados
+        </div>
+      )}
+    </div>
+  );
+}

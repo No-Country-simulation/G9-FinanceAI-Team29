@@ -1,103 +1,224 @@
-# 🤖 FinSightAI | AI & Data Science
+# G9-FinanceAI-Team
+<p align="center">
+  <img src="logo.png" alt="FinSightAI" width="750">
+</p>
 
-![Python](https://img.shields.io/badge/Python-3.12-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
-![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML-orange)
-![Status](https://img.shields.io/badge/Status-Development-success)
-
----
-
-## 📖 Descripción
-
-Este repositorio contiene el desarrollo de la capa de Inteligencia Artificial y Ciencia de Datos de **FinSightAI**, proyecto desarrollado para el Hackathon **Oracle Next Education (ONE) + Alura Latam + No Country**.
-
-Incluye el entrenamiento de modelos de Machine Learning, el microservicio de IA desarrollado con FastAPI, el material utilizado durante el desarrollo de Ciencia de Datos y scripts auxiliares para la carga de datos en Supabase.
+<p align="center">
+  <strong>Proyecto desarrollado para el Hackathon Oracle Next Education (ONE) y No Country</strong><br>
+  Equipo: <strong>TwentyNine Devs</strong>
+</p>
 
 ---
 
-# 📂 Estructura del repositorio
+# 📖 Descripción
 
-```text
-.
-├── AI-Service/                 # Microservicio FastAPI
-│
-├── DataScience (Legacy)/       # Notebook y material utilizado durante el desarrollo
-│
-├── scripts/
-│   └── database/               # Scripts para carga de datos en Supabase
-│
-└── README.md
-```
+**FinSightAI** es una plataforma web que ayuda a los usuarios a comprender su situación financiera mediante técnicas de Ciencia de Datos, Machine Learning e Inteligencia Artificial.
+
+A partir de los ingresos, deudas, hábitos de ahorro y transacciones financieras, la plataforma analiza el comportamiento económico del usuario, clasifica automáticamente sus gastos, identifica patrones de consumo y genera recomendaciones personalizadas para favorecer una mejor toma de decisiones.
 
 ---
 
-# 🤖 AI-Service
+# 🎯 Problema
 
-El directorio **AI-Service** contiene el microservicio desarrollado con FastAPI encargado de exponer las capacidades de Inteligencia Artificial mediante una API REST.
+Muchas personas registran sus ingresos y gastos, pero les resulta difícil transformar esos datos en información útil para comprender su situación financiera y mejorar su planificación económica.
 
-Entre sus funcionalidades se encuentran:
+**FinSightAI** busca convertir los datos financieros en información clara, explicable y accionable mediante modelos de Machine Learning e indicadores financieros fáciles de interpretar.
 
-- Clasificación automática de transacciones.
+---
+
+# 🚀 Funcionalidades
+
+- Clasificación automática de categorías de gastos.
 - Análisis del perfil financiero.
-- Generación de recomendaciones financieras mediante un agente basado en LLMs.
-- Integración con modelos de Machine Learning serializados.
-- Documentación mediante Swagger/OpenAPI.
-
-La documentación técnica completa del servicio se encuentra en:
-
-```text
-AI-Service/README.md
-```
-
----
-
-# 📊 Ciencia de Datos
-
-Durante el desarrollo del proyecto se construyó un pipeline completo de Ciencia de Datos que incluye:
-
-- Exploración y limpieza de datos (EDA).
-- Procesamiento de variables financieras y textuales.
-- Ingeniería de atributos.
-- Entrenamiento y evaluación de modelos.
-- Serialización mediante Joblib.
-
-El material utilizado durante esta etapa se conserva en:
-
-```text
-DataScience (Legacy)/
-```
+- Financial Score personalizado.
+- Evaluación del nivel de riesgo financiero.
+- Explicación automática del análisis realizado.
+- Fortalezas y oportunidades de mejora.
+- Recomendaciones financieras personalizadas.
+- Dashboard interactivo.
+- Historial de análisis.
+- API REST para integración con aplicaciones externas.
 
 ---
 
-# 🗄 Dataset
+# 🛠 Tecnologías utilizadas
 
-El proyecto utiliza datasets sintéticos diseñados para representar distintos perfiles financieros y hábitos de consumo.
+## Frontend
 
-Los datos procesados utilizados por los modelos se encuentran dentro del AI-Service.
+- React
+- TypeScript
+- TailwindCSS
+- Axios
 
----
+## Backend
 
-# ⚙ Scripts
+- Java 21
+- Spring Boot
+- Spring Validation
+- SpringDoc OpenAPI (Swagger)
 
-El directorio `scripts/` contiene herramientas auxiliares utilizadas durante el desarrollo.
+## Ciencia de Datos
 
-Actualmente incluye:
-
-- Carga del dataset sintético en Supabase.
-
----
-
-# 🛠 Tecnologías
-
-- Python 3.12
-- FastAPI
+- Python
 - Pandas
 - NumPy
 - Scikit-Learn
 - Joblib
-- Pydantic
-- Uvicorn
-- Google Colab
+- FastAPI
+
+## Base de datos y autenticación
+
 - Supabase
 
+## Cloud y despliegue
+
+- Oracle Cloud Infrastructure (OCI)
+- Vercel
+
+## DevOps
+
+- Git
+- GitHub
+- GitHub Projects
+- Docker
+
 ---
+
+# 🏗 Arquitectura
+
+```text
+                  Usuario
+                     │
+                     ▼
+          Frontend (React + TypeScript)
+                     │
+                     ▼
+         Backend (Spring Boot API)
+                     │
+         POST /analysis
+                     │
+                     ▼
+       Microservicio IA (FastAPI)
+             │               │
+             ▼               ▼
+     Modelos ML (.joblib)   Supabase
+                               │
+                               ▼
+                      Datos y autenticación
+```
+
+---
+
+# 📂 Estructura del proyecto
+
+```text
+backend/
+frontend/
+ml-service/
+datasets/
+notebooks/
+docs/
+```
+
+---
+
+# 📊 Flujo de funcionamiento
+
+```text
+Inicio de sesión
+
+↓
+
+Registro de información financiera
+
+↓
+
+Clasificación automática de gastos
+
+↓
+
+Análisis del perfil financiero
+
+↓
+
+Generación de Score y recomendaciones
+
+↓
+
+Visualización de resultados en el Dashboard
+```
+
+---
+
+# 🤖 Ciencia de Datos
+
+El módulo de Ciencia de Datos implementa un pipeline completo que incluye:
+
+- Generación de datasets sintéticos.
+- Análisis Exploratorio de Datos (EDA).
+- Limpieza y preprocesamiento.
+- Ingeniería de atributos.
+- Entrenamiento de modelos de Machine Learning.
+- Validación cruzada y evaluación.
+- Interpretabilidad de modelos.
+- Serialización mediante Joblib.
+- Exposición mediante un microservicio desarrollado con FastAPI.
+
+---
+
+# 🔌 API
+
+El microservicio de Machine Learning expone los siguientes endpoints:
+
+| Método | Endpoint | Descripción |
+|---------|----------|-------------|
+| GET | `/health` | Estado del servicio |
+| POST | `/predict/category` | Clasificación automática de gastos |
+| POST | `/analysis` | Análisis financiero completo |
+| GET | `/analysis/users/{usuario_id}` | Endpoint de prueba para datasets sintéticos |
+
+---
+
+# 📅 Estado del proyecto
+
+- ✅ Diseño de arquitectura.
+- ✅ Generación del dataset sintético.
+- ✅ Análisis Exploratorio de Datos (EDA).
+- ✅ Entrenamiento de modelos de Machine Learning.
+- ✅ Desarrollo del microservicio FastAPI.
+- 🔄 Integración con Spring Boot.
+- 🔄 Desarrollo del Frontend.
+- 🔄 Integración con Supabase.
+- ⬜ Despliegue en Oracle Cloud Infrastructure (OCI).
+- ⬜ Despliegue del Frontend.
+- ⬜ Presentación final del proyecto.
+
+---
+# 👥 Equipo
+
+<p align="center">
+  <img src="logo_team.png" alt="TwentyNine Devs" width="500">
+</p>
+
+<h3 align="center">G9 LATAM Team 29</h3>
+
+<p align="center">
+Equipo multidisciplinario participante del Hackathon <strong>Oracle Next Education (ONE)</strong> y <strong>No Country</strong>.
+</p>
+
+<p align="center">
+Desarrollo de Frontend, Backend, Ciencia de Datos, Machine Learning, UX/UI y Gestión Ágil.
+</p>
+
+# 📸 Capturas
+
+Se incorporarán capturas del dashboard, la API y el flujo completo de la aplicación durante el desarrollo del proyecto.
+
+---
+
+# 📄 Licencia
+
+Proyecto desarrollado con fines educativos para el **Hackathon Oracle Next Education (ONE)** organizado por **Alura Latam**, **Oracle** y **No Country**.
+
+Su propósito es demostrar la integración de tecnologías de desarrollo web, Ciencia de Datos, Machine Learning e Inteligencia Artificial para resolver un problema real relacionado con la educación financiera.
+# G9-FinanceAI-Team29

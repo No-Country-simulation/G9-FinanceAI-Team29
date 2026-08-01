@@ -1,0 +1,33 @@
+frontend/node_modules.backup-20260731/
+.m2/
+
+
+# Logs
+logs
+*.log
+.runlogs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+frontend/node_modules
+dist
+dist-ssr
+*.local
+
+.env
+.bat
+.md
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
