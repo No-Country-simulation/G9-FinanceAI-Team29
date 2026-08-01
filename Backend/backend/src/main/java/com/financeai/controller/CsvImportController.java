@@ -10,7 +10,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/usuarios")
-@CrossOrigin(origins = "*")
 @Tag(name = "Importación CSV", description = "Carga movimientos y genera el perfil financiero")
 public class CsvImportController {
     private final CsvImportService csvImportService;

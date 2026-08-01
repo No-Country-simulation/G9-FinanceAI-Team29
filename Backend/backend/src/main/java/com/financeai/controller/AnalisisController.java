@@ -13,7 +13,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*")
 @Tag(name = "Análisis financiero", description = "Análisis de perfil y clasificación de transacciones")
 public class AnalisisController {
 

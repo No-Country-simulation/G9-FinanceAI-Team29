@@ -10,7 +10,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/usuarios/{usuarioId}/metas")
-@CrossOrigin(origins = "*")
 @Tag(name = "Metas", description = "Gestión de metas financieras")
 public class GoalController {
     private final GoalService service;

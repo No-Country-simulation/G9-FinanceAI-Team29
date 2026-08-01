@@ -19,7 +19,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth") // ← Un endpoint más semántico para autenticación
-@CrossOrigin(origins = "*")
+
 public class LoginController {
 
     private final UsuarioRepository usuarioRepository;
@@ -33,9 +33,14 @@ public class LoginController {
     @PostMapping("/login")
     public ResponseEntity<?> loginConUid(@RequestBody LoginUidRequest request) {
         try {
-            // Soporta tanto la contraseña real ("MiClave123!") como el UUID directamente ("7a5da953...")
-            String authUserId = supabaseAuthService.autenticarOUsarUidDirecto(request.getEmail(), request.getPassword());
-
+            // 1. Validar las credenciales (Email + Password) contra Supabase Auth API
+            // El servicio intenta hacer login en Supabase y te devuelve el UID (authUserId)
+            String authUserId = supabaseAuthService.autenticarYObtenerUid(request.getEmail(), request.getPassword());
+            if (authUserId == null || authUserId.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("mensaje", "Credenciales inválidas: Email o contraseña incorrectos."));
+            }
+            // 2. Buscar los datos en la tabla public.usuarios usando el authUserId recuperado
             return usuarioRepository.findByAuthUserId(authUserId)
                 .map(usuario -> {
                     EstadoUsuario estado = usuario.getEstado();

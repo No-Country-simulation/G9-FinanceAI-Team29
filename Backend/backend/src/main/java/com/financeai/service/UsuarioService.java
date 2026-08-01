@@ -21,12 +21,13 @@ public class UsuarioService {
 
     @Transactional
     public Usuario registrarNuevoUsuario(RegisterRequest request) {
+        String displayName = (request.getNombres() + " " + request.getApellidos()).trim();
+
         // 1. Crear primero en auth.users a través de Supabase Auth API
         String authUserId = supabaseAuthService.crearUsuarioEnAuthSupabase(
                 request.getEmail(),
                 request.getPassword(),
-                request.getNombres(),
-                request.getApellidos()
+                request.getNombres(), request.getApellidos()
         );
 
         // 2. Crear la entidad local con formato USR****
@@ -42,11 +43,13 @@ public class UsuarioService {
         return usuarioRepository.save(usuario);
     }
 
+
     /**
      * Genera un ID con formato USR00001, USR00002, etc.
      */
     private String generarSiguienteIdUsuario() {
-        long totalUsuarios = usuarioRepository.count();
-        return String.format("USR%04d", totalUsuarios + 1);
+        Integer maximoActual = usuarioRepository.obtenerMaximoNumeroUsuario();
+        int siguienteNumero = (maximoActual == null ? 1000 : maximoActual) +1;
+        return String.format("USR%04d", siguienteNumero);
     }
 }

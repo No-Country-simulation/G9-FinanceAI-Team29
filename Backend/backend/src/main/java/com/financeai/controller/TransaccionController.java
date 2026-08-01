@@ -13,7 +13,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/usuarios/{usuarioId}/transacciones")
-@CrossOrigin(origins = "*")
 @Tag(name = "Transacciones", description = "Listado y resumen de transacciones por usuario")
 public class TransaccionController {
 
