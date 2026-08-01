@@ -1,38 +1,64 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import PageMeta from "../../components/common/PageMeta";
 import { analizarFinanzas, obtenerUsuario, obtenerTransacciones } from "../../services/api";
 import { AnalisisResponse } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
-import { mostrarError } from "../../utils/alerts";
+import { mostrarError, mostrarInfo } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Recomendaciones() {
   const [resultado, setResultado] = useState<AnalisisResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const { usuarioId } = useAuth();
+  const { usuarioId, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
+    if (authLoading || !usuarioId) return;
+
+    let cancelado = false;
     setLoading(true);
+
     const fetchData = async () => {
       try {
         const [perfil, transacciones] = await Promise.all([
           obtenerUsuario(usuarioId),
           obtenerTransacciones(usuarioId),
         ]);
+        if (cancelado) return;
+
+        // Cuenta nueva sin movimientos: no tiene sentido pedirle al backend
+        // un análisis, le avisamos que será redirigido a cargar sus datos.
+        if (transacciones.length === 0) {
+          setLoading(false);
+          await mostrarInfo(
+            'No has cargado datos a tu perfil',
+            'Serás redirigido al inicio para que puedas ingresar tus datos.',
+          );
+          if (!cancelado) navigate('/');
+          return;
+        }
+
         const request = construirAnalisisRequest(perfil, transacciones);
         const result = await analizarFinanzas(request, usuarioId);
+        if (cancelado) return;
         setResultado(result);
       } catch (err) {
+        if (cancelado) return;
         console.error(err);
         mostrarError('No se pudieron cargar las recomendaciones', 'Verifica que el backend esté disponible e intenta de nuevo.');
       } finally {
-        setLoading(false);
+        if (!cancelado) setLoading(false);
       }
     };
 
     fetchData();
-  }, [usuarioId]);
+
+    return () => {
+      cancelado = true;
+    };
+  }, [usuarioId, authLoading, navigate]);
 
   const getPrioridadColor = (index: number) => {
     if (index === 0) return 'border-l-error-500 bg-error-50 dark:bg-error-500/10';

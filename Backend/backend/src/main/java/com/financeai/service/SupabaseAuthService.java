@@ -25,7 +25,7 @@ public class SupabaseAuthService {
             Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
 
-    public String crearUsuarioEnAuthSupabase(String email, String password, String displayName) {
+    public String crearUsuarioEnAuthSupabase(String email, String password, String nombre, String apellido) {
         RestTemplate restTemplate = new RestTemplate();
         String url = supabaseUrl + "/auth/v1/admin/users";
 
@@ -34,8 +34,13 @@ public class SupabaseAuthService {
         headers.set("apikey", serviceRoleKey);
         headers.set("Authorization", "Bearer " + serviceRoleKey);
 
+        // nombre/apellido en claves separadas para que las plantillas de correo de
+        // Supabase (que no soportan condicionales) puedan usar {{ .Data.nombre }}
+        // igual que en el registro hecho desde el frontend (SignUpForm).
         Map<String, Object> userMetadata = new HashMap<>();
-        userMetadata.put("display_name", displayName);
+        userMetadata.put("nombre", nombre);
+        userMetadata.put("apellido", apellido);
+        userMetadata.put("display_name", (nombre + " " + apellido).trim());
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("email", email);
@@ -72,6 +77,36 @@ public class SupabaseAuthService {
 
         // MODO NORMAL: Intentar login tradicional en Supabase Auth con la contraseña
         return autenticarEnSupabase(email, valorLimpio);
+    }
+
+    /**
+     * Actualiza el email de un usuario ya existente en Supabase Auth (auth.users)
+     * usando la Admin API. Requiere el authUserId (UUID), no el ID local (USR0001).
+     */
+    public void actualizarEmailEnSupabase(String authUserId, String nuevoEmail) {
+        RestTemplate restTemplate = new RestTemplate();
+        String url = supabaseUrl + "/auth/v1/admin/users/" + authUserId;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("apikey", serviceRoleKey);
+        headers.set("Authorization", "Bearer " + serviceRoleKey);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("email", nuevoEmail);
+        requestBody.put("email_confirm", true);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.PUT, entity, Map.class);
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("Supabase rechazó la actualización de email.");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("No se pudo actualizar el email en Supabase Auth: " + e.getMessage());
+        }
     }
 
     private String autenticarEnSupabase(String email, String password) {

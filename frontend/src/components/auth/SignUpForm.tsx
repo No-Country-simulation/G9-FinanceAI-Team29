@@ -5,8 +5,8 @@ import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import { crearUsuario } from "../../services/api";
-import { supabase } from "../../services/supabase";
 import { mostrarError, mostrarExito } from "../../utils/alerts";
+import AuthLegalFooter from "./AuthLegalFooter";
 
 export default function SignUpForm() {
   const navigate = useNavigate();
@@ -56,59 +56,44 @@ export default function SignUpForm() {
     setLoading(true);
 
     try {
-      const { data, error: supabaseError } = await supabase.auth.signUp({
-        email: emailLimpio,
-        password,
-        options: {
-          data: {
-            nombre: nombreLimpio,
-            apellido: apellidoLimpio,
-          },
-        },
+      const respuestaRegistro = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: nombreLimpio,
+          apellido: apellidoLimpio,
+          email: emailLimpio,
+          password,
+        }),
       });
+      const datosRegistro = await respuestaRegistro.json().catch(() => ({}));
 
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
+      if (!respuestaRegistro.ok || !datosRegistro?.authUserId) {
+        throw new Error(datosRegistro?.mensaje ?? "No se pudo crear la cuenta.");
       }
 
-      if (!data.user) {
-        throw new Error(
-          "Supabase no devolvió el usuario creado. Revisa la configuración de Auth.",
-        );
-      }
-
-      // En algunos casos Supabase oculta que un email ya estaba registrado.
-      if (data.user.identities && data.user.identities.length === 0) {
-        throw new Error("Ya existe una cuenta registrada con ese email.");
-      }
+      const authUserId = datosRegistro.authUserId as string;
 
       const perfil = await crearUsuario({
         nombre: nombreLimpio,
         apellido: apellidoLimpio,
         email: emailLimpio,
-        authUserId: data.user.id,
+        authUserId,
       });
 
       // AuthContext busca el usuario del backend usando el UUID de Supabase.
       localStorage.setItem(
-        `finsight.usuarioId.${data.user.id}`,
+        `finsight.usuarioId.${authUserId}`,
         perfil.usuarioId,
       );
 
-      if (data.session) {
-        await mostrarExito(
-          "¡Cuenta creada!",
-          `Tu identificador es ${perfil.usuarioId}.`,
-        );
-        // Recarga la aplicación para que AuthContext lea la asociación guardada.
-        window.location.assign("/");
-      } else {
-        await mostrarExito(
-          "¡Cuenta creada!",
-          "Revisa tu correo para confirmar tu cuenta antes de iniciar sesión.",
-        );
-        navigate("/signin");
-      }
+      // La cuenta se crea sin confirmar (nunca hay sesión activa todavía):
+      // el usuario tiene que confirmar el correo antes de poder iniciar sesión.
+      await mostrarExito(
+        "¡Cuenta creada!",
+        "Revisa tu correo para confirmar tu cuenta antes de iniciar sesión.",
+      );
+      navigate("/signin");
     } catch (err) {
       const mensajeError = err instanceof Error ? err.message : String(err);
       console.error("[SignUp] Supabase auth error:", mensajeError, err);
@@ -292,6 +277,7 @@ export default function SignUpForm() {
           </div>
         </div>
       </div>
+      <AuthLegalFooter />
     </div>
   );
 }

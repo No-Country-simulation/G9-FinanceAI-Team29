@@ -1,8 +1,11 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
+import ResetPassword from "./pages/AuthPages/ResetPassword";
+import EmailPreview from "./pages/Dev/EmailPreview";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
+import Soporte from "./pages/Soporte";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
@@ -43,11 +46,16 @@ export default function App() {
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
+            <Route path="/soporte" element={<Soporte />} />
           </Route>
 
           {/* Auth Layout */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* Ruta oculta sin enlace en el menú: preview de correos de Supabase */}
+          <Route path="/dev/email-preview" element={<EmailPreview />} />
           <Route path="/terminos" element={<Terminos />} />
           <Route path="/privacidad" element={<PoliticaPrivacidad />} />
 

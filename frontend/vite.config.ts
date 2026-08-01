@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import svgr from "vite-plugin-svgr";
+import { apiDevMiddleware } from "./vite-plugins/api-dev-middleware";
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -14,5 +15,6 @@ export default defineConfig({
         namedExport: "ReactComponent",
       },
     }),
+    apiDevMiddleware(),
   ],
 });

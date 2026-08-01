@@ -18,7 +18,7 @@ spring:
     # Los defaults mantienen el arranque local sin configurar nada.
     url: ${DB_URL:jdbc:postgresql://aws-1-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0}
     username: ${DB_USER:postgres.wfypvyfhpworindwllsz}
-    password: ${DB_PASS:G9LATAMTeam292026}
+    password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -67,3 +67,7 @@ logging:
   level:
     com.financeai: INFO
     org.hibernate.SQL: WARN
+
+supabase:
+  url: ${SUPABASE_URL:https://wfypvyfhpworindwllsz.supabase.co}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}

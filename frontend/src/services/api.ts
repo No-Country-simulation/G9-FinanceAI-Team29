@@ -458,7 +458,7 @@ export async function obtenerPerfilCompleto(
 
 export async function actualizarPerfil(
   usuarioId: string,
-  datos: { nombre: string; apellido: string },
+  datos: { nombre: string; apellido: string; email?: string },
 ): Promise<void> {
   const id = exigirUsuarioId(usuarioId);
   const response = await fetch(

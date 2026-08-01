@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, ComponentType } from 'react';
 import { useLocation } from 'react-router';
 import PageMeta from "../../components/common/PageMeta";
 import ExportMenu from "../../components/common/ExportMenu";
+import { exportDashboardXlsx } from "../../utils/export/exportXlsxDashboard";
 import { formatMoney, formatPercent } from "../../utils/export/format";
 import ProfileCard from "../../components/finance/ProfileCard";
 import IncomeExpensesChart from "../../components/finance/IncomeExpensesChart";
@@ -366,6 +367,8 @@ if (authLoading) {
             rows={categoriasOrdenadas.map((cat) => [cat, porCategoria[cat], porcentajes[cat]])}
             showTotals
             chartRef={chartRef}
+            disabled={transacciones.length === 0}
+            onExportDashboard={() => exportDashboardXlsx(transacciones, 'dashboard-financiero')}
           />
         </div>
 

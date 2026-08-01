@@ -73,6 +73,15 @@ export async function solicitarMonto(
   return result.isConfirmed ? Number(result.value) : null;
 }
 
+export function mostrarInfo(titulo: string, texto?: string) {
+  return themedSwal().fire({
+    icon: 'info',
+    title: titulo,
+    text: texto,
+    confirmButtonText: 'Entendido',
+  });
+}
+
 export async function confirmarAccion(
   titulo: string,
   texto?: string,

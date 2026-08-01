@@ -17,9 +17,15 @@ dist
 dist-ssr
 *.local
 
+Backend/backend/target/
+frontend/.currency-check/
+frontend/.currency-check.zip
+frontend/.dashboard-layout-check/
+frontend/.dashboard-layout-check.zip
+
 .env
-.bat
-.md
+*.bat
+*.md
 
 # Editor directories and files
 .vscode/*

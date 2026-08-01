@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Swal from "sweetalert2";
 import { Link, useLocation, useNavigate } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
@@ -7,6 +8,7 @@ import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import { mostrarError, mostrarExito } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
+import AuthLegalFooter from "./AuthLegalFooter";
 
 export default function SignInForm() {
   const navigate = useNavigate();
@@ -50,6 +52,44 @@ export default function SignInForm() {
       await mostrarError("Inicio de sesión fallido", texto);
     } finally {
       setEnviando(false);
+    }
+  };
+
+  const solicitarRecuperacion = async () => {
+    const resultado = await Swal.fire({
+      title: "Recuperar contraseña",
+      input: "email",
+      inputLabel: "Correo electrónico",
+      inputPlaceholder: "info@gmail.com",
+      inputValue: email,
+      showCancelButton: true,
+      confirmButtonText: "Enviar enlace",
+      cancelButtonText: "Cancelar",
+      confirmButtonColor: "#465fff",
+      inputValidator: (value) => (!value ? "Ingresa tu correo electrónico." : undefined),
+    });
+
+    if (!resultado.isConfirmed || !resultado.value) return;
+
+    try {
+      const response = await fetch("/api/reset-password-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resultado.value.trim() }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        await mostrarError("No se pudo enviar el enlace", data?.mensaje ?? "Intenta nuevamente.");
+        return;
+      }
+
+      await mostrarExito(
+        "Revisa tu correo",
+        data?.mensaje ?? "Si el correo existe en nuestro sistema, te enviamos un enlace para restablecer tu contraseña."
+      );
+    } catch {
+      await mostrarError("No se pudo enviar el enlace", "Ocurrió un error de red. Intenta nuevamente.");
     }
   };
 
@@ -139,15 +179,16 @@ export default function SignInForm() {
                       Mantener sesión iniciada
                     </span>
                   </div>
-                  <Link
-                    to="/reset-password"
+                  <button
+                    type="button"
+                    onClick={solicitarRecuperacion}
                     className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
                   >
                     ¿Olvidaste tu contraseña?
-                  </Link>
+                  </button>
                 </div>
                 <div>
-                  <Button className="w-full" size="sm" disabled={enviando}>
+                  <Button type="submit" className="w-full" size="sm" disabled={enviando}>
                     {enviando ? "Iniciando…" : "Iniciar sesión"}
                   </Button>
                 </div>
@@ -168,6 +209,7 @@ export default function SignInForm() {
           </div>
         </div>
       </div>
+      <AuthLegalFooter />
     </div>
   );
 }

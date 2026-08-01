@@ -21,13 +21,12 @@ public class UsuarioService {
 
     @Transactional
     public Usuario registrarNuevoUsuario(RegisterRequest request) {
-        String displayName = (request.getNombres() + " " + request.getApellidos()).trim();
-
         // 1. Crear primero en auth.users a través de Supabase Auth API
         String authUserId = supabaseAuthService.crearUsuarioEnAuthSupabase(
                 request.getEmail(),
                 request.getPassword(),
-                displayName
+                request.getNombres(),
+                request.getApellidos()
         );
 
         // 2. Crear la entidad local con formato USR****

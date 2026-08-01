@@ -6,6 +6,7 @@ import com.financeai.model.EstadoUsuario;
 import com.financeai.model.Usuario;
 import com.financeai.repository.RecomendacionRepository;
 import com.financeai.repository.UsuarioRepository;
+import com.financeai.service.SupabaseAuthService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,13 +25,16 @@ public class UsuarioController {
 
     private final UsuarioRepository usuarioRepository;
     private final RecomendacionRepository recomendacionRepository;
+    private final SupabaseAuthService supabaseAuthService;
 
     public UsuarioController(
             UsuarioRepository usuarioRepository,
-            RecomendacionRepository recomendacionRepository
+            RecomendacionRepository recomendacionRepository,
+            SupabaseAuthService supabaseAuthService
     ) {
         this.usuarioRepository = usuarioRepository;
         this.recomendacionRepository = recomendacionRepository;
+        this.supabaseAuthService = supabaseAuthService;
     }
 
     @PostMapping
@@ -166,9 +170,30 @@ public class UsuarioController {
                 .map(usuario -> {
                     String nombre = limpiar(request.getNombre());
                     String apellido = limpiar(request.getApellido());
+                    String email = limpiar(request.getEmail());
 
                     if (nombre == null || apellido == null) {
                         return badRequest("Nombre y apellido son obligatorios.");
+                    }
+
+                    if (email != null && !email.equalsIgnoreCase(usuario.getEmail())) {
+                        String emailNormalizado = email.toLowerCase();
+
+                        if (usuarioRepository.existsByEmailIgnoreCase(emailNormalizado)) {
+                            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                                    Map.of("mensaje", "Ya existe un perfil con ese email.")
+                            );
+                        }
+
+                        try {
+                            supabaseAuthService.actualizarEmailEnSupabase(usuario.getAuthUserId(), emailNormalizado);
+                        } catch (RuntimeException e) {
+                            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(
+                                    Map.of("mensaje", e.getMessage())
+                            );
+                        }
+
+                        usuario.setEmail(emailNormalizado);
                     }
 
                     usuario.setNombre(nombre);
@@ -178,7 +203,8 @@ public class UsuarioController {
                     return ResponseEntity.ok(Map.of(
                             "mensaje", "Perfil actualizado correctamente.",
                             "nombre", nombre,
-                            "apellido", apellido
+                            "apellido", apellido,
+                            "email", usuario.getEmail()
                     ));
                 })
                 .orElse(ResponseEntity.notFound().build());

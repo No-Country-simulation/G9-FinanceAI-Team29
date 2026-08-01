@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import ThemeTogglerTwo from "../../components/common/ThemeTogglerTwo";
 import GraphSpiralBackground from "../../components/auth/GraphSpiralBackground";
 
@@ -16,15 +16,16 @@ export default function AuthLayout({
   children: React.ReactNode;
   showSideBranding?: boolean;
 }) {
+  const location = useLocation();
   const imagenFondo = useMemo(
     () => IMAGENES_FONDO[Math.floor(Math.random() * IMAGENES_FONDO.length)],
     []
   );
 
   return (
-    <div className="relative p-6 bg-white z-1 dark:bg-gray-900 sm:p-0 lg:pb-24">
+    <div className="relative p-6 bg-white z-1 dark:bg-gray-900 sm:p-0">
       <div className="relative flex flex-col justify-center w-full min-h-screen lg:h-screen lg:flex-row dark:bg-gray-900 sm:p-0">
-        <div className="relative flex flex-col justify-center flex-1">
+        <div className="relative flex flex-col justify-center flex-1 pb-24 lg:pb-0">
           <GraphSpiralBackground />
           <div className="relative z-10 flex flex-col flex-1">{children}</div>
         </div>
@@ -56,17 +57,25 @@ export default function AuthLayout({
             )}
           </div>
         </div>
-        <div className="fixed z-50 bottom-4 right-4 sm:bottom-6 sm:right-6">
+        <div className="fixed z-50 bottom-20 right-4 lg:bottom-4 sm:right-6">
           <ThemeTogglerTwo />
         </div>
-        <div className="static z-1 mt-8 flex flex-col items-center gap-1 px-4 pb-4 text-sm text-center text-gray-500 dark:text-gray-400 lg:absolute lg:mt-0 lg:bottom-4 lg:left-1/2 lg:-translate-x-1/2 lg:pb-0">
+        <div className="fixed z-40 inset-x-0 bottom-0 flex flex-col items-center gap-1 bg-white/95 px-4 py-3 text-sm text-center text-gray-500 backdrop-blur-sm dark:bg-gray-900/95 dark:text-gray-400 lg:hidden">
           <p>&copy; {new Date().getFullYear()} - TwentyNineDevs</p>
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-            <Link to="/terminos" className="whitespace-nowrap hover:text-gray-700 dark:hover:text-gray-300">
+            <Link
+              to="/terminos"
+              state={{ from: location.pathname }}
+              className="whitespace-nowrap hover:text-gray-700 dark:hover:text-gray-300"
+            >
               Términos y Condiciones
             </Link>
             <span aria-hidden="true">&middot;</span>
-            <Link to="/privacidad" className="whitespace-nowrap hover:text-gray-700 dark:hover:text-gray-300">
+            <Link
+              to="/privacidad"
+              state={{ from: location.pathname }}
+              className="whitespace-nowrap hover:text-gray-700 dark:hover:text-gray-300"
+            >
               Política de Privacidad
             </Link>
           </div>
