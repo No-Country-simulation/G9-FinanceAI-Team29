@@ -5,6 +5,7 @@ import com.financeai.dto.RegisterRequest;
 import com.financeai.model.EstadoUsuario;
 import com.financeai.model.Usuario;
 import com.financeai.repository.UsuarioRepository;
+import com.financeai.service.SupabaseAuthService;
 import com.financeai.service.UsuarioService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,8 @@ import java.util.Map;
 public class LoginController {
 
     private final UsuarioRepository usuarioRepository;
-
+    @Autowired
+    private SupabaseAuthService supabaseAuthService;
     // Inyección por constructor
     public LoginController(UsuarioRepository usuarioRepository) {
         this.usuarioRepository = usuarioRepository;
@@ -30,16 +32,11 @@ public class LoginController {
 
     @PostMapping("/login")
     public ResponseEntity<?> loginConUid(@RequestBody LoginUidRequest request) {
-        // 1. Validar que la combinación Email + UID exista en Supabase Auth
-        boolean esValido = usuarioRepository.existeEnAuthSupabase(request.getEmail(), request.getUid());
+        try {
+            // Soporta tanto la contraseña real ("MiClave123!") como el UUID directamente ("7a5da953...")
+            String authUserId = supabaseAuthService.autenticarOUsarUidDirecto(request.getEmail(), request.getPassword());
 
-        if (!esValido) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("mensaje", "Credenciales inválidas: No coinciden Email y UID en Supabase."));
-        }
-
-        // 2. Si es válido, traer los datos de la tabla public.usuarios usando el authUserId
-        return usuarioRepository.findByAuthUserId(request.getUid())
+            return usuarioRepository.findByAuthUserId(authUserId)
                 .map(usuario -> {
                     EstadoUsuario estado = usuario.getEstado();
 
@@ -66,7 +63,15 @@ public class LoginController {
                     return ResponseEntity.ok(respuesta);
                 })
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("mensaje", "El usuario está autenticado pero no tiene perfil financiero registrado.")));
+                        .body(Map.of("mensaje", "Usuario no encontrado en la base de datos local.")));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("mensaje", "Error de autenticación: " + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("mensaje", "Ocurrió un error inesperado al procesar el inicio de sesión."));
+        }
     }
 
     @Autowired
