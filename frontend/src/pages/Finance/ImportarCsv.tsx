@@ -1,10 +1,10 @@
 import { ChangeEvent, useState } from 'react';
 import PageMeta from '../../components/common/PageMeta';
 import { importarCsv, ImportacionCsvResponse } from '../../services/api';
-
-const USUARIO_DEMO = 'USR1001';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ImportarCsv() {
+  const { usuarioId } = useAuth();
   const [archivo, setArchivo] = useState<File | null>(null);
   const [cargando, setCargando] = useState(false);
   const [resultado, setResultado] =
@@ -40,7 +40,13 @@ export default function ImportarCsv() {
     setResultado(null);
 
     try {
-      const data = await importarCsv(USUARIO_DEMO, archivo);
+      if (!usuarioId) {
+        throw new Error(
+          'La sesión no tiene un perfil financiero asociado. Cerrá sesión y volvé a ingresar.',
+        );
+      }
+
+      const data = await importarCsv(usuarioId, archivo);
 
       if (!data) {
         throw new Error('El servidor devolvió una respuesta vacía.');
@@ -90,8 +96,8 @@ export default function ImportarCsv() {
           </h1>
 
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Cargá un CSV para crear el perfil financiero de{' '}
-            <strong>{USUARIO_DEMO}</strong>. Todos los importes se procesan en
+            Cargá un CSV para actualizar el perfil financiero de{' '}
+            <strong>{usuarioId || 'tu cuenta'}</strong>. Todos los importes se procesan en
             dólares estadounidenses.
           </p>
         </div>
@@ -162,7 +168,7 @@ export default function ImportarCsv() {
             </h2>
 
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-              {resultado.usuarioId ?? USUARIO_DEMO} quedó listo para usar en el
+              {resultado.usuarioId ?? usuarioId} quedó listo para usar en el
               dashboard y el asistente IA.
             </p>
 

@@ -1,6 +1,8 @@
 package com.financeai.controller;
 
+import com.financeai.dto.ProfileUpdateRequest;
 import com.financeai.model.Recomendacion;
+import com.financeai.model.EstadoUsuario;
 import com.financeai.model.Usuario;
 import com.financeai.repository.RecomendacionRepository;
 import com.financeai.repository.UsuarioRepository;
@@ -83,6 +85,8 @@ public class UsuarioController {
         nuevoUsuario.setAuthUserId(authUserId);
         nuevoUsuario.setFechaRegistro(LocalDateTime.now());
         nuevoUsuario.setActivo(true);
+        nuevoUsuario.setEstado(EstadoUsuario.ACTIVO);
+        nuevoUsuario.setUltimaActividad(LocalDateTime.now());
 
         Usuario usuarioGuardado = usuarioRepository.save(nuevoUsuario);
 
@@ -153,6 +157,48 @@ public class UsuarioController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PatchMapping("/{id}/perfil")
+    public ResponseEntity<?> actualizarPerfilBasico(
+            @PathVariable String id,
+            @RequestBody ProfileUpdateRequest request
+    ) {
+        return usuarioRepository.findById(id)
+                .map(usuario -> {
+                    String nombre = limpiar(request.getNombre());
+                    String apellido = limpiar(request.getApellido());
+
+                    if (nombre == null || apellido == null) {
+                        return badRequest("Nombre y apellido son obligatorios.");
+                    }
+
+                    usuario.setNombre(nombre);
+                    usuario.setApellido(apellido);
+                    usuarioRepository.save(usuario);
+
+                    return ResponseEntity.ok(Map.of(
+                            "mensaje", "Perfil actualizado correctamente.",
+                            "nombre", nombre,
+                            "apellido", apellido
+                    ));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> darDeBaja(@PathVariable String id) {
+        return usuarioRepository.findById(id)
+                .map(usuario -> {
+                    usuario.setEstado(EstadoUsuario.ELIMINADO);
+                    usuario.setFechaEliminacion(LocalDateTime.now());
+                    usuarioRepository.save(usuario);
+                    return ResponseEntity.ok(Map.of(
+                            "mensaje", "La cuenta fue dada de baja y sus datos fueron preservados.",
+                            "estado", EstadoUsuario.ELIMINADO.name()
+                    ));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/{id}/recomendaciones")
     public ResponseEntity<List<Recomendacion>> obtenerRecomendaciones(
             @PathVariable String id
@@ -175,6 +221,9 @@ public class UsuarioController {
                     perfil.put("nombre", usuario.getNombre());
                     perfil.put("apellido", usuario.getApellido());
                     perfil.put("email", usuario.getEmail());
+                    perfil.put("estado", usuario.getEstado().name());
+                    perfil.put("ultimaActividad", usuario.getUltimaActividad());
+                    perfil.put("fechaEliminacion", usuario.getFechaEliminacion());
 
                     perfil.put(
                             "perfilFinanciero",

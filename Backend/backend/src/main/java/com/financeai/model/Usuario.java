@@ -55,6 +55,16 @@ public class Usuario {
     @Column(name = "activo")
     private Boolean activo = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado", length = 20)
+    private EstadoUsuario estado = EstadoUsuario.ACTIVO;
+
+    @Column(name = "ultima_actividad")
+    private LocalDateTime ultimaActividad;
+
+    @Column(name = "fecha_eliminacion")
+    private LocalDateTime fechaEliminacion;
+
     public Usuario() {
     }
 
@@ -74,6 +84,8 @@ public class Usuario {
         this.perfilFinanciero = perfilFinanciero;
         this.fechaRegistro = LocalDateTime.now();
         this.activo = true;
+        this.estado = EstadoUsuario.ACTIVO;
+        this.ultimaActividad = LocalDateTime.now();
     }
 
     public String getId() {
@@ -195,4 +207,42 @@ public class Usuario {
     public void setActivo(Boolean activo) {
         this.activo = activo;
     }
+
+    public EstadoUsuario getEstado() {
+        return estado != null ? estado : (Boolean.FALSE.equals(activo) ? EstadoUsuario.ELIMINADO : EstadoUsuario.ACTIVO);
+    }
+
+    public void setEstado(EstadoUsuario estado) {
+        this.estado = estado;
+        this.activo = estado != EstadoUsuario.ELIMINADO;
+    }
+
+    public LocalDateTime getUltimaActividad() {
+        return ultimaActividad;
+    }
+
+    public void setUltimaActividad(LocalDateTime ultimaActividad) {
+        this.ultimaActividad = ultimaActividad;
+    }
+
+    public LocalDateTime getFechaEliminacion() {
+        return fechaEliminacion;
+    }
+
+    public void setFechaEliminacion(LocalDateTime fechaEliminacion) {
+        this.fechaEliminacion = fechaEliminacion;
+    }
+
+    @PrePersist
+    @PreUpdate
+    private void normalizarEstado() {
+        if (estado == null) {
+            estado = Boolean.FALSE.equals(activo) ? EstadoUsuario.ELIMINADO : EstadoUsuario.ACTIVO;
+        }
+        activo = estado != EstadoUsuario.ELIMINADO;
+        if (ultimaActividad == null && estado != EstadoUsuario.ELIMINADO) {
+            ultimaActividad = LocalDateTime.now();
+        }
+    }
 }
+

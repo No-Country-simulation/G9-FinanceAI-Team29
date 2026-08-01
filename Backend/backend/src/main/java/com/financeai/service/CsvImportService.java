@@ -21,7 +21,13 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -122,6 +128,14 @@ public class CsvImportService {
         transaccionRepository.deleteByUsuarioId(usuarioId);
         transaccionRepository.flush();
 
+        if (procesado.getTransacciones().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "El CSV fue procesado, pero no contiene movimientos válidos para guardar."
+            );
+        }
+
+        List<Transaccion> transaccionesAGuardar = new ArrayList<>();
+
         for (CsvImportResponse.TransaccionCsv item : procesado.getTransacciones()) {
             Categoria categoria = categoriaRepository.findByNombreIgnoreCase(item.getCategoria())
                     .orElseGet(() -> {
@@ -146,14 +160,57 @@ public class CsvImportService {
             transaccion.setMedioPago(item.getMedioPago());
             transaccion.setRecurrente(item.getRecurrente());
             transaccion.setOrigen("CSV");
-            transaccionRepository.save(transaccion);
+            transaccionesAGuardar.add(transaccion);
         }
+
+        transaccionRepository.saveAllAndFlush(transaccionesAGuardar);
+
+        long movimientosGuardados = transaccionRepository.countByUsuarioId(usuarioId);
+        if (movimientosGuardados != transaccionesAGuardar.size()) {
+            throw new IllegalStateException(
+                    "La base de datos no confirmó todos los movimientos. Esperados: "
+                            + transaccionesAGuardar.size() + ", guardados: " + movimientosGuardados
+            );
+        }
+
+        // El resumen del AI-Service puede venir vacío o con valores en cero.
+        // Lo calculamos a partir de las mismas transacciones confirmadas por la base.
+        BigDecimal totalIngresos = BigDecimal.ZERO;
+        BigDecimal totalGastos = BigDecimal.ZERO;
+        Set<YearMonth> meses = new HashSet<>();
+
+        for (Transaccion transaccion : transaccionesAGuardar) {
+            if (transaccion.getFecha() != null) {
+                meses.add(YearMonth.from(transaccion.getFecha()));
+            }
+
+            BigDecimal monto = transaccion.getMonto() == null
+                    ? BigDecimal.ZERO
+                    : transaccion.getMonto().abs();
+            String tipo = transaccion.getTipo() == null
+                    ? ""
+                    : transaccion.getTipo().trim();
+
+            if (tipo.equalsIgnoreCase("Ingreso")) {
+                totalIngresos = totalIngresos.add(monto);
+            } else if (tipo.equalsIgnoreCase("Gasto")) {
+                totalGastos = totalGastos.add(monto);
+            }
+        }
+
+        Map<String, Object> resumen = new LinkedHashMap<>();
+        resumen.put("cantidadTransacciones", movimientosGuardados);
+        resumen.put("cantidadMeses", meses.size());
+        resumen.put("totalIngresos", totalIngresos);
+        resumen.put("totalGastos", totalGastos);
+        resumen.put("moneda", "USD");
 
         Map<String, Object> respuesta = new LinkedHashMap<>();
         respuesta.put("mensaje", "CSV importado correctamente");
         respuesta.put("usuarioId", usuarioId);
         respuesta.put("perfilFinanciero", usuario.getPerfilFinanciero());
-        respuesta.put("resumen", procesado.getResumen());
+        respuesta.put("movimientosGuardados", movimientosGuardados);
+        respuesta.put("resumen", resumen);
         return respuesta;
     }
 }

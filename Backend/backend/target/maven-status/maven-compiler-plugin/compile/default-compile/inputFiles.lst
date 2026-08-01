@@ -1,47 +1,49 @@
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\bootstrap\DataLoader.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\config\OpenApiConfig.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\config\WebConfig.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\controller\AnalisisController.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\controller\CsvImportController.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\controller\GoalController.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\controller\LoginController.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\controller\TransaccionController.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\controller\UsuarioController.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\AnalisisRequest.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\AnalisisResponse.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\csv\CsvImportResponse.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\GoalAmountRequest.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\GoalCreateRequest.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\GoalResponse.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\GoalSummaryResponse.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\GoalUpdateRequest.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\LoginUidRequest.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\ml\MlAnalysisRequest.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\ml\MlAnalysisResponse.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\ml\MlPredictResponse.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\ml\MlTransaccion.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\TransaccionDTO.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\dto\TransaccionResponseDTO.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\exception\ErrorResponse.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\exception\GlobalExceptionHandler.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\FinanceAIApplication.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\model\Categoria.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\model\Goal.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\model\PerfilHistorial.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\model\Recomendacion.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\model\ResumenGastos.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\model\Transaccion.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\model\Usuario.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\repository\CategoriaRepository.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\repository\GoalRepository.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\repository\PerfilHistorialRepository.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\repository\RecomendacionRepository.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\repository\ResumenGastosRepository.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\repository\TransaccionRepository.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\repository\UsuarioRepository.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\service\AnalisisService.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\service\ClasificacionService.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\service\CsvImportService.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\service\GoalService.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\service\MlService.java
-C:\Users\fp\Downloads\FinSightIA 2\Backend\backend\src\main\java\com\financeai\service\RecomendacionService.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\bootstrap\DataLoader.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\config\OpenApiConfig.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\config\WebConfig.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\controller\AnalisisController.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\controller\CsvImportController.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\controller\GoalController.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\controller\LoginController.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\controller\TransaccionController.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\controller\UsuarioController.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\AnalisisRequest.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\AnalisisResponse.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\csv\CsvImportResponse.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\GoalAmountRequest.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\GoalCreateRequest.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\GoalResponse.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\GoalSummaryResponse.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\GoalUpdateRequest.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\LoginUidRequest.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\ml\MlAnalysisRequest.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\ml\MlAnalysisResponse.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\ml\MlPredictResponse.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\ml\MlTransaccion.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\ProfileUpdateRequest.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\TransaccionDTO.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\dto\TransaccionResponseDTO.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\exception\ErrorResponse.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\exception\GlobalExceptionHandler.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\FinanceAIApplication.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\model\Categoria.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\model\EstadoUsuario.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\model\Goal.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\model\PerfilHistorial.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\model\Recomendacion.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\model\ResumenGastos.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\model\Transaccion.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\model\Usuario.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\CategoriaRepository.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\GoalRepository.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\PerfilHistorialRepository.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\RecomendacionRepository.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\ResumenGastosRepository.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\TransaccionRepository.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\repository\UsuarioRepository.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\service\AnalisisService.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\service\ClasificacionService.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\service\CsvImportService.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\service\GoalService.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\service\MlService.java
+G:\FinSight\Backend\backend\src\main\java\com\financeai\service\RecomendacionService.java

@@ -28,6 +28,7 @@ com\financeai\model\Goal.class
 com\financeai\service\ClasificacionService.class
 com\financeai\repository\CategoriaRepository.class
 com\financeai\dto\csv\CsvImportResponse$UsuarioCsv.class
+com\financeai\dto\ProfileUpdateRequest.class
 com\financeai\repository\PerfilHistorialRepository.class
 com\financeai\dto\AnalisisResponse.class
 com\financeai\model\Transaccion.class
@@ -36,6 +37,7 @@ com\financeai\service\CsvImportService$1.class
 com\financeai\dto\ml\MlAnalysisResponse.class
 com\financeai\controller\CsvImportController.class
 com\financeai\controller\UsuarioController.class
+com\financeai\model\EstadoUsuario.class
 com\financeai\exception\GlobalExceptionHandler.class
 com\financeai\service\MlService.class
 com\financeai\dto\GoalResponse.class

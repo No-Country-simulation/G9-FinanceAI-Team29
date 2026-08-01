@@ -2,6 +2,8 @@ package com.financeai.controller;
 
 import com.financeai.dto.LoginUidRequest;
 import com.financeai.repository.UsuarioRepository;
+import com.financeai.model.EstadoUsuario;
+import java.time.LocalDateTime;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -34,6 +36,20 @@ public class LoginController {
         // 2. Si es válido, traer los datos de la tabla public.usuarios usando el authUserId
         return usuarioRepository.findByAuthUserId(request.getUid())
                 .map(usuario -> {
+                    EstadoUsuario estado = usuario.getEstado();
+
+                    if (estado == EstadoUsuario.ELIMINADO) {
+                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body(Map.of("mensaje", "Esta cuenta fue dada de baja. Contactá con soporte para solicitar su recuperación."));
+                    }
+
+                    // Una cuenta inactiva se reactiva automáticamente cuando el usuario vuelve.
+                    if (estado == EstadoUsuario.INACTIVO) {
+                        usuario.setEstado(EstadoUsuario.ACTIVO);
+                    }
+                    usuario.setUltimaActividad(LocalDateTime.now());
+                    usuarioRepository.save(usuario);
+
                     Map<String, Object> respuesta = new HashMap<>();
                     respuesta.put("mensaje", "Autenticación exitosa");
                     respuesta.put("id", usuario.getId());
@@ -41,6 +57,7 @@ public class LoginController {
                     respuesta.put("ingresoMensual", usuario.getIngresoMensual());
                     respuesta.put("deudaMensual", usuario.getDeudaMensual());
                     respuesta.put("perfilFinanciero", usuario.getPerfilFinanciero());
+                    respuesta.put("estado", usuario.getEstado().name());
                     return ResponseEntity.ok(respuesta);
                 })
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)

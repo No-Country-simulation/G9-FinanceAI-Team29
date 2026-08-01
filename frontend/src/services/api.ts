@@ -222,6 +222,7 @@ export interface ImportacionCsvResponse {
   mensaje: string;
   usuarioId: string;
   perfilFinanciero: string;
+  movimientosGuardados?: number;
   resumen: {
     cantidadTransacciones: number;
     cantidadMeses: number;
@@ -268,7 +269,32 @@ export async function importarCsv(
     throw new Error(mensaje);
   }
 
-  return response.json();
+  const rawData = await response.json();
+  const rawResumen = rawData?.resumen ?? {};
+
+  return {
+    mensaje: rawData?.mensaje ?? 'CSV importado correctamente',
+    usuarioId: rawData?.usuarioId ?? rawData?.usuario_id ?? id,
+    perfilFinanciero:
+      rawData?.perfilFinanciero ?? rawData?.perfil_financiero ?? 'Sin determinar',
+    movimientosGuardados:
+      rawData?.movimientosGuardados ?? rawData?.movimientos_guardados,
+    resumen: {
+      cantidadTransacciones:
+        rawResumen?.cantidadTransacciones ??
+        rawResumen?.cantidad_transacciones ??
+        rawData?.movimientosGuardados ??
+        rawData?.movimientos_guardados ??
+        0,
+      cantidadMeses:
+        rawResumen?.cantidadMeses ?? rawResumen?.cantidad_meses ?? 0,
+      totalIngresos:
+        rawResumen?.totalIngresos ?? rawResumen?.total_ingresos ?? 0,
+      totalGastos:
+        rawResumen?.totalGastos ?? rawResumen?.total_gastos ?? 0,
+      moneda: rawResumen?.moneda ?? 'USD',
+    },
+  };
 }
 
 async function parseApiError(response: Response): Promise<string> {
@@ -397,4 +423,67 @@ export async function cancelarMeta(
   }
 
   return response.json();
+}
+export interface PerfilCompleto {
+  id: string;
+  nombre?: string | null;
+  apellido?: string | null;
+  email?: string | null;
+  ingresoMensual?: number | null;
+  deudaMensual?: number | null;
+  nivelEndeudamiento?: number | null;
+  gastoMensualPromedio?: number | null;
+  ahorroMensualEstimado?: number | null;
+  porcentajeGastosIngreso?: number | null;
+  frecuenciaAhorro?: string | null;
+  perfilFinanciero?: string | null;
+  activo?: boolean | null;
+  estado?: 'ACTIVO' | 'INACTIVO' | 'ELIMINADO' | null;
+  ultimaActividad?: string | null;
+  fechaEliminacion?: string | null;
+}
+
+export async function obtenerPerfilCompleto(
+  usuarioId: string,
+): Promise<PerfilCompleto> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await fetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}`);
+
+  if (!response.ok) {
+    throw new Error('No se pudo cargar el perfil.');
+  }
+
+  return response.json();
+}
+
+export async function actualizarPerfil(
+  usuarioId: string,
+  datos: { nombre: string; apellido: string },
+): Promise<void> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await fetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/perfil`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos),
+    },
+  );
+
+  if (!response.ok) {
+    const detalle = await response.text();
+    throw new Error(detalle || 'No se pudo actualizar el perfil.');
+  }
+}
+
+export async function darDeBajaCuenta(usuarioId: string): Promise<void> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await fetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const detalle = await response.text();
+    throw new Error(detalle || 'No se pudo dar de baja la cuenta.');
+  }
 }

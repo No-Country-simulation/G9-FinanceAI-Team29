@@ -17,6 +17,8 @@ public interface TransaccionRepository extends JpaRepository<Transaccion, String
 
     void deleteByUsuarioId(String usuarioId);
 
+    long countByUsuarioId(String usuarioId);
+
     List<Transaccion> findByUsuarioIdAndFechaBetween(
         String usuarioId, LocalDate fechaInicio, LocalDate fechaFin);
 
