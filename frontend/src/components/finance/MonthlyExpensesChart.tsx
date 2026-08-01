@@ -57,6 +57,7 @@ export default function MonthlyExpensesChart({ transacciones }: MonthlyExpensesC
     legend: { show: false },
     yaxis: {
       title: { text: undefined },
+      tooltip: { enabled: false },
       labels: {
         formatter: (val: number) => `$${Math.round(Number(val)).toLocaleString('es-AR', { useGrouping: true })}`,
       },

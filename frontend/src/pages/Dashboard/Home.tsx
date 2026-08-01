@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState, ComponentType } from 'react';
+import { useCallback, useEffect, useRef, useState, ComponentType } from 'react';
 import { useLocation } from 'react-router';
 import PageMeta from "../../components/common/PageMeta";
+import ExportMenu from "../../components/common/ExportMenu";
+import { formatMoney, formatPercent } from "../../utils/export/format";
 import ProfileCard from "../../components/finance/ProfileCard";
 import IncomeExpensesChart from "../../components/finance/IncomeExpensesChart";
 import MonthlyExpensesChart from "../../components/finance/MonthlyExpensesChart";
@@ -45,6 +47,7 @@ export default function Home() {
 
   const { usuarioId, loading: authLoading } = useAuth();
   const location = useLocation();
+  const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (
@@ -334,6 +337,8 @@ if (authLoading) {
         : 0
     );
 
+  const categoriasOrdenadas = Object.keys(porCategoria).sort((a, b) => porCategoria[b] - porCategoria[a]);
+
   return (
     <>
       <PageMeta
@@ -342,6 +347,28 @@ if (authLoading) {
       />
 
       <div data-tour="dashboard-summary" className="scroll-mt-24 grid grid-cols-12 gap-4 md:gap-6">
+        <div className="col-span-12 flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">Dashboard</h1>
+          <ExportMenu
+            filename="dashboard-financiero"
+            title="Dashboard Financiero"
+            subtitle="Resumen de gastos por categoría"
+            kpis={[
+              { label: 'Total Ingresos', value: formatMoney(totalIngresos), color: 'success' },
+              { label: 'Total Gastos', value: formatMoney(gastoMensualPromedio), color: 'error' },
+              { label: '% Ahorro', value: formatPercent(porcentajeAhorro), color: 'brand' },
+            ]}
+            columns={[
+              { header: 'Categoría' },
+              { header: 'Monto', type: 'currency' },
+              { header: '% del Total', type: 'percent' },
+            ]}
+            rows={categoriasOrdenadas.map((cat) => [cat, porCategoria[cat], porcentajes[cat]])}
+            showTotals
+            chartRef={chartRef}
+          />
+        </div>
+
         <div id="perfil-financiero" className="col-span-12 scroll-mt-24 xl:col-span-3">
           <ProfileCard
             perfil={perfil}
@@ -350,7 +377,7 @@ if (authLoading) {
           />
         </div>
 
-        <div id="ingresos-vs-gastos" className="col-span-12 scroll-mt-24 xl:col-span-9">
+        <div id="ingresos-vs-gastos" ref={chartRef} className="col-span-12 scroll-mt-24 xl:col-span-9">
           <IncomeExpensesChart
             ingresos={totalIngresos}
             gastos={gastoMensualPromedio}

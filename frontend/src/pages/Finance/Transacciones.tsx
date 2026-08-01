@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import PageMeta from "../../components/common/PageMeta";
+import ExportMenu from "../../components/common/ExportMenu";
+import { formatMoney } from "../../utils/export/format";
+import { exportDashboardXlsx } from "../../utils/export/exportXlsxDashboard";
 import { obtenerTransacciones } from "../../services/api";
 import { Transaccion } from "../../types/finance";
 import { getCategoriaColor } from "../../utils/categoriaColors";
@@ -34,6 +37,9 @@ export default function Transacciones() {
     ? transacciones
     : transacciones.filter(t => t.tipo === filtro);
 
+  const totalIngresos = filtradas.filter(t => t.tipo === 'Ingreso').reduce((acc, t) => acc + Number(t.monto), 0);
+  const totalGastos = filtradas.filter(t => t.tipo === 'Gasto').reduce((acc, t) => acc + Number(t.monto), 0);
+
   return (
     <>
       <PageMeta title="FinanceAI | Transacciones" description="Historial de transacciones financieras" />
@@ -41,7 +47,7 @@ export default function Transacciones() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">Transacciones</h1>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {['Todos', 'Ingreso', 'Gasto'].map((tipo) => (
               <button
                 key={tipo}
@@ -55,6 +61,28 @@ export default function Transacciones() {
                 {tipo}
               </button>
             ))}
+
+            <ExportMenu
+              filename="transacciones"
+              title="Transacciones"
+              subtitle={`Filtro: ${filtro}  ·  ${filtradas.length} movimientos`}
+              kpis={[
+                { label: 'Total Ingresos', value: formatMoney(totalIngresos), color: 'success' },
+                { label: 'Total Gastos', value: formatMoney(totalGastos), color: 'error' },
+                { label: 'Balance', value: formatMoney(totalIngresos - totalGastos), color: 'brand' },
+              ]}
+              columns={[
+                { header: 'Fecha', type: 'date' },
+                { header: 'Descripción' },
+                { header: 'Categoría' },
+                { header: 'Tipo' },
+                { header: 'Monto', type: 'currency' },
+              ]}
+              rows={filtradas.map((t) => [t.fecha, t.descripcion, t.categoria, t.tipo, Number(t.monto)])}
+              rowColorFn={(idx) => (filtradas[idx]?.tipo === 'Ingreso' ? 'success' : 'error')}
+              disabled={filtradas.length === 0}
+              onExportDashboard={() => exportDashboardXlsx(transacciones, 'dashboard-financiero')}
+            />
           </div>
         </div>
 

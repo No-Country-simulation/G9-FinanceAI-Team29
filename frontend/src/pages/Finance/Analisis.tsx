@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import PageMeta from "../../components/common/PageMeta";
+import ExportMenu from "../../components/common/ExportMenu";
+import { formatMoney } from "../../utils/export/format";
 import { analizarFinanzas, obtenerUsuario, obtenerTransacciones } from "../../services/api";
 import { AnalisisRequest, AnalisisResponse } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
@@ -171,8 +173,28 @@ export default function Analisis() {
           </div>
 
           <div id="resultado-analisis" className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">Resultado del Análisis</h2>
-            
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">Resultado del Análisis</h2>
+              <ExportMenu
+                filename="analisis-financiero"
+                title="Análisis Financiero"
+                subtitle={resultado ? `Perfil: ${resultado.perfilFinanciero}` : undefined}
+                kpis={resultado ? [
+                  { label: 'Perfil', value: resultado.perfilFinanciero, color: 'brand' },
+                  { label: 'Probabilidad', value: `${resultado.probabilidad}%`, color: 'success' },
+                  { label: 'Nivel de Riesgo', value: resultado.nivelRiesgo, color: 'error' },
+                ] : []}
+                columns={[{ header: 'Concepto' }, { header: 'Detalle' }]}
+                rows={resultado ? [
+                  ['Ingresos', formatMoney(Number(resultado.totalIngresos))],
+                  ['Gastos', formatMoney(Number(resultado.totalGastos))],
+                  ['Nivel de Riesgo', resultado.nivelRiesgo],
+                  ...recomendacionesDelAgente(resultado).map((rec) => ['Recomendación', rec]),
+                ] : []}
+                disabled={!resultado}
+              />
+            </div>
+
             {resultado ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">

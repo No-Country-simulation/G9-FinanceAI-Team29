@@ -38,7 +38,10 @@ export default function IncomeExpensesChart({ ingresos, gastos }: IncomeExpenses
       axisTicks: { show: false },
     },
     legend: { show: true, position: 'top', horizontalAlign: 'left' },
-    yaxis: { title: { text: undefined } },
+    yaxis: {
+      title: { text: undefined },
+      tooltip: { enabled: false },
+    },
     grid: { yaxis: { lines: { show: true } } },
     fill: { opacity: 1 },
     tooltip: {
