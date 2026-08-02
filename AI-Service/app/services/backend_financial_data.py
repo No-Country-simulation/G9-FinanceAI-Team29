@@ -13,6 +13,7 @@ import httpx
 import pandas as pd
 
 from app.config import settings
+from app.services.backend_http import service_headers
 
 
 class BackendDataError(RuntimeError):
@@ -27,7 +28,7 @@ def fetch_user_transactions(usuario_id: str) -> list[dict[str, Any]]:
     """Obtiene y normaliza las transacciones de un usuario desde Spring."""
     url = _endpoint(f"usuarios/{usuario_id}/transacciones")
     try:
-        response = httpx.get(url, timeout=8.0)
+        response = httpx.get(url, timeout=8.0, headers=service_headers())
     except httpx.RequestError as exc:
         raise BackendDataError(
             f"No se pudo conectar con el backend Spring en {settings.backend_url}."

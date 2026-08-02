@@ -11,6 +11,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
@@ -53,6 +54,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(new ErrorResponse(
             HttpStatus.BAD_REQUEST.value(), "Bad Request",
             ex.getMessage(), req.getRequestURI()));
+    }
+
+    /** Archivo subido demasiado grande (import CSV supera el límite de multipart). */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUpload(
+            MaxUploadSizeExceededException ex, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new ErrorResponse(
+            HttpStatus.PAYLOAD_TOO_LARGE.value(), "Payload Too Large",
+            "El archivo es demasiado grande. El máximo permitido es 5 MB.",
+            req.getRequestURI()));
     }
 
     /** Método HTTP incorrecto (p. ej. abrir en el navegador un endpoint POST). */

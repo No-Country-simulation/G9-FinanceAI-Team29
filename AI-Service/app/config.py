@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     vector_store_dir: Path = PROJECT_DIR / "storage" / "faiss_index"
     models_dir: Path = PROJECT_DIR / "models"
     backend_url: str = "http://localhost:8081/api"
+    # Secreto compartido con el backend (header X-Service-Token) para auth service-to-service.
+    service_token: str = ""
 
     # Soporte técnico RAG
     support_email: str = "g9latamteam29@gmail.com"

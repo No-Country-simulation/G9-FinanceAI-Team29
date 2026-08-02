@@ -8,11 +8,42 @@ import {
   GoalInput,
 } from '../types/finance';
 import { NotFoundError } from './errors';
+import { supabase } from './supabase';
 
 const API_BASE =
   import.meta.env.VITE_API_URL ?? 'http://localhost:8081/api';
 const AI_BASE =
   import.meta.env.VITE_AI_URL ?? 'http://localhost:8000';
+
+/**
+ * fetch para el backend: adjunta el JWT de Supabase (Authorization: Bearer)
+ * cuando hay sesión activa. Un único lugar → todas las llamadas al backend
+ * quedan autenticadas sin repetir código en cada función.
+ */
+async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const conAuth = (token?: string): RequestInit => {
+    const headers = new Headers(init.headers);
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    return { ...init, headers };
+  };
+
+  const { data } = await supabase.auth.getSession();
+  let response = await fetch(url, conAuth(data.session?.access_token));
+
+  // Si el token venció o estaba refrescándose (401 transitorio al iniciar sesión),
+  // lo renovamos y reintentamos UNA vez antes de dar el error al usuario.
+  if (response.status === 401) {
+    const { data: renovada } = await supabase.auth.refreshSession();
+    const token = renovada.session?.access_token;
+    if (token) {
+      response = await fetch(url, conAuth(token));
+    }
+  }
+
+  return response;
+}
 
 function exigirUsuarioId(usuarioId: string): string {
   const idLimpio = usuarioId?.trim();
@@ -85,7 +116,7 @@ export async function analizarFinanzas(
 
   console.log('Request enviado al análisis:', request);
 
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/analisis-financiero?usuarioId=${encodeURIComponent(id)}`,
     {
       method: 'POST',
@@ -114,7 +145,7 @@ export async function analizarFinanzas(
 export async function crearUsuario(
   request: CrearUsuarioRequest,
 ): Promise<CrearUsuarioResponse> {
-  const response = await fetch(`${API_BASE}/usuarios`, {
+  const response = await apiFetch(`${API_BASE}/usuarios`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -158,7 +189,7 @@ export async function obtenerUsuario(
 ): Promise<PerfilUsuario> {
   const id = exigirUsuarioId(usuarioId);
 
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/perfil`,
   );
 
@@ -188,7 +219,7 @@ export async function obtenerTransacciones(
 ): Promise<Transaccion[]> {
   const id = exigirUsuarioId(usuarioId);
 
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/transacciones`,
   );
 
@@ -209,7 +240,7 @@ export async function obtenerResumen(
 ): Promise<ResumenTransacciones> {
   const id = exigirUsuarioId(usuarioId);
 
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/transacciones/resumen`,
   );
 
@@ -243,7 +274,7 @@ export async function importarCsv(
 
   formData.append('archivo', archivo);
 
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/importar-csv`,
     {
       method: 'POST',
@@ -325,7 +356,7 @@ async function parseApiError(response: Response): Promise<string> {
 
 export async function obtenerMetas(usuarioId: string): Promise<Goal[]> {
   const id = exigirUsuarioId(usuarioId);
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/metas`,
   );
 
@@ -341,7 +372,7 @@ export async function crearMeta(
   usuarioId: string,
 ): Promise<Goal> {
   const id = exigirUsuarioId(usuarioId);
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/metas`,
     {
       method: 'POST',
@@ -363,7 +394,7 @@ export async function actualizarMeta(
   usuarioId: string,
 ): Promise<Goal> {
   const id = exigirUsuarioId(usuarioId);
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/metas/${encodeURIComponent(goalId)}`,
     {
       method: 'PATCH',
@@ -388,7 +419,7 @@ export async function agregarAhorroMeta(
   usuarioId: string,
 ): Promise<Goal> {
   const id = exigirUsuarioId(usuarioId);
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/metas/${encodeURIComponent(goalId)}/aportes`,
     {
       method: 'POST',
@@ -412,7 +443,7 @@ export async function cancelarMeta(
   usuarioId: string,
 ): Promise<Goal> {
   const id = exigirUsuarioId(usuarioId);
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/metas/${encodeURIComponent(goalId)}`,
     { method: 'DELETE' },
   );
@@ -449,7 +480,7 @@ export async function obtenerPerfilCompleto(
   usuarioId: string,
 ): Promise<PerfilCompleto> {
   const id = exigirUsuarioId(usuarioId);
-  const response = await fetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}`);
+  const response = await apiFetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}`);
 
   if (!response.ok) {
     throw new Error('No se pudo cargar el perfil.');
@@ -463,7 +494,7 @@ export async function actualizarPerfil(
   datos: { nombre: string; apellido: string; email?: string },
 ): Promise<void> {
   const id = exigirUsuarioId(usuarioId);
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/perfil`,
     {
       method: 'PATCH',
@@ -480,7 +511,7 @@ export async function actualizarPerfil(
 
 export async function darDeBajaCuenta(usuarioId: string): Promise<void> {
   const id = exigirUsuarioId(usuarioId);
-  const response = await fetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}`, {
+  const response = await apiFetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
 

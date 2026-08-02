@@ -53,6 +53,23 @@
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
         </dependency>
+
+        <!-- Lee un archivo .env local (en Backend/backend/) y expone sus valores como
+             propiedades de Spring, igual que el frontend y el AI-Service. Así el equipo
+             ya no necesita setear las variables a mano en cada terminal.
+             El .env está gitignored: los secretos no van al repositorio. -->
+        <dependency>
+            <groupId>me.paulschwarz</groupId>
+            <artifactId>spring-dotenv</artifactId>
+            <version>4.0.0</version>
+        </dependency>
+
+        <!-- Seguridad: valida el JWT de Supabase (firma ES256 vía JWKS) en cada request. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
