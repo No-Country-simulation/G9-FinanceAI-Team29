@@ -6,6 +6,16 @@ spring:
   application:
     name: financeai-backend
 
+  # --- Seguridad: valida el JWT de Supabase (firma ES256) contra su JWKS público ---
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${SUPABASE_URL:https://wfypvyfhpworindwllsz.supabase.co}/auth/v1/.well-known/jwks.json
+          # Supabase firma con ES256; sin esto, Spring espera RS256 por defecto y rechaza el token.
+          jws-algorithms:
+            - ES256
+
 #conexion local
 #  datasource:
 #    url: jdbc:postgresql://localhost:5432/financeai
@@ -39,11 +49,27 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  # Límite de subida (import CSV). Un archivo mayor se rechaza con mensaje claro.
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
   sql:
     init:
       mode: always
       data-locations: classpath:data.sql
       continue-on-error: false
+
+# Auth service-to-service: token compartido con el AI-Service (header X-Service-Token).
+# Vacío = deshabilitado (no se acepta ninguna llamada de servicio).
+app:
+  service-token: ${SERVICE_TOKEN:}
+  # Emails con acceso total (pueden ver perfiles de otros). Separados por coma.
+  admin-emails: ${ADMIN_EMAILS:demo.admin@finsight.com}
+  # Orígenes permitidos por CORS (frontend). Coma-separados. En prod: la URL de Vercel.
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
 
 # Microservicio de ML (FastAPI). Si está caído, el backend usa las reglas internas.
 ml:

@@ -161,6 +161,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAdminUsuarioId(ADMIN_DEFAULT_USUARIO);
   };
 
+  /**
+   * Auto-logout por inactividad: si el usuario no interactúa durante
+   * VITE_INACTIVITY_MINUTES (25 por defecto), se cierra la sesión.
+   * Solo activo mientras hay sesión; cualquier interacción reinicia el contador.
+   */
+  useEffect(() => {
+    if (!session) return;
+
+    const minutos = Number(import.meta.env.VITE_INACTIVITY_MINUTES ?? 25);
+    const timeoutMs = minutos * 60 * 1000;
+    let timer: number;
+
+    const reiniciar = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void signOut();
+      }, timeoutMs);
+    };
+
+    const eventos = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+    eventos.forEach((ev) => window.addEventListener(ev, reiniciar, { passive: true }));
+    reiniciar();
+
+    return () => {
+      window.clearTimeout(timer);
+      eventos.forEach((ev) => window.removeEventListener(ev, reiniciar));
+    };
+    // signOut es estable en la práctica; no lo incluimos para no reiniciar el timer en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
   return (
     <AuthContext.Provider
       value={{

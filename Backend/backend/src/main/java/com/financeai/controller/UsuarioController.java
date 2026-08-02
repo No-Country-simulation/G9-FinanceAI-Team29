@@ -10,6 +10,8 @@ import com.financeai.service.SupabaseAuthService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -111,6 +113,24 @@ public class UsuarioController {
         return usuarioRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Devuelve el perfil del usuario AUTENTICADO, derivado del JWT de Supabase
+     * (claim "sub" = authUserId). Reemplazo seguro de buscar por UUID en la URL:
+     * acá el usuario no puede pedir el perfil de otro.
+     */
+    @GetMapping("/me")
+    public ResponseEntity<?> obtenerMiPerfil(@AuthenticationPrincipal Jwt jwt) {
+        if (jwt == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("mensaje", "Falta el token de autenticación."));
+        }
+        String authUserId = jwt.getSubject();
+        return usuarioRepository.findByAuthUserId(authUserId)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("mensaje", "No hay un perfil asociado a esta cuenta.")));
     }
 
     @PutMapping("/{id}")
