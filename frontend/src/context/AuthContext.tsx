@@ -31,6 +31,24 @@ export const CUENTAS_DEMO = [
 
 const ADMIN_DEFAULT_USUARIO = 'USR0001';
 
+function normalizarApiBase(url: string): string {
+  const limpia = url.replace(/\/$/, '');
+  return limpia.endsWith('/api') ? limpia : `${limpia}/api`;
+}
+
+const API_BASE = normalizarApiBase(
+  import.meta.env.VITE_API_BASE_URL ??
+    import.meta.env.VITE_BACKEND_URL ??
+    import.meta.env.VITE_API_URL ??
+    'http://localhost:8081/api',
+);
+
+interface UsuarioPorAuthResponse {
+  usuarioId: string;
+  authUserId?: string;
+  email?: string | null;
+}
+
 interface AuthContextValue {
   session: Session | null;
   email: string | null;
@@ -61,9 +79,48 @@ function storageKey(authUserId: string): string {
   return `finsight.usuarioId.${authUserId}`;
 }
 
+async function obtenerUsuarioPorAuthId(
+  authUserId: string,
+): Promise<UsuarioPorAuthResponse> {
+  const response = await fetch(
+    `${API_BASE}/usuarios/por-auth/${encodeURIComponent(authUserId)}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+    },
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error(
+        'No existe un perfil financiero asociado a esta cuenta.',
+      );
+    }
+
+    throw new Error(
+      `No se pudo recuperar el perfil asociado (HTTP ${response.status}).`,
+    );
+  }
+
+  const data = (await response.json()) as Partial<UsuarioPorAuthResponse>;
+
+  if (!data.usuarioId || typeof data.usuarioId !== 'string') {
+    throw new Error('El backend no devolvió un usuarioId válido.');
+  }
+
+  return {
+    usuarioId: data.usuarioId,
+    authUserId: data.authUserId,
+    email: data.email,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [usuarioLoading, setUsuarioLoading] = useState(false);
   const [usuarioRegistradoId, setUsuarioRegistradoId] = useState<string>('');
   const [adminUsuarioId, setAdminUsuarioId] = useState(
     ADMIN_DEFAULT_USUARIO,
@@ -80,12 +137,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setSession(data.session);
-      setLoading(false);
+      setSessionLoading(false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
-      setLoading(false);
+      setSessionLoading(false);
     });
 
     return () => {
@@ -96,19 +153,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /**
    * Recupera el USRxxxx correspondiente a la cuenta real autenticada.
-   * Se guarda por UUID de Supabase para no mezclar cuentas en el mismo navegador.
+   * Usa localStorage como caché y, si no existe (por ejemplo, un navegador
+   * nuevo o el caché borrado), consulta al backend mediante el UUID de Supabase.
    */
   useEffect(() => {
+    let cancelled = false;
+
     const authUserId = session?.user?.id;
+    const correo = session?.user?.email?.toLowerCase() ?? null;
+    const esAdmin = correo ? ADMIN_EMAILS.includes(correo) : false;
+    const esDemo = correo ? Boolean(EMAIL_TO_USUARIO[correo]) : false;
 
     if (!authUserId) {
       setUsuarioRegistradoId('');
-      return;
+      setUsuarioLoading(false);
+      return () => {
+        cancelled = true;
+      };
     }
 
-    const guardado = localStorage.getItem(storageKey(authUserId)) ?? '';
-    setUsuarioRegistradoId(guardado);
-  }, [session?.user?.id]);
+    if (esAdmin || esDemo) {
+      setUsuarioRegistradoId('');
+      setUsuarioLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const guardado =
+      localStorage.getItem(storageKey(authUserId))?.trim() ?? '';
+
+    if (guardado) {
+      setUsuarioRegistradoId(guardado);
+      setUsuarioLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setUsuarioLoading(true);
+
+    void obtenerUsuarioPorAuthId(authUserId)
+      .then((perfil) => {
+        if (cancelled) return;
+
+        const idLimpio = perfil.usuarioId.trim();
+        localStorage.setItem(storageKey(authUserId), idLimpio);
+        setUsuarioRegistradoId(idLimpio);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+
+        console.error(
+          'No se pudo recuperar el usuario asociado a la sesión:',
+          error,
+        );
+        setUsuarioRegistradoId('');
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setUsuarioLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id, session?.user?.email]);
 
   const email = session?.user?.email?.toLowerCase() ?? null;
   const isAdmin = email ? ADMIN_EMAILS.includes(email) : false;
@@ -159,7 +270,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setUsuarioRegistradoId('');
     setAdminUsuarioId(ADMIN_DEFAULT_USUARIO);
+    setUsuarioLoading(false);
   };
+
+  const loading = sessionLoading || usuarioLoading;
 
   return (
     <AuthContext.Provider

@@ -305,7 +305,7 @@ const AppSidebar: React.FC = () => {
                 className="h-10 w-auto object-contain dark:hidden"
               />
               <img
-                src="/images/logo/logo_white_cropped.png"
+                src="/images/logo/logo_white.png"
                 alt=""
                 width={150}
                 height={40}

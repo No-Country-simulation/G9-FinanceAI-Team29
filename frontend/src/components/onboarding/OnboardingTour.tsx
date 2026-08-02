@@ -14,6 +14,7 @@ import {
 } from "../../utils/sound";
 
 const TOUR_VERSION = 1;
+const MASCOTA_SRC = "/images/mascot/finsight-bird-v2.png";
 
 const menuTargetByRoute: Record<string, string> = {
   "/": "nav-dashboard-menu",
@@ -33,12 +34,26 @@ function HelpIcon({ className = "size-5" }: { className?: string }) {
   );
 }
 
-function CompassIcon({ className = "size-6" }: { className?: string }) {
+function MascotaTour({
+  compact = false,
+  mirrored = false,
+}: {
+  compact?: boolean;
+  mirrored?: boolean;
+}) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
-      <path d="m15.4 8.6-2 4.8-4.8 2 2-4.8 4.8-2Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-    </svg>
+    <div
+      className={`relative flex shrink-0 items-end justify-center overflow-hidden rounded-full bg-gradient-to-b from-brand-50 to-success-50 ring-1 ring-brand-100 dark:from-brand-500/15 dark:to-success-500/10 dark:ring-brand-500/20 ${
+        compact ? "size-16 sm:size-[4.5rem]" : "size-24 sm:size-28"
+      }`}
+      aria-hidden="true"
+    >
+      <img
+        src={MASCOTA_SRC}
+        alt=""
+        className={`relative h-[95%] w-auto object-contain drop-shadow-xl ${mirrored ? "-scale-x-100" : ""}`}
+      />
+    </div>
   );
 }
 
@@ -310,6 +325,7 @@ export default function OnboardingTour() {
     if ((!active && !welcomeOpen) || !headingRef.current) return;
     headingRef.current.focus();
     if (active && narration && !transitioning) void speakText(currentStep.spokenText);
+    if (welcomeOpen && narration) void speakText("Hola, soy Finsi. Te acompañaré paso a paso.");
   }, [active, currentStep, narration, transitioning, welcomeOpen]);
 
   useEffect(() => {
@@ -369,7 +385,7 @@ export default function OnboardingTour() {
 
   return (
     <>
-      {!(active && currentStep.id === "assistant") && (
+      {!(active && currentStep.id === "assistant") && pathname !== "/asistente-ia" && (
         <button
           type="button"
           onClick={() => {
@@ -426,8 +442,19 @@ export default function OnboardingTour() {
           >
             {welcomeOpen ? (
               <>
-                <div className="mb-4 flex size-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
-                  <CompassIcon />
+                <span className="mb-2 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-600 py-1 pl-1.5 pr-3 text-xs font-medium text-white shadow-sm">
+                  <span className="relative flex size-2 items-center justify-center">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-white/60 motion-reduce:hidden" />
+                    <span className="relative size-2 rounded-full bg-white" />
+                  </span>
+                  Tu guía personal
+                </span>
+                <div className="mb-5 flex items-center gap-4 rounded-2xl border border-brand-100 bg-brand-25 p-3 dark:border-brand-500/20 dark:bg-brand-500/10 sm:p-4">
+                  <MascotaTour />
+                  <div className="relative min-w-0 flex-1 rounded-2xl border border-brand-100 bg-white px-3 py-2 text-left text-sm font-medium leading-5 text-gray-700 shadow-theme-sm dark:border-brand-500/25 dark:bg-gray-800 dark:text-gray-200">
+                    Hola, soy Finsi. Te acompañaré paso a paso.
+                    <span className="absolute -left-1.5 top-1/2 size-3 -translate-y-1/2 rotate-45 border-b border-l border-brand-100 bg-white dark:border-brand-500/25 dark:bg-gray-800" />
+                  </div>
                 </div>
                 <h2 id="onboarding-title" ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-gray-900 outline-none dark:text-white">
                   Bienvenido a FinSightAI
@@ -470,12 +497,17 @@ export default function OnboardingTour() {
                     <span key={step.id} className={`h-1.5 flex-1 rounded-full ${index <= stepIndex ? "bg-brand-500" : "bg-gray-200 dark:bg-gray-700"}`} />
                   ))}
                 </div>
-                <h2 id="onboarding-title" ref={headingRef} tabIndex={-1} className="mt-4 text-lg font-semibold text-gray-900 outline-none dark:text-white">
-                  {currentStep.title}
-                </h2>
-                <p id="onboarding-description" className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                  {currentStep.description}
-                </p>
+                <div className={`mt-4 flex items-center gap-3 ${stepIndex % 2 === 1 ? "sm:flex-row-reverse" : ""}`}>
+                  <MascotaTour compact mirrored={stepIndex % 2 === 1} />
+                  <div className="min-w-0 flex-1">
+                    <h2 id="onboarding-title" ref={headingRef} tabIndex={-1} className="text-lg font-semibold text-gray-900 outline-none dark:text-white">
+                      {currentStep.title}
+                    </h2>
+                    <p id="onboarding-description" className="mt-1.5 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                      {currentStep.description}
+                    </p>
+                  </div>
+                </div>
                 {speechAvailable && (
                   <button
                     type="button"

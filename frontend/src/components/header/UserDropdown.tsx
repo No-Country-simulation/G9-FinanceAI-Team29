@@ -4,6 +4,7 @@ import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { obtenerPerfilCompleto } from "../../services/api";
+import { confirmarCierreSesion } from "../../utils/alerts";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -52,6 +53,7 @@ export default function UserDropdown() {
 
   async function handleLogout() {
     closeDropdown();
+    if (!(await confirmarCierreSesion())) return;
     await signOut();
     navigate("/signin", { replace: true, state: { loggedOut: true } });
   }

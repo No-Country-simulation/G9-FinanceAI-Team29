@@ -52,6 +52,7 @@ export interface CrearUsuarioResponse {
 export async function preguntarAgente(
   question: string,
   usuarioId: string,
+  previousAnswer?: string,
 ): Promise<AgentResponse> {
   const id = exigirUsuarioId(usuarioId);
 
@@ -61,6 +62,7 @@ export async function preguntarAgente(
     body: JSON.stringify({
       usuario_id: id,
       question,
+      previous_answer: previousAnswer,
     }),
   });
 

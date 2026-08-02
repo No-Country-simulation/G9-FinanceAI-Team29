@@ -7,6 +7,8 @@ import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { mostrarError, mostrarInfo } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
 
+const MASCOTA_SRC = "/images/mascot/finsight-bird.png";
+
 export default function Recomendaciones() {
   const [resultado, setResultado] = useState<AnalisisResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,6 +81,34 @@ export default function Recomendaciones() {
     return 'text-error-600';
   };
 
+  const describirNivelAhorro = (pct: number) => {
+    if (pct >= 20) return 'alta';
+    if (pct >= 10) return 'media';
+    return 'baja';
+  };
+
+  // El detector de intención del asistente interpreta "numero%" como una
+  // operación matemática a resolver (no como dato financiero) y rechaza la
+  // consulta, así que se reescribe a "numero por ciento" antes de enviarla.
+  const evitarPorcentajeLiteral = (texto: string) =>
+    texto.replace(/(\d+(?:[.,]\d+)?)\s*%/g, '$1 por ciento');
+
+  const preguntarleAFinsi = (recomendacion: string) => {
+    navigate('/asistente-ia', {
+      state: {
+        autoPrompt: `Cuéntame más sobre esta recomendación y cómo aplicarla: "${evitarPorcentajeLiteral(recomendacion)}"`,
+      },
+    });
+  };
+
+  // Se evita escribir el porcentaje como "96.2%": el detector de intención del
+  // asistente interpreta "numero%" como una operación matemática a resolver
+  // y rechaza la consulta en lugar de responderla.
+  const mensajePlanDetallado = () =>
+    resultado
+      ? `Según mi análisis financiero, mi perfil es "${resultado.perfilFinanciero}" y mi capacidad de ahorro es ${describirNivelAhorro(resultado.porcentajeAhorro)}. Ayúdame a armar un plan detallado y paso a paso para mejorar mis finanzas.`
+      : 'Ayúdame a armar un plan financiero detallado.';
+
   return (
     <>
       <PageMeta title="FinanceAI | Recomendaciones" description="Recomendaciones financieras personalizadas" />
@@ -134,11 +164,18 @@ export default function Recomendaciones() {
                     >
                       <div className="flex items-start gap-3">
                         <span className="text-lg">{getIcono(index)}</span>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <p className="font-medium text-gray-800 dark:text-white/90 mb-1">
                             {index === 0 ? 'Prioridad Alta' : index === 1 ? 'Prioridad Media' : 'Sugerencia'}
                           </p>
                           <p className="text-sm text-gray-600 dark:text-gray-400">{rec}</p>
+                          <button
+                            type="button"
+                            onClick={() => preguntarleAFinsi(rec)}
+                            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                          >
+                            💬 Preguntar a Finsi sobre esto
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -147,6 +184,26 @@ export default function Recomendaciones() {
               ) : (
                 <div className="flex items-center justify-center h-32 text-gray-500">
                   No hay recomendaciones disponibles
+                </div>
+              )}
+
+              {resultado.recomendaciones.length > 0 && (
+                <div className="mt-5 flex flex-col items-center gap-2 rounded-lg bg-brand-50 p-4 text-center dark:bg-brand-500/10">
+                  <img
+                    src={MASCOTA_SRC}
+                    alt="Finsi, el asistente financiero"
+                    className="h-36 w-auto object-contain sm:h-44"
+                  />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    ¿Quieres un plan más detallado y a tu medida?
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/asistente-ia', { state: { autoPrompt: mensajePlanDetallado() } })}
+                    className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600"
+                  >
+                    💬 Habla con tu asistente financiero
+                  </button>
                 </div>
               )}
             </div>

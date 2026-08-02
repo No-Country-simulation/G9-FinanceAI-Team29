@@ -9,6 +9,7 @@ import Button from "../ui/button/Button";
 import { mostrarError, mostrarExito } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
 import AuthLegalFooter from "./AuthLegalFooter";
+import AuthBrandWithMascot from "./AuthBrandWithMascot";
 
 export default function SignInForm() {
   const navigate = useNavigate();
@@ -109,22 +110,7 @@ export default function SignInForm() {
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
         <div>
           <div className="mb-5 sm:mb-8">
-            <Link to="/" className="inline-block">
-              <img
-                width={231}
-                height={60}
-                src="/images/logo/logo.png"
-                alt="FinSightAI"
-                className="h-auto w-[231px] object-contain dark:hidden"
-              />
-              <img
-                width={231}
-                height={60}
-                src="/images/logo/logo_white.png"
-                alt="FinSightAI"
-                className="hidden h-auto w-[231px] object-contain dark:block"
-              />
-            </Link>
+            <AuthBrandWithMascot />
             <div
               className="my-5 h-0.5 w-full rounded-full bg-brand-500 dark:bg-brand-400"
               aria-hidden="true"

@@ -8,6 +8,7 @@ import { crearUsuario } from "../../services/api";
 import { mostrarError, mostrarExito } from "../../utils/alerts";
 import AuthLegalFooter from "./AuthLegalFooter";
 import PasswordStrengthMeter from "./PasswordStrengthMeter";
+import AuthBrandWithMascot from "./AuthBrandWithMascot";
 
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 const PASSWORD_HINT =
@@ -138,6 +139,8 @@ export default function SignUpForm() {
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
         <div>
           <div className="mb-5 sm:mb-8">
+            <AuthBrandWithMascot />
+            <div className="my-5 h-0.5 w-full rounded-full bg-brand-500 dark:bg-brand-400" aria-hidden="true" />
             <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
               Crear cuenta
             </h1>

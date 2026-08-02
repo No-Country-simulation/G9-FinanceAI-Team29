@@ -8,6 +8,7 @@ import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 import AccountSwitcher from "../components/header/AccountSwitcher";
 import { navItems, othersItems } from "./AppSidebar";
+import { confirmarCierreSesion } from "../utils/alerts";
 
 type SearchEntry = { name: string; path: string; group: string };
 
@@ -113,6 +114,7 @@ const AppHeader: React.FC = () => {
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   const handleLogout = async () => {
+    if (!(await confirmarCierreSesion())) return;
     await signOut();
     navigate("/signin", { replace: true, state: { loggedOut: true } });
   };
@@ -327,7 +329,7 @@ const AppHeader: React.FC = () => {
               className="h-8 w-auto object-contain dark:hidden"
             />
             <img
-              src="/images/logo/logo_white_cropped.png"
+              src="/images/logo/logo_white.png"
               alt="FinSightAI"
               className="hidden h-8 w-auto object-contain dark:block"
             />

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
+import { confirmarCierreSesion } from '../../utils/alerts';
 
 /**
  * Muestra la cuenta activa y permite cerrar sesión.
@@ -10,6 +11,7 @@ export default function AccountSwitcher() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
+    if (!(await confirmarCierreSesion())) return;
     await signOut();
     navigate('/signin', { replace: true, state: { loggedOut: true } });
   };

@@ -101,3 +101,20 @@ export async function confirmarAccion(
 
   return result.isConfirmed;
 }
+
+export async function confirmarCierreSesion(): Promise<boolean> {
+  const result = await themedSwal().fire({
+    imageUrl: '/images/mascot/finsight-bird-goodbye.png',
+    imageAlt: 'Finsi se despide',
+    imageHeight: 190,
+    title: '¿Nos despedimos por ahora?',
+    text: 'Tu información quedará guardada para cuando regreses.',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, cerrar sesión',
+    cancelButtonText: 'Seguir aquí',
+    reverseButtons: true,
+    focusCancel: true,
+  });
+
+  return result.isConfirmed;
+}

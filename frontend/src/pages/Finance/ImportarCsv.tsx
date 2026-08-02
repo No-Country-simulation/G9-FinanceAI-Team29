@@ -146,8 +146,16 @@ export default function ImportarCsv() {
           </div>
 
           {error && (
-            <div className="mt-5 rounded-lg border border-error-200 bg-error-50 p-4 text-sm text-error-700 dark:border-error-900/40 dark:bg-error-900/20 dark:text-error-300">
-              {error}
+            <div className="mt-5 flex items-center gap-4 rounded-xl border border-error-200 bg-error-50 p-4 text-sm text-error-700 dark:border-error-900/40 dark:bg-error-900/20 dark:text-error-300">
+              <img src="/images/mascot/finsight-bird-import-error.png" alt="Finsi revisando el archivo" className="h-24 w-20 shrink-0 object-contain sm:h-28 sm:w-24" />
+              <div><p className="font-semibold">Revisemos el archivo</p><p className="mt-1">{error}</p></div>
+            </div>
+          )}
+
+          {cargando && (
+            <div className="mt-5 flex items-center gap-4 rounded-xl border border-brand-100 bg-brand-25 p-4 dark:border-brand-500/20 dark:bg-brand-500/10">
+              <img src="/images/mascot/finsight-bird-loading.png" alt="Finsi procesando la información" className="h-24 w-20 shrink-0 animate-pulse object-contain sm:h-28 sm:w-24" />
+              <div><p className="font-semibold text-gray-800 dark:text-white">Finsi está procesando tus movimientos</p><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Puede tardar un momento. No cierres esta ventana.</p></div>
             </div>
           )}
 
@@ -163,14 +171,12 @@ export default function ImportarCsv() {
 
         {resultado?.resumen && (
           <div className="rounded-2xl border border-success-200 bg-success-50 p-6 dark:border-success-900/40 dark:bg-success-900/20">
-            <h2 className="text-lg font-semibold text-success-700 dark:text-success-300">
-              CSV importado correctamente
-            </h2>
+            <div className="flex items-center gap-4">
+              <img src="/images/mascot/finsight-bird-import-success.png" alt="Finsi confirma la importación" className="h-28 w-24 shrink-0 object-contain sm:h-36 sm:w-32" />
+              <div><h2 className="text-lg font-semibold text-success-700 dark:text-success-300">CSV importado correctamente</h2>
 
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-              {resultado.usuarioId ?? usuarioId} quedó listo para usar en el
-              dashboard y el asistente IA.
-            </p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{resultado.usuarioId ?? usuarioId} quedó listo para usar en el dashboard y el asistente IA.</p></div>
+            </div>
 
             <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
               <Dato

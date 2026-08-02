@@ -7,12 +7,20 @@ import { speakText, stopSpeaking, isSpeechSupported } from "../../utils/speech";
 import { playSendSound, playReceiveSound, playErrorSound, startTypingSound, stopTypingSound } from "../../utils/sound";
 import { renderMensajeAsistente } from "../../utils/renderMensajeAsistente";
 import { setAgentTabStatus } from "../../utils/tabTitle";
+import {
+  esErrorSinDatos,
+  MENSAJE_SIN_DATOS,
+  MENSAJE_OTRA_CONSULTA,
+  construirMensajeDespedida,
+} from "../../utils/sinDatosFlow";
 
 interface Message {
   id: number;
   role: "user" | "assistant";
   text: string;
 }
+
+type PasoInteractivo = "sin-datos" | "otra-consulta" | null;
 
 const sugerencias = [
   "Resume mis gastos del último mes",
@@ -37,12 +45,13 @@ function PersonaHablandoIcon({ className }: { className?: string }) {
 /** Botón flotante de acceso rápido al Asistente IA, visible en todas las
  * secciones autenticadas excepto la propia página del Asistente IA. */
 export default function FloatingChatWidget() {
-  const { usuarioId } = useAuth();
+  const { usuarioId, email } = useAuth();
   const navigate = useNavigate();
   const [abierto, setAbierto] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [value, setValue] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [pasoPendiente, setPasoPendiente] = useState<PasoInteractivo>(null);
   const [vozActiva, setVozActiva] = useState(
     () => localStorage.getItem("asistenteVozActiva") === "true"
   );
@@ -84,6 +93,7 @@ export default function FloatingChatWidget() {
   const enviarPregunta = async (pregunta: string) => {
     if (!pregunta.trim() || enviando) return;
     setInvitacionVisible(false);
+    setPasoPendiente(null);
     setMessages((prev) => [...prev, { id: prev.length + 1, role: "user", text: pregunta }]);
     setValue("");
     setEnviando(true);
@@ -92,8 +102,9 @@ export default function FloatingChatWidget() {
       playSendSound();
       startTypingSound();
     }
+    const previousAnswer = [...messages].reverse().find((m) => m.role === "assistant")?.text;
     try {
-      const { answer } = await preguntarAgente(pregunta, usuarioId);
+      const { answer } = await preguntarAgente(pregunta, usuarioId, previousAnswer);
       setMessages((prev) => [...prev, { id: prev.length + 1, role: "assistant", text: answer }]);
       setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playReceiveSound();
@@ -103,17 +114,26 @@ export default function FloatingChatWidget() {
       if (!invitacionDescartada && RESPUESTAS_PARA_INVITAR.includes(respuestasCountRef.current)) {
         setInvitacionVisible(true);
       }
-    } catch {
+    } catch (error) {
       setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playErrorSound();
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: prev.length + 1,
-          role: "assistant",
-          text: "No pude responder ahora mismo. Intenta de nuevo o abre el Asistente IA completo.",
-        },
-      ]);
+
+      if (error instanceof Error && esErrorSinDatos(error.message)) {
+        setMessages((prev) => [
+          ...prev,
+          { id: prev.length + 1, role: "assistant", text: MENSAJE_SIN_DATOS },
+        ]);
+        setPasoPendiente("sin-datos");
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: prev.length + 1,
+            role: "assistant",
+            text: "No pude responder ahora mismo. Intenta de nuevo o abre el Asistente IA completo.",
+          },
+        ]);
+      }
     } finally {
       stopTypingSound();
       setEnviando(false);
@@ -121,6 +141,40 @@ export default function FloatingChatWidget() {
   };
 
   const handleSubmit = () => void enviarPregunta(value);
+
+  const irAImportarDatos = () => {
+    setPasoPendiente(null);
+    setAbierto(false);
+    navigate("/importar-csv");
+  };
+
+  const responderOtraConsulta = () => {
+    setMessages((prev) => [
+      ...prev,
+      { id: prev.length + 1, role: "assistant", text: MENSAJE_OTRA_CONSULTA },
+    ]);
+    setPasoPendiente("otra-consulta");
+  };
+
+  const nuevoChat = () => {
+    setPasoPendiente(null);
+    setMessages([]);
+    respuestasCountRef.current = 0;
+    setInvitacionDescartada(false);
+  };
+
+  const finalizarSesion = async () => {
+    setPasoPendiente(null);
+    const despedida = await construirMensajeDespedida(usuarioId, email);
+    setMessages((prev) => [
+      ...prev,
+      { id: prev.length + 1, role: "assistant", text: despedida },
+    ]);
+    setTimeout(() => {
+      setAbierto(false);
+      navigate("/");
+    }, 1000);
+  };
 
   return (
     <>
@@ -229,6 +283,42 @@ export default function FloatingChatWidget() {
                 <span className="size-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s] dark:bg-gray-500" />
                 <span className="size-1.5 animate-bounce rounded-full bg-gray-400 dark:bg-gray-500" />
               </div>
+            </div>
+          )}
+
+          {!enviando && pasoPendiente && (
+            <div className="flex justify-start gap-2">
+              {pasoPendiente === "sin-datos" ? (
+                <>
+                  <button
+                    onClick={irAImportarDatos}
+                    className="rounded-lg bg-brand-500 px-3 py-1.5 text-theme-xs font-medium text-white transition hover:bg-brand-600"
+                  >
+                    Sí
+                  </button>
+                  <button
+                    onClick={responderOtraConsulta}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-theme-xs font-medium text-gray-600 transition hover:bg-gray-100 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.06]"
+                  >
+                    No
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={nuevoChat}
+                    className="rounded-lg bg-brand-500 px-3 py-1.5 text-theme-xs font-medium text-white transition hover:bg-brand-600"
+                  >
+                    Sí
+                  </button>
+                  <button
+                    onClick={() => void finalizarSesion()}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-theme-xs font-medium text-gray-600 transition hover:bg-gray-100 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.06]"
+                  >
+                    No
+                  </button>
+                </>
+              )}
             </div>
           )}
 

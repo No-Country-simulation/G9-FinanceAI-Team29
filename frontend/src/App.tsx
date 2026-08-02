@@ -22,9 +22,12 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { usePageVisibilityTitle } from "./hooks/usePageVisibilityTitle";
 import { ConsoleBanner } from "./components/common/ConsoleBanner";
 
-export default function App() {
+function TabTitleManager() {
   usePageVisibilityTitle();
+  return null;
+}
 
+export default function App() {
   return (
     <>
       <Router>
@@ -62,6 +65,7 @@ export default function App() {
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <TabTitleManager />
         </AuthProvider>
       </Router>
     </>

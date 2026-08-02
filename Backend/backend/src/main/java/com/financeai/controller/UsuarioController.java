@@ -234,6 +234,26 @@ public class UsuarioController {
         return ResponseEntity.ok(recomendaciones);
     }
 
+    @GetMapping("/por-auth/{authUserId}")
+    public ResponseEntity<?> obtenerPorAuthUserId(
+            @PathVariable String authUserId
+    ) {
+        return usuarioRepository.findByAuthUserId(authUserId)
+                .<ResponseEntity<?>>map(usuario -> ResponseEntity.ok(
+                        Map.of(
+                                "usuarioId", usuario.getId(),
+                                "authUserId", usuario.getAuthUserId(),
+                                "email", usuario.getEmail()
+                        )
+                ))
+                .orElseGet(() -> ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(Map.of(
+                                "mensaje",
+                                "No existe un perfil asociado a ese usuario de Supabase."
+                        )));
+    }
+
     @GetMapping("/{id}/perfil")
     public ResponseEntity<Map<String, Object>> obtenerPerfil(
             @PathVariable String id
