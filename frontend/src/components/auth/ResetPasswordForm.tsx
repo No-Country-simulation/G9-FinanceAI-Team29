@@ -6,6 +6,11 @@ import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
 import { mostrarError, mostrarExito } from "../../utils/alerts";
 import { supabase } from "../../services/supabase";
+import PasswordStrengthMeter from "./PasswordStrengthMeter";
+
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const PASSWORD_HINT =
+  "Mínimo 8 caracteres, con al menos una mayúscula, una minúscula, un número y un símbolo.";
 
 export default function ResetPasswordForm() {
   const navigate = useNavigate();
@@ -34,8 +39,8 @@ export default function ResetPasswordForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (password.length < 8) {
-      await mostrarError("Contraseña muy corta", "Usa al menos 8 caracteres.");
+    if (!PASSWORD_REGEX.test(password)) {
+      await mostrarError("Contraseña insegura", PASSWORD_HINT);
       return;
     }
 
@@ -118,7 +123,7 @@ export default function ResetPasswordForm() {
                   <div className="relative">
                     <Input
                       type={showPassword ? "text" : "password"}
-                      placeholder="Mínimo 8 caracteres"
+                      placeholder="Mínimo 8, mayúscula, número y símbolo"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -133,6 +138,8 @@ export default function ResetPasswordForm() {
                       )}
                     </span>
                   </div>
+
+                  <PasswordStrengthMeter password={password} />
                 </div>
                 <div>
                   <Label>

@@ -7,6 +7,11 @@ import Checkbox from "../form/input/Checkbox";
 import { crearUsuario } from "../../services/api";
 import { mostrarError, mostrarExito } from "../../utils/alerts";
 import AuthLegalFooter from "./AuthLegalFooter";
+import PasswordStrengthMeter from "./PasswordStrengthMeter";
+
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const PASSWORD_HINT =
+  "Mínimo 8 caracteres, con al menos una mayúscula, una minúscula, un número y un símbolo.";
 
 export default function SignUpForm() {
   const navigate = useNavigate();
@@ -50,6 +55,11 @@ export default function SignUpForm() {
           ? `Falta completar: ${faltantes[0]}.`
           : `Faltan completar los siguientes campos: ${faltantes.join(", ")}.`;
       await mostrarError("Faltan datos", texto);
+      return;
+    }
+
+    if (!PASSWORD_REGEX.test(password)) {
+      await mostrarError("Contraseña insegura", PASSWORD_HINT);
       return;
     }
 
@@ -200,7 +210,7 @@ export default function SignUpForm() {
                     name="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres, con mayúscula, número y símbolo"
                     type={showPassword ? "text" : "password"}
                     disabled={loading}
                   />
@@ -222,6 +232,8 @@ export default function SignUpForm() {
                     )}
                   </button>
                 </div>
+
+                <PasswordStrengthMeter password={password} />
               </div>
 
               <div className="flex items-start gap-3">

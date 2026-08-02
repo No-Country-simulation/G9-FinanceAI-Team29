@@ -21,6 +21,12 @@ import type { ResumenTransacciones, Transaccion } from '../types/finance';
 import { exportToPdf } from '../utils/export/exportPdf';
 import { formatMoney, formatPercent } from '../utils/export/format';
 import { fetchLogoBase64 } from '../utils/export/theme';
+import {
+  actualizarCoincidenciaPassword,
+  actualizarFuerzaPassword,
+  crearHtmlCoincidenciaPassword,
+  crearHtmlFuerzaPassword,
+} from '../utils/passwordSwalStrength';
 
 const money = new Intl.NumberFormat('es-AR', {
   style: 'currency',
@@ -207,7 +213,7 @@ export default function UserProfiles() {
     }
   };
 
-  const campoPassword = (id: string, label: string, placeholder: string, autocomplete: string) => `
+  const campoPassword = (id: string, label: string, placeholder: string, autocomplete: string, extraHtml = '') => `
     <div style="text-align:left; margin-top:14px;">
       <label for="${id}" class="swal2-input-label" style="margin-top:0;">${label}</label>
       <div style="position:relative">
@@ -216,6 +222,7 @@ export default function UserProfiles() {
           ${EYE_CLOSE_ICON_SVG}
         </button>
       </div>
+      ${extraHtml}
     </div>
   `;
 
@@ -223,13 +230,15 @@ export default function UserProfiles() {
     const idActual = 'swal-password-actual';
     const idNueva = 'swal-password-nueva';
     const idConfirmar = 'swal-password-confirmar';
+    const idFuerza = 'swal-password-fuerza';
+    const idCoincidencia = 'swal-password-coincidencia';
 
     const resultado = await Swal.fire({
       title: 'Cambiar contraseña',
       html:
         campoPassword(idActual, 'Contraseña actual', 'Tu contraseña actual', 'current-password') +
-        campoPassword(idNueva, 'Nueva contraseña', 'Mínimo 8 caracteres', 'new-password') +
-        campoPassword(idConfirmar, 'Repetir nueva contraseña', 'Repite la nueva contraseña', 'new-password'),
+        campoPassword(idNueva, 'Nueva contraseña', 'Mínimo 8 caracteres', 'new-password', crearHtmlFuerzaPassword(idFuerza)) +
+        campoPassword(idConfirmar, 'Repetir nueva contraseña', 'Repite la nueva contraseña', 'new-password', crearHtmlCoincidenciaPassword(idCoincidencia)),
       showCancelButton: true,
       confirmButtonText: 'Actualizar',
       cancelButtonText: 'Cancelar',
@@ -246,6 +255,18 @@ export default function UserProfiles() {
             toggle.innerHTML = mostrando ? EYE_CLOSE_ICON_SVG : EYE_ICON_SVG;
             toggle.setAttribute('aria-label', mostrando ? 'Mostrar contraseña' : 'Ocultar contraseña');
           });
+        });
+
+        const inputNueva = document.getElementById(idNueva) as HTMLInputElement | null;
+        const inputConfirmar = document.getElementById(idConfirmar) as HTMLInputElement | null;
+
+        inputNueva?.addEventListener('input', () => {
+          actualizarFuerzaPassword(idFuerza, inputNueva.value);
+          actualizarCoincidenciaPassword(idCoincidencia, inputNueva.value, inputConfirmar?.value ?? '');
+        });
+
+        inputConfirmar?.addEventListener('input', () => {
+          actualizarCoincidenciaPassword(idCoincidencia, inputNueva?.value ?? '', inputConfirmar.value);
         });
 
         (document.getElementById(idActual) as HTMLInputElement | null)?.focus();
