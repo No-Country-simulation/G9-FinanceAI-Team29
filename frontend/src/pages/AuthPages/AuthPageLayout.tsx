@@ -57,10 +57,10 @@ export default function AuthLayout({
             )}
           </div>
         </div>
-        <div className="fixed z-50 bottom-20 right-4 lg:bottom-4 sm:right-6">
+        <div className="fixed z-50 bottom-28 right-4 lg:bottom-8 sm:right-6">
           <ThemeTogglerTwo />
         </div>
-        <div className="fixed z-40 inset-x-0 bottom-0 flex flex-col items-center gap-1 bg-white/95 px-4 py-3 text-sm text-center text-gray-500 backdrop-blur-sm dark:bg-gray-900/95 dark:text-gray-400 lg:hidden">
+        <div className="fixed z-40 inset-x-0 bottom-2 flex flex-col items-center gap-1 bg-white/95 px-4 py-3 text-sm text-center text-gray-500 backdrop-blur-sm dark:bg-gray-900/95 dark:text-gray-400 lg:hidden">
           <p>&copy; {new Date().getFullYear()} - TwentyNineDevs</p>
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
             <Link
