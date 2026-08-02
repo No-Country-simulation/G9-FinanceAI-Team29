@@ -1,6 +1,7 @@
 from typing import Any
 import httpx
 from app.config import settings
+from app.services.backend_http import service_headers
 
 
 class GoalRepository:
@@ -41,8 +42,15 @@ class GoalRepository:
         }
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        headers = {**service_headers(), **kwargs.pop("headers", {})}
         try:
-            response = httpx.request(method, f"{self._base_url}{path}", timeout=self._timeout, **kwargs)
+            response = httpx.request(
+                method,
+                f"{self._base_url}{path}",
+                timeout=self._timeout,
+                headers=headers,
+                **kwargs,
+            )
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as error:

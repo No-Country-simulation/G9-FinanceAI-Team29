@@ -21,20 +21,35 @@ public class UsuarioService {
 
     @Transactional
     public Usuario registrarNuevoUsuario(RegisterRequest request) {
-        String displayName = (request.getNombres() + " " + request.getApellidos()).trim();
+        String email = request.getEmail() == null ? null : request.getEmail().trim();
 
-        // 1. Crear primero en auth.users a través de Supabase Auth API
+        // 0. Rechazar duplicados ANTES de crear el auth.user en Supabase.
+        //    Evita usuarios huérfanos y unifica el comportamiento con POST /api/usuarios.
+        if (email == null || email.isEmpty()) {
+            throw new IllegalArgumentException("El email es obligatorio.");
+        }
+        if (usuarioRepository.existsByEmailIgnoreCase(email)) {
+            throw new IllegalArgumentException("Ya existe un perfil con ese email.");
+        }
+
+        // 1. Crear en auth.users a través de Supabase Auth API.
         String authUserId = supabaseAuthService.crearUsuarioEnAuthSupabase(
-                request.getEmail(),
+                email,
                 request.getPassword(),
-                request.getNombres(), request.getApellidos()
+                request.getNombres(),
+                request.getApellidos()
         );
 
-        // 2. Crear la entidad local con formato USR****
+        // 1b. Seguridad extra: que ese authUserId no tenga ya un perfil local.
+        if (usuarioRepository.existsByAuthUserId(authUserId)) {
+            throw new IllegalStateException("Ese usuario de Supabase ya tiene un perfil.");
+        }
+
+        // 2. Crear la entidad local con formato USR####.
         Usuario usuario = new Usuario();
-        usuario.setId(generarSiguienteIdUsuario()); // Genera USR1001
+        usuario.setId(generarSiguienteIdUsuario());
         usuario.setAuthUserId(authUserId);
-        usuario.setEmail(request.getEmail());
+        usuario.setEmail(email);
         usuario.setNombre(request.getNombres());
         usuario.setApellido(request.getApellidos());
         usuario.setPerfilFinanciero("En evaluacion");
