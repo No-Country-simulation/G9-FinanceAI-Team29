@@ -19,6 +19,7 @@ from app.services.llm.prompt_builder import PromptBuilder
 from app.services.llm.schemas import LLMResponse
 from app.services.llm.service import LLMService
 from app.services.goals.repository import GoalRepository
+from app.services.support import SupportAgent, SupportIntentDetector
 from app.services.backend_financial_data import (
     BackendDataError,
     fetch_live_analysis,
@@ -39,6 +40,7 @@ class FinSightAgentService:
         self.router = AgentRouter()
         self.policies = AgentPolicies()
         self.goal_repository = GoalRepository()
+        self.support_agent = SupportAgent(llm=self.llm)
 
     async def chat(
         self,
@@ -48,6 +50,22 @@ class FinSightAgentService:
         previous_answer: str | None = None,
     ) -> LLMResponse:
         query = self._prepare_query(question)
+
+        # El soporte se evalúa antes de las políticas financieras para que las
+        # consultas sobre el uso de FinSightAI no sean tratadas como fuera de alcance.
+        # El flujo financiero existente permanece intacto para el resto.
+        if (
+            SupportIntentDetector.is_support_query(query.original)
+            or SupportIntentDetector.is_support_follow_up(
+                query.original, previous_answer
+            )
+        ):
+            return await self.support_agent.answer(
+                usuario_id=usuario_id,
+                question=query.original,
+                provider=provider,
+                previous_answer=previous_answer,
+            )
 
         policy = self.policies.evaluate(usuario_id=usuario_id, query=query)
         if not policy.allowed:

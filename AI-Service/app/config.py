@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     models_dir: Path = PROJECT_DIR / "models"
     backend_url: str = "http://localhost:8081/api"
 
+    # Soporte técnico RAG
+    support_email: str = "g9latamteam29@gmail.com"
+    support_knowledge_dir: Path = BASE_DIR / "services" / "support" / "docs"
+
     model_config = SettingsConfigDict(
         env_file=PROJECT_DIR / ".env",
         env_file_encoding="utf-8",
