@@ -4,7 +4,7 @@ export default function AuthLegalFooter() {
   const location = useLocation();
 
   return (
-    <div className="pt-4 pb-2 flex-col items-center gap-1 text-sm text-center text-gray-500 dark:text-gray-400 hidden lg:flex">
+    <div className="fixed z-40 inset-x-0 bottom-8 left-0 w-full lg:w-1/2 pt-4 pb-2 flex-col items-center gap-1 text-sm text-center text-gray-500 dark:text-gray-400 hidden lg:flex">
       <p>&copy; {new Date().getFullYear()} - TwentyNineDevs</p>
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
         <Link
