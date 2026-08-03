@@ -14,6 +14,7 @@ frontend/node_modules
 dist
 dist-ssr
 *.local
+.runlogs/
 
 Backend/backend/target/
 frontend/.currency-check/

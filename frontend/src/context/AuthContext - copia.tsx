@@ -43,8 +43,8 @@ const API_BASE = normalizarApiBase(
     'http://localhost:8081/api',
 );
 
-interface MiPerfilResponse {
-  id: string;
+interface UsuarioPorAuthResponse {
+  usuarioId: string;
   authUserId?: string;
   email?: string | null;
 }
@@ -79,30 +79,20 @@ function storageKey(authUserId: string): string {
   return `finsight.usuarioId.${authUserId}`;
 }
 
-/**
- * Recupera el perfil del usuario autenticado desde el backend.
- * El backend deriva el authUserId desde el JWT de Supabase.
- */
-async function obtenerMiPerfil(
-  accessToken: string,
-): Promise<MiPerfilResponse> {
-  const response = await fetch(`${API_BASE}/usuarios/me`, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${accessToken}`,
+async function obtenerUsuarioPorAuthId(
+  authUserId: string,
+): Promise<UsuarioPorAuthResponse> {
+  const response = await fetch(
+    `${API_BASE}/usuarios/por-auth/${encodeURIComponent(authUserId)}`,
+    {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
     },
-  });
+  );
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error('La sesión no es válida o venció.');
-    }
-
-    if (response.status === 403) {
-      throw new Error('No tenés permiso para acceder a este perfil.');
-    }
-
     if (response.status === 404) {
       throw new Error(
         'No existe un perfil financiero asociado a esta cuenta.',
@@ -114,14 +104,14 @@ async function obtenerMiPerfil(
     );
   }
 
-  const data = (await response.json()) as Partial<MiPerfilResponse>;
+  const data = (await response.json()) as Partial<UsuarioPorAuthResponse>;
 
-  if (!data.id || typeof data.id !== 'string') {
+  if (!data.usuarioId || typeof data.usuarioId !== 'string') {
     throw new Error('El backend no devolvió un usuarioId válido.');
   }
 
   return {
-    id: data.id,
+    usuarioId: data.usuarioId,
     authUserId: data.authUserId,
     email: data.email,
   };
@@ -150,12 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSessionLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
-        setSession(nextSession);
-        setSessionLoading(false);
-      },
-    );
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setSessionLoading(false);
+    });
 
     return () => {
       mounted = false;
@@ -166,22 +154,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /**
    * Recupera el USRxxxx correspondiente a la cuenta real autenticada.
    * Usa localStorage como caché y, si no existe (por ejemplo, un navegador
-   * nuevo o el caché borrado), consulta al backend mediante /api/usuarios/me
-   * enviando el JWT de Supabase.
+   * nuevo o el caché borrado), consulta al backend mediante el UUID de Supabase.
    */
   useEffect(() => {
     let cancelled = false;
 
     const authUserId = session?.user?.id;
-    const accessToken = session?.access_token;
     const correo = session?.user?.email?.toLowerCase() ?? null;
     const esAdmin = correo ? ADMIN_EMAILS.includes(correo) : false;
     const esDemo = correo ? Boolean(EMAIL_TO_USUARIO[correo]) : false;
 
-    if (!authUserId || !accessToken) {
+    if (!authUserId) {
       setUsuarioRegistradoId('');
       setUsuarioLoading(false);
-
       return () => {
         cancelled = true;
       };
@@ -190,7 +175,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (esAdmin || esDemo) {
       setUsuarioRegistradoId('');
       setUsuarioLoading(false);
-
       return () => {
         cancelled = true;
       };
@@ -202,7 +186,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (guardado) {
       setUsuarioRegistradoId(guardado);
       setUsuarioLoading(false);
-
       return () => {
         cancelled = true;
       };
@@ -210,17 +193,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setUsuarioLoading(true);
 
-    void obtenerMiPerfil(accessToken)
+    void obtenerUsuarioPorAuthId(authUserId)
       .then((perfil) => {
         if (cancelled) return;
 
-        const idLimpio = perfil.id.trim();
-
-        localStorage.setItem(
-          storageKey(authUserId),
-          idLimpio,
-        );
-
+        const idLimpio = perfil.usuarioId.trim();
+        localStorage.setItem(storageKey(authUserId), idLimpio);
         setUsuarioRegistradoId(idLimpio);
       })
       .catch((error) => {
@@ -230,7 +208,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'No se pudo recuperar el usuario asociado a la sesión:',
           error,
         );
-
         setUsuarioRegistradoId('');
       })
       .finally(() => {
@@ -242,11 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [
-    session?.user?.id,
-    session?.user?.email,
-    session?.access_token,
-  ]);
+  }, [session?.user?.id, session?.user?.email]);
 
   const email = session?.user?.email?.toLowerCase() ?? null;
   const isAdmin = email ? ADMIN_EMAILS.includes(email) : false;
@@ -310,44 +283,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!session) return;
 
-    const minutos = Number(
-      import.meta.env.VITE_INACTIVITY_MINUTES ?? 25,
-    );
+    const minutos = Number(import.meta.env.VITE_INACTIVITY_MINUTES ?? 25);
     const timeoutMs = minutos * 60 * 1000;
     let timer: number;
 
     const reiniciar = () => {
       window.clearTimeout(timer);
-
       timer = window.setTimeout(() => {
         void signOut();
       }, timeoutMs);
     };
 
-    const eventos = [
-      'mousemove',
-      'mousedown',
-      'keydown',
-      'scroll',
-      'touchstart',
-    ];
-
-    eventos.forEach((evento) =>
-      window.addEventListener(evento, reiniciar, { passive: true }),
-    );
-
+    const eventos = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+    eventos.forEach((ev) => window.addEventListener(ev, reiniciar, { passive: true }));
     reiniciar();
 
     return () => {
       window.clearTimeout(timer);
-
-      eventos.forEach((evento) =>
-        window.removeEventListener(evento, reiniciar),
-      );
+      eventos.forEach((ev) => window.removeEventListener(ev, reiniciar));
     };
-
-    // signOut es estable en la práctica; no lo incluimos para no
-    // reiniciar el timer en cada render.
+    // signOut es estable en la práctica; no lo incluimos para no reiniciar el timer en cada render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
