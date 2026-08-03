@@ -574,7 +574,7 @@ export default function UserProfiles() {
           <h4 className="mb-2 text-lg font-semibold text-gray-800 dark:text-white/90">Seguridad</h4>
           <FilaAjuste
             titulo="Cambiar contraseña"
-            descripcion="Actualiza la contraseña de tu cuenta de Supabase."
+            descripcion="Actualiza la contraseña de tu cuenta."
             accion={<Button variant="outline" size="sm" startIcon={<EditIcon />} onClick={cambiarPassword}>Cambiar contraseña</Button>}
           />
         </div>
