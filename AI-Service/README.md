@@ -1,370 +1,154 @@
-\# 🚀 Levantar AI-Service desde cero
+# Sprint Summary – AI Service (FinSightAI)
 
+## ✅ Funcionalidades implementadas
 
+### 🤖 Asistente financiero
 
-\## Requisitos
+- Motor determinístico para consultas financieras basado en datos reales.
+- Las consultas financieras tienen prioridad sobre el soporte técnico.
+- Soporte para contexto conversacional utilizando la respuesta anterior (`previous_answer`).
 
+---
 
+## 💰 Consultas financieras
 
-\- Python 3.12+
+Se agregaron consultas como:
 
-\- Acceso a las variables de entorno del proyecto
+- Gastos de hoy, ayer y anteayer.
+- Día anterior / día siguiente (seguimiento contextual).
+- Último gasto.
+- Mayor gasto.
+- Categoría con mayor gasto.
+- Total gastado por mes.
+- Total ingresado por mes.
+- Comparaciones por fechas.
+- Consultas sobre movimientos específicos.
+- Consultas por mes utilizando nombres ("julio", "agosto", etc.).
 
+---
 
+## 🧠 Contexto conversacional
 
-\---
+El asistente ahora comprende preguntas de seguimiento como:
 
+- ¿Y el día anterior?
+- ¿Y el siguiente?
+- ¿Y el mes pasado?
+- ¿Y julio?
+- ¿Eso corresponde a julio?
 
+---
 
-\## 1. Entrar al proyecto
+## 📅 Manejo de fechas
 
+- Se agregó soporte para zona horaria enviada desde el frontend.
+- El frontend envía automáticamente:
 
-
-```powershell
-
-cd AI-Service
-
+```ts
+Intl.DateTimeFormat().resolvedOptions().timeZone
 ```
 
+- El backend recibe `time_zone`.
+- Se implementó fallback seguro a UTC cuando la zona es inválida.
 
+---
 
-\---
+## 🛠️ Soporte interactivo
 
+Se mejoró el flujo de soporte para:
 
+- Importación de CSV.
+- Diagnóstico guiado.
+- Validación de requisitos del CSV.
+- Derivación a la página de soporte cuando corresponde.
+- Evitar ciclos infinitos durante el diagnóstico.
 
-\## 2. Crear el entorno virtual
+---
 
+## 🎨 Frontend
 
+- Render de enlaces Markdown.
+- Navegación interna hacia `/soporte`.
+- Bienvenida inicial de Finsi.
+- El mensaje de bienvenida solo aparece en el primer mensaje de la conversación.
 
-Solo la primera vez:
+---
 
+## 🧪 Testing
 
+Estado actual:
 
-```powershell
+- ✅ 123 tests aprobados.
+- ✅ 28 subtests aprobados.
+- ✅ Frontend compila correctamente (`npm run build`).
 
-py -3.12 -m venv .venv
+---
 
-```
+# Bugs conocidos
 
+Actualmente existen algunos comportamientos pendientes de mejorar.
 
+## 1. Consultas mensuales específicas
 
-Si no funciona `py -3.12`, comprobar las versiones instaladas:
+Consultas como:
 
+- ¿Cuánto gasté en julio?
+- ¿Qué día gasté más en julio?
 
+En algunos casos son interpretadas como consultas de categoría.
 
-```powershell
+Deberían responder:
 
-py -0p
+- Total del mes.
+- Día de mayor gasto.
 
-```
+---
 
+## 2. Seguimiento de movimientos
 
-
-\---
-
-
-
-\## 3. Activar el entorno virtual
-
-
-
-```powershell
-
-.venv\\\\Scripts\\\\Activate.ps1
-
-```
-
-
-
-Si PowerShell bloquea la ejecución:
-
-
-
-```powershell
-
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-
-```
-
-
-
-Y volver a activar:
-
-
-
-```powershell
-
-.venv\\\\Scripts\\\\Activate.ps1
+Después de una consulta incorrectamente interpretada:
 
 ```
-
-
-
-\---
-
-
-
-\## 4. Instalar dependencias
-
-
-
-```powershell
-
-python -m pip install --upgrade pip
-
-pip install -r requirements.txt
-
+¿Qué movimiento fue ese?
 ```
 
+no puede recuperar la fecha previa.
 
+Este problema desaparecerá al corregir el punto anterior.
 
-\---
+---
 
+## 3. Fecha actual
 
+Actualmente existen mejoras pendientes para:
 
-\## 5. Crear el archivo `.env`
+- ¿Qué día es hoy?
+- ¿En qué mes estamos?
 
+utilizando siempre la zona horaria del usuario.
 
+---
 
-El archivo `.env` no se sube al repositorio.
+## 4. Contexto mensual
 
-
-
-por eso lo incluyo aqui
-
-
-
-Completar también cualquier variable de Supabase o base de datos que use el proyecto actual.
-
-
-
-\---
-
-
-
-\## 6. Levantar FastAPI
-
-
-
-```powershell
-
-uvicorn app.main:app --reload
+Se desea mejorar conversaciones como:
 
 ```
+¿Cuánto gasté en julio?
 
+¿Y agosto?
 
-
-Si `uvicorn` no es reconocido:
-
-
-
-```powershell
-
-python -m uvicorn app.main:app --reload
-
+¿Y septiembre?
 ```
 
+manteniendo automáticamente el contexto.
 
+---
 
-\---
+# Próximas mejoras
 
-
-
-\## 7. Abrir Swagger
-
-
-
-```text
-
-http://127.0.0.1:8000/docs
-
-```
-
-
-
-\---
-
-
-
-\## 8. Probar el agente IA
-
-
-
-Buscar:
-
-
-
-```text
-
-POST /agent/chat
-
-```
-
-
-
-Usar:
-
-
-
-```json
-
-{
-
-\&#x20; "usuario\\\_id": "USR0001",
-
-\&#x20; "question": "¿Cómo está mi situación financiera?"
-
-}
-
-```
-
-
-
-\---
-
-
-
-\## 9. Probar otro usuario
-
-
-
-Cambiar únicamente el `usuario\\\_id`:
-
-
-
-```json
-
-{
-
-\&#x20; "usuario\\\_id": "USR0042",
-
-\&#x20; "question": "¿En qué estoy gastando más dinero?"
-
-}
-
-```
-
-
-
-El usuario debe existir en los datos disponibles para el AI-Service.
-
-
-
-\---
-
-
-
-\## 10. Detener el servidor
-
-
-
-En la terminal:
-
-
-
-```text
-
-Ctrl + C
-
-```
-
-
-
-\---
-
-
-
-\# Inicio habitual
-
-
-
-Después de la primera instalación, solo hace falta:
-
-
-
-```powershell
-
-cd AI-Service
-
-.venv\\\\Scripts\\\\Activate.ps1
-
-python -m uvicorn app.main:app --reload
-
-```
-
-
-
-\---
-
-
-
-\# Si el entorno virtual se rompe
-
-
-
-Eliminarlo:
-
-
-
-```powershell
-
-Remove-Item -Recurse -Force .venv
-
-```
-
-
-
-Volver a crearlo:
-
-
-
-```powershell
-
-py -3.12 -m venv .venv
-
-.venv\\\\Scripts\\\\Activate.ps1
-
-python -m pip install --upgrade pip
-
-pip install -r requirements.txt
-
-```
-
-
-
-\---
-
-
-
-\# URLs
-
-
-
-| Servicio | URL |
-
-|---|---|
-
-| AI-Service | http://127.0.0.1:8000 |
-
-| Swagger | http://127.0.0.1:8000/docs |
-
-
-
-\---
-
-
-
-\# Importante
-
-
-
-\- No usar Python 3.14 para este proyecto.
-
-\- Usar Python 3.12.
-
-\- El `.env` no se commitea.
-
-\- Las API keys no deben compartirse en GitHub.
-
-\- Si aparece `GEMINI\\\_API\\\_KEY no está configurada`, revisar que `LLM\\\_PROVIDER=groq` o agregar la clave de Gemini.
-
+- Mejorar el router semántico para consultas mensuales.
+- Mejorar el seguimiento contextual de meses.
+- Mayor memoria conversacional.
+- Más consultas financieras avanzadas.
+- Optimización del bundle del frontend mediante code splitting.

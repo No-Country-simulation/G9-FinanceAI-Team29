@@ -166,6 +166,7 @@ export default function AsistenteIA() {
   const [chatActualId, setChatActualId] = useState<string | null>(null);
   const [historialAbierto, setHistorialAbierto] = useState(false);
   const autoPromptEnviadoRef = useRef(false);
+  const mensajesScrollRef = useRef<HTMLDivElement>(null);
 
   const nombreBienvenida = useMemo(() => {
     const metadata = session?.user.user_metadata;
@@ -205,6 +206,10 @@ export default function AsistenteIA() {
     stopSpeaking();
     stopTypingSound();
   }, []);
+
+  useEffect(() => {
+    mensajesScrollRef.current?.scrollTo({ top: mensajesScrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, enviando, pasoPendiente]);
 
   useEffect(() => {
     if (messages.length === 0) return;
@@ -482,7 +487,7 @@ export default function AsistenteIA() {
               )}
             </div>
           </div>
-          <div className="custom-scrollbar flex-1 overflow-y-auto">
+          <div ref={mensajesScrollRef} className="custom-scrollbar flex-1 overflow-y-auto">
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-start px-2 py-4 text-center sm:justify-center sm:py-0">
                 <div className="relative pt-12 sm:pt-16">

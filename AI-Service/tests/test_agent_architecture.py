@@ -8,6 +8,7 @@ from app.services.agent.schemas import IntentResult, QueryMode
 from app.services.agent.service import FinSightAgentService
 from app.services.agent.spell_corrector import FinancialSpellCorrector
 from app.services.llm.prompt_builder import PromptBuilder
+from app.services.backend_financial_data import BackendDataError
 
 
 ANALYSIS = {
@@ -89,10 +90,13 @@ class ServiceRoutingTests(unittest.IsolatedAsyncioTestCase):
     async def test_direct_income_uses_no_llm(self):
         service = FinSightAgentService()
         service.llm.generate = AsyncMock()
-        with patch("app.services.agent.service.analizar_usuario", return_value=ANALYSIS):
+        with (
+            patch("app.services.agent.service.fetch_user_transactions", side_effect=__import__("app.services.backend_financial_data", fromlist=["BackendDataError"]).BackendDataError("sin backend en test")),
+            patch("app.services.agent.service.fetch_live_analysis", return_value=ANALYSIS),
+        ):
             response = await service.chat("USR0001", "cuanto ingreso")
         self.assertEqual(response.provider, "internal")
-        self.assertIn("USD 1000.00", response.content)
+        self.assertIn("$1.000,00", response.content)
         service.llm.generate.assert_not_awaited()
 
     async def test_how_to_save_uses_llm_with_context(self):

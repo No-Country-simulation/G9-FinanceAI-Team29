@@ -218,3 +218,28 @@ def build_live_analysis(usuario_id: str, transactions: list[dict[str, Any]]) -> 
 
 def fetch_live_analysis(usuario_id: str) -> dict[str, Any]:
     return build_live_analysis(usuario_id, fetch_user_transactions(usuario_id))
+
+
+def fetch_user_profile(usuario_id: str) -> dict[str, Any]:
+    """Obtiene el perfil básico para personalizar respuestas del agente."""
+    url = _endpoint(f"usuarios/{usuario_id}")
+    try:
+        response = httpx.get(url, timeout=8.0, headers=service_headers())
+    except httpx.RequestError as exc:
+        raise BackendDataError(
+            f"No se pudo conectar con el backend Spring en {settings.backend_url}."
+        ) from exc
+
+    if response.status_code == 404:
+        raise ValueError(f"No existe el usuario {usuario_id}.")
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise BackendDataError(
+            f"Spring respondió HTTP {response.status_code} al consultar el perfil."
+        ) from exc
+
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise BackendDataError("El backend devolvió un perfil de usuario inválido.")
+    return payload

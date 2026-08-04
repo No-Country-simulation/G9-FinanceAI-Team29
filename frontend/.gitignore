@@ -14,6 +14,10 @@ dist-ssr
 
 .env
 
+# Fotos originales del equipo sin procesar (pesan mucho, no van al repo).
+# Procesar con `npm run team-photos` -> genera public/team/*.webp
+team-photos-raw/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -199,7 +199,7 @@ export default function NotificationDropdown() {
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex h-full items-center justify-center px-5 text-center text-sm text-gray-500 dark:text-gray-400">
-              No hay alertas financieras para este usuario.
+              No hay alertas financieras para ti en este momento, prueba subiendo datos en importar csv.
             </div>
           ) : (
             <ul className="flex flex-col">

@@ -18,6 +18,8 @@ import {
 } from '../services/api';
 import { supabase } from '../services/supabase';
 import type { ResumenTransacciones, Transaccion } from '../types/finance';
+import UserAvatar from '../components/common/UserAvatar';
+import { AVATAR_OPTIONS } from '../utils/avatarOptions';
 import { exportToPdf } from '../utils/export/exportPdf';
 import { formatMoney, formatPercent } from '../utils/export/format';
 import { fetchLogoBase64 } from '../utils/export/theme';
@@ -143,7 +145,7 @@ function coloresEstado(estado: string) {
 }
 
 export default function UserProfiles() {
-  const { usuarioId, email, signOut } = useAuth();
+  const { usuarioId, email, avatarIcon, signOut, refreshSession } = useAuth();
   const { isOpen, openModal, closeModal } = useModal();
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
   const [resumen, setResumen] = useState<ResumenTransacciones | null>(null);
@@ -153,6 +155,7 @@ export default function UserProfiles() {
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [correo, setCorreo] = useState('');
+  const [avatarSeleccionado, setAvatarSeleccionado] = useState<string | null>(null);
 
   const nombreCompleto = useMemo(() => {
     const valor = `${perfil?.nombre ?? ''} ${perfil?.apellido ?? ''}`.trim();
@@ -194,6 +197,7 @@ export default function UserProfiles() {
     setNombre(perfil?.nombre ?? '');
     setApellido(perfil?.apellido ?? '');
     setCorreo(perfil?.email ?? '');
+    setAvatarSeleccionado(avatarIcon);
     openModal();
   };
 
@@ -203,7 +207,22 @@ export default function UserProfiles() {
 
     try {
       await actualizarPerfil(usuarioId, { nombre, apellido, email: correo });
+
+      if (avatarSeleccionado !== avatarIcon) {
+        const { error } = await supabase.auth.updateUser({
+          data: { avatar_icon: avatarSeleccionado },
+        });
+        if (error) throw error;
+      }
+
       setPerfil((actual) => actual ? { ...actual, nombre, apellido, email: correo } : actual);
+
+      try {
+        await refreshSession();
+      } catch (error) {
+        console.error('No se pudo refrescar la sesión tras actualizar el perfil:', error);
+      }
+
       closeModal();
       await Swal.fire('Perfil actualizado', 'Tus datos fueron guardados.', 'success');
     } catch (error) {
@@ -490,10 +509,9 @@ export default function UserProfiles() {
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex flex-col items-center gap-5 xl:flex-row">
-              <img
-                src="/logo_crop.png"
-                alt="FinSightAI"
-                className="h-20 w-20 rounded-full border border-gray-200 object-cover dark:border-gray-700"
+              <UserAvatar
+                className="h-20 w-20 border border-gray-200 dark:border-gray-700"
+                emojiClassName="text-4xl"
               />
               <div className="text-center xl:text-left">
                 <h4 className="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">{nombreCompleto}</h4>
@@ -623,6 +641,27 @@ export default function UserProfiles() {
                 <div className="lg:col-span-2">
                   <Label>Correo electrónico</Label>
                   <Input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} />
+                </div>
+                <div className="lg:col-span-2">
+                  <Label>Foto de perfil</Label>
+                  <div className="custom-scrollbar grid max-h-48 grid-cols-8 gap-2 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-700">
+                    {AVATAR_OPTIONS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setAvatarSeleccionado(emoji)}
+                        aria-pressed={avatarSeleccionado === emoji}
+                        aria-label={`Usar ${emoji} como foto de perfil`}
+                        className={`flex h-10 w-10 items-center justify-center rounded-full text-xl transition-colors ${
+                          avatarSeleccionado === emoji
+                            ? 'bg-brand-500/20 ring-2 ring-brand-500'
+                            : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

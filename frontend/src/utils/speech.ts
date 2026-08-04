@@ -50,6 +50,8 @@ export function pickMaleSpanishVoice(voices: SpeechSynthesisVoice[]): SpeechSynt
 function limpiarTextoParaVoz(text: string): string {
   return text
     .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "")
     .replace(/^\s*[*-]\s+/gm, "")
     .replace(/\$\s*(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?)/g, "$1 dólares")
     .replace(/\n+/g, ". ")

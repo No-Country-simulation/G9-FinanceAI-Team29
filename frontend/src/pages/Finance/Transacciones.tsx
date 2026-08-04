@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import PageMeta from "../../components/common/PageMeta";
 import ExportMenu from "../../components/common/ExportMenu";
 import { formatMoney } from "../../utils/export/format";
@@ -6,7 +7,7 @@ import { exportDashboardXlsx } from "../../utils/export/exportXlsxDashboard";
 import { obtenerTransacciones } from "../../services/api";
 import { Transaccion } from "../../types/finance";
 import { getCategoriaColor } from "../../utils/categoriaColors";
-import { mostrarError } from "../../utils/alerts";
+import { mostrarError, mostrarInfo } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Transacciones() {
@@ -15,6 +16,7 @@ export default function Transacciones() {
   const [filtro, setFiltro] = useState('Todos');
 
   const { usuarioId } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     setLoading(true);
@@ -22,6 +24,14 @@ export default function Transacciones() {
       try {
         const data = await obtenerTransacciones(usuarioId);
         setTransacciones(data);
+
+        if (data.length === 0) {
+          await mostrarInfo(
+            'Todavía no tienes movimientos cargados',
+            'Carga tus transacciones para ver esta sección. Te llevamos al resumen financiero.',
+          );
+          navigate('/');
+        }
       } catch (err) {
         console.error(err);
         mostrarError('No se pudieron cargar las transacciones', 'Verifica que el backend esté disponible e intenta de nuevo.');
@@ -31,7 +41,7 @@ export default function Transacciones() {
     };
 
     fetchData();
-  }, [usuarioId]);
+  }, [usuarioId, navigate]);
 
   const filtradas = filtro === 'Todos'
     ? transacciones

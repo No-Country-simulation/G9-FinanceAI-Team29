@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Link, useLocation } from "react-router";
 import ThemeTogglerTwo from "../../components/common/ThemeTogglerTwo";
 import GraphSpiralBackground from "../../components/auth/GraphSpiralBackground";
+import TeamCredit from "../../components/team/TeamCredit";
 
 const IMAGENES_FONDO = [
   "/login/carousel_1.png",
@@ -61,7 +62,9 @@ export default function AuthLayout({
           <ThemeTogglerTwo />
         </div>
         <div className="fixed z-40 inset-x-0 bottom-2 flex flex-col items-center gap-1 bg-white/95 px-4 py-3 text-sm text-center text-gray-500 backdrop-blur-sm dark:bg-gray-900/95 dark:text-gray-400 lg:hidden">
-          <p>&copy; {new Date().getFullYear()} - TwentyNineDevs</p>
+          <p>
+            &copy; {new Date().getFullYear()} - <TeamCredit />
+          </p>
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
             <Link
               to="/terminos"

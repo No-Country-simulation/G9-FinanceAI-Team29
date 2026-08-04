@@ -62,6 +62,12 @@ interface AuthContextValue {
   usuarioId: string;
 
   /**
+   * Emoji elegido como foto de perfil, guardado en el user_metadata de
+   * Supabase Auth. Null si el usuario todavía no eligió ninguno.
+   */
+  avatarIcon: string | null;
+
+  /**
    * Guarda el ID USRxxxx devuelto por Spring para la cuenta autenticada.
    * En una cuenta admin cambia el perfil inspeccionado.
    */
@@ -71,6 +77,12 @@ interface AuthContextValue {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+
+  /**
+   * Fuerza un refresco de la sesión de Supabase para traer el user_metadata
+   * más reciente (por ejemplo, después de editar nombre/apellido en /profile).
+   */
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -248,6 +260,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session?.access_token,
   ]);
 
+  const avatarIcon =
+    typeof session?.user?.user_metadata?.avatar_icon === 'string'
+      ? session.user.user_metadata.avatar_icon
+      : null;
+
   const email = session?.user?.email?.toLowerCase() ?? null;
   const isAdmin = email ? ADMIN_EMAILS.includes(email) : false;
   const usuarioDemoId = email ? EMAIL_TO_USUARIO[email] : undefined;
@@ -298,6 +315,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuarioRegistradoId('');
     setAdminUsuarioId(ADMIN_DEFAULT_USUARIO);
     setUsuarioLoading(false);
+  };
+
+  const refreshSession = async () => {
+    const { data, error } = await supabase.auth.refreshSession();
+
+    if (error) throw error;
+
+    setSession(data.session);
   };
 
   const loading = sessionLoading || usuarioLoading;
@@ -358,11 +383,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         isAdmin,
         usuarioId,
+        avatarIcon,
         setUsuarioId: cambiarUsuarioId,
         cuentas: CUENTAS_DEMO,
         loading,
         signIn,
         signOut,
+        refreshSession,
       }}
     >
       {children}

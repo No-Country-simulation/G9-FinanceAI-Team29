@@ -9,6 +9,7 @@ import { renderMensajeAsistente } from '../utils/renderMensajeAsistente';
 import { speakText, stopSpeaking, isSpeechSupported } from '../utils/speech';
 import { playSendSound, playReceiveSound, playErrorSound, startTypingSound, stopTypingSound } from '../utils/sound';
 import { setAgentTabStatus } from '../utils/tabTitle';
+import { notifySupportMailOpened } from '../utils/supportSuccess';
 
 const SOPORTE_EMAIL = 'g9latamteam29@gmail.com';
 const MAILTO_HREF = `mailto:${SOPORTE_EMAIL}?subject=Soporte%20FinSightAI`;
@@ -327,6 +328,7 @@ export default function Soporte() {
 
           <a
             href={MAILTO_HREF}
+            onClick={notifySupportMailOpened}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-brand-600"
           >
             <MailIcon className="h-4 w-4" />

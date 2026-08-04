@@ -39,6 +39,13 @@ class GuidedSupportDiagnosis:
         "continua igual",
         "no cambio",
         "no se resolvio",
+        "no sirvio",
+        "no me sirvio",
+        "ya lo hice",
+        "ya hice eso",
+        "sigue fallando",
+        "aun no puedo",
+        "todavia no puedo",
     )
 
     @classmethod
@@ -58,6 +65,53 @@ class GuidedSupportDiagnosis:
         # pregunta del diagnóstico, no volver al asesor financiero.
         yes = current in {"si", "sí", "sip", "correcto", "claro"}
         no = current in {"no", "nop", "todavia no", "aun no"}
+
+        # Confirmación del checklist CSV. Si el archivo cumple todo y el
+        # error persiste, derivamos a la página de Soporte sin abrir el mail.
+        if cls._asked_csv_requirements(previous):
+            if yes:
+                return cls._support_page_referral(
+                    intro=(
+                        "Perfecto. Si el archivo cumple todos los requisitos y aun así no puede importarse, "
+                        "el problema necesita una revisión técnica del equipo."
+                    ),
+                )
+            if no:
+                return DiagnosisResult(
+                    content=(
+                        "Antes de volver a importar el archivo, corregí los requisitos que no se cumplen:\n\n"
+                        + cls._csv_requirements_text()
+                        + "\n\nCuando esté corregido, guardalo como CSV y volvé a intentar la importación."
+                    ),
+                    route="support_csv_requirements_fix",
+                )
+
+        # Regla global anti-bucle: si el usuario confirma que el problema
+        # continúa después de una respuesta de soporte, no repetimos pasos.
+        if previous and cls._contains_any(current, cls._UNRESOLVED_TERMS) and cls._looks_like_support_answer(previous):
+            return cls._escalation(
+                usuario_id,
+                question,
+                previous_answer,
+                support_email,
+                category=cls._support_category(previous),
+            )
+
+        # Consulta demasiado vaga: guiamos al usuario hacia el módulo afectado.
+        if cls._contains_any(current, ("no anda", "no funciona", "se rompio", "no responde", "me muestra error", "muestra error")) and not previous:
+            return DiagnosisResult(
+                content=(
+                    "¿Con qué parte de FinSightAI necesitás ayuda?\n\n"
+                    "1. Inicio de sesión o contraseña.\n"
+                    "2. Dashboard o datos que no aparecen.\n"
+                    "3. Transacciones.\n"
+                    "4. Importar CSV.\n"
+                    "5. Descargar PDF o exportar.\n"
+                    "6. Metas o recomendaciones.\n\n"
+                    "Respondeme con el número o describime qué estabas intentando hacer."
+                ),
+                route="support_general_triage",
+            )
 
         if "cantidad de movimientos mayor que cero" in previous:
             if no:
@@ -134,19 +188,26 @@ class GuidedSupportDiagnosis:
                     category="Importación CSV",
                 )
 
-            if cls._contains_any(current, ("error al cargar csv", "no se puede cargar", "no me deja cargar")) and cls._contains_any(
-                previous, ("mensaje exacto", "copialo tal como aparece", "texto completo del error")
+            if cls._contains_any(
+                current,
+                (
+                    "error al cargar csv",
+                    "error al cargar archivo csv",
+                    "no se puede cargar",
+                    "no me deja cargar",
+                ),
+            ) and cls._contains_any(
+                previous,
+                ("mensaje exacto", "copialo tal como aparece", "texto completo del error"),
             ):
-                return cls._escalation(
-                    usuario_id,
-                    question,
-                    previous_answer,
-                    support_email,
-                    category="Error al importar CSV",
-                    intro=(
-                        "Ese mensaje no da suficiente información para identificar la causa sin hacerte repetir pruebas. "
-                        "Lo mejor es que el equipo de soporte revise el caso."
+                return DiagnosisResult(
+                    content=(
+                        "Ese mensaje es general y no indica qué fila o columna causó el problema. "
+                        "Antes de derivarte, confirmemos que el archivo cumple todos los requisitos de FinSightAI:\n\n"
+                        + cls._csv_requirements_text()
+                        + "\n\n¿El archivo cumple **todos** estos requisitos? Respondeme `sí` o `no`."
                     ),
+                    route="support_csv_requirements_confirmation",
                 )
 
             if cls._contains_any(current, ("error durante el proceso", "aparece un error", "error al procesar")):
@@ -162,12 +223,11 @@ class GuidedSupportDiagnosis:
             if cls._contains_any(current, ("invalido", "rechazado", "columnas", "formato")):
                 return DiagnosisResult(
                     content=(
-                        "Revisemos el formato. El CSV debe tener exactamente estas columnas:\n\n"
-                        "`fecha, descripcion, monto, tipo, categoria, medio_pago, recurrente`\n\n"
-                        "Además, la fecha debe usar `AAAA-MM-DD`, el monto debe ser mayor que cero y `tipo` debe ser `Ingreso` o `Gasto`.\n\n"
-                        "¿El mensaje menciona una fila concreta o una columna faltante? Copialo tal como aparece."
+                        "Revisemos el archivo. Para que FinSightAI pueda importarlo debe cumplir estos requisitos:\n\n"
+                        + cls._csv_requirements_text()
+                        + "\n\n¿El archivo cumple **todos** estos requisitos? Respondeme `sí` o `no`."
                     ),
-                    route="support_csv_format_diagnosis",
+                    route="support_csv_requirements_confirmation",
                 )
 
             if cls._contains_any(current, ("termina", "correctamente", "no aparece", "no guarda", "pantalla principal", "dashboard", "cero")):
@@ -220,8 +280,26 @@ class GuidedSupportDiagnosis:
                 support_email=support_email,
             )
 
-        # Contraseña y login.
+        # Contraseña y acceso. Primero se evalúa el problema actual para no
+        # repetir la explicación de cambio de contraseña cuando el usuario ya
+        # aclaró que no puede iniciar sesión.
         if cls._is_password_context(combined):
+            login_problem = cls._contains_any(
+                current,
+                (
+                    "no puedo iniciar sesion", "no me deja iniciar sesion",
+                    "no puedo entrar", "no me deja entrar", "login no funciona",
+                    "correo o contrasena incorrectos", "credenciales incorrectas",
+                ),
+            )
+            recovery_problem = cls._contains_any(
+                current,
+                (
+                    "no llega el correo", "no recibi el correo", "correo no llega",
+                    "enlace no funciona", "link no funciona", "token vencido",
+                ),
+            )
+
             if cls._should_escalate(current, previous):
                 return cls._escalation(
                     usuario_id,
@@ -230,16 +308,110 @@ class GuidedSupportDiagnosis:
                     support_email,
                     category="Acceso y contraseña",
                 )
+
+            if recovery_problem:
+                return DiagnosisResult(
+                    content=(
+                        "Si el correo de recuperación no llega, revisá **Spam** o **Correo no deseado**, confirmá que escribiste el mismo correo con el que te registraste y solicitá el enlace una sola vez más.\n\n"
+                        "Si el mensaje sigue sin llegar o el enlace aparece vencido, decime `sigue igual` y preparo el contacto con soporte."
+                    ),
+                    route="support_password_recovery_diagnosis",
+                )
+
+            if login_problem:
+                return DiagnosisResult(
+                    content=(
+                        "Si no podés iniciar sesión, probá esto:\n\n"
+                        "1. Verificá que el correo esté escrito correctamente.\n"
+                        "2. Si no recordás la contraseña, usá **¿Olvidaste tu contraseña?** en la pantalla de inicio de sesión.\n"
+                        "3. Revisá Spam si no recibís el correo de recuperación.\n"
+                        "4. Volvé a intentar con la nueva contraseña después de completar el restablecimiento.\n\n"
+                        "Si ya hiciste estos pasos y todavía no podés entrar, respondeme `sigue igual` y te derivo al soporte por correo."
+                    ),
+                    route="support_login_diagnosis",
+                )
+
             return DiagnosisResult(
                 content=(
-                    "Para cambiar la contraseña entrá en `Mi cuenta` y seleccioná `Cambiar contraseña`. "
+                    "Si recordás tu contraseña actual, entrá en **Mi cuenta** desde el menú lateral y, en la sección **Seguridad**, tocá **Cambiar contraseña**. "
+                    "Si no la recordás o no podés iniciar sesión, usá **¿Olvidaste tu contraseña?** en la pantalla de inicio de sesión. "
                     "La nueva clave debe tener al menos 8 caracteres.\n\n"
-                    "¿El problema es que no aparece el botón, que la nueva contraseña es rechazada o que no podés iniciar sesión?"
+                    "¿El problema es que no aparece la opción, que la nueva contraseña es rechazada o que no podés iniciar sesión?"
                 ),
                 route="support_password_diagnosis",
             )
 
         return None
+
+    @staticmethod
+    def _csv_requirements_text() -> str:
+        return (
+            "- El archivo debe ser un `.csv` real y pesar como máximo **5 MB**.\n"
+            "- Debe contener estas columnas obligatorias: "
+            "`fecha, descripcion, monto, tipo, categoria, medio_pago, recurrente`.\n"
+            "- `fecha`: una fecha válida; se recomienda `AAAA-MM-DD`.\n"
+            "- `monto`: numérico y mayor que cero; los gastos no llevan signo negativo.\n"
+            "- `tipo`: `Ingreso` o `Gasto`.\n"
+            "- `descripcion`, `categoria` y `medio_pago`: no pueden estar vacíos.\n"
+            "- `recurrente`: `Sí/No`, `true/false` o `1/0`.\n"
+            "- Debe incluir al menos una fila de movimientos debajo del encabezado."
+        )
+
+    @classmethod
+    def _asked_csv_requirements(cls, previous: str) -> bool:
+        return cls._contains_any(
+            previous,
+            (
+                "cumple todos estos requisitos",
+                "cumple todos los requisitos",
+                "archivo cumple todos",
+            ),
+        ) and cls._contains_any(
+            previous,
+            ("fecha, descripcion, monto", "5 mb", "recurrente"),
+        )
+
+    @classmethod
+    def _support_page_referral(cls, intro: str | None = None) -> DiagnosisResult:
+        return DiagnosisResult(
+            content=(
+                ((intro.strip() + "\n\n") if intro else "No pude resolver el problema con las comprobaciones disponibles.\n\n")
+                + "Abrí la sección **Soporte** desde el menú lateral y usá el botón **Contactar por correo** para que el equipo de TwentyNineDevs revise tu caso.\n\n"
+                + "[🛠️ Ir a la página de Soporte](/soporte)\n\n"
+                + "Incluí, si podés, una captura y el mensaje de error exacto. "
+                + "No compartas contraseñas, códigos de verificación, números de tarjeta ni datos bancarios."
+            ),
+            route="support_page_referral",
+            escalate=True,
+        )
+
+    @classmethod
+    def _looks_like_support_answer(cls, previous: str) -> bool:
+        return cls._contains_any(
+            previous,
+            (
+                "proba", "verifica", "revisa", "actualiza", "respondeme",
+                "importacion", "csv", "pdf", "iniciar sesion", "contrasena",
+                "dashboard", "transacciones", "meta", "recomendaciones",
+                "si sigue", "si continua", "soporte",
+            ),
+        )
+
+    @classmethod
+    def _support_category(cls, previous: str) -> str:
+        if cls._contains_any(previous, ("csv", "importacion")):
+            return "Importación CSV"
+        if cls._contains_any(previous, ("pdf", "informe", "exportar")):
+            return "Descarga o exportación"
+        if cls._contains_any(previous, ("iniciar sesion", "contrasena", "correo de recuperacion")):
+            return "Acceso y contraseña"
+        if cls._contains_any(previous, ("meta", "metas")):
+            return "Metas"
+        if cls._contains_any(previous, ("dashboard", "datos", "graficos")):
+            return "Dashboard y datos"
+        if cls._contains_any(previous, ("transacciones", "movimientos")):
+            return "Transacciones"
+        return "Soporte técnico"
 
     @classmethod
     def _diagnose_pdf(
@@ -351,9 +523,9 @@ class GuidedSupportDiagnosis:
         if cls._contains_any(current, ("boton no aparece", "no aparece el boton")):
             return DiagnosisResult(
                 content=(
-                    "El botón está dentro de `Mi cuenta`, en la sección `Informe financiero`. "
-                    "Actualizá la página y volvé a intentarlo.\n\n"
-                    "¿Después de actualizar aparece `Descargar informe PDF`?"
+                    "La exportación está disponible desde `Dashboard`, `Análisis` y `Transacciones` mediante el botón `Exportar`. "
+                    "Desde ese menú podés elegir `Exportar PDF`. Actualizá la página y volvé a intentarlo.\n\n"
+                    "¿Después de actualizar aparece el botón `Exportar`?"
                 ),
                 route="support_pdf_button_diagnosis",
             )

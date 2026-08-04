@@ -95,7 +95,10 @@ class GoalServiceRoutingTests(unittest.IsolatedAsyncioTestCase):
         service.llm.generate.return_value.provider = "test"
         service.llm.generate.return_value.metadata = {}
 
-        with patch("app.services.agent.service.analizar_usuario", return_value=ANALYSIS):
+        with (
+            patch("app.services.agent.service.fetch_user_transactions", side_effect=__import__("app.services.backend_financial_data", fromlist=["BackendDataError"]).BackendDataError("sin backend en test")),
+            patch("app.services.agent.service.fetch_live_analysis", return_value=ANALYSIS),
+        ):
             response = await service.chat("USR0001", "como puedo ahorrar")
 
         self.assertEqual(response.metadata["route"], "llm_with_context")
