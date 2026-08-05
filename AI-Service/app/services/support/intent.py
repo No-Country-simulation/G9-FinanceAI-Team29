@@ -11,12 +11,27 @@ class SupportIntentDetector:
     soporte técnico.
     """
 
+    _CRITICAL_PATTERNS = (
+        r"\b(dashboard|pantalla principal)\b.*\b(transacciones?|movimientos?|datos)\b.*\b(no hice|no reconozco|no son mios|no son mias|ajenos?)\b",
+        r"\b(transacciones?|movimientos?|datos)\b.*\b(no hice|no reconozco|no son mios|no son mias|ajenos?)\b",
+        r"\b(transacciones?|movimientos?|datos|gastos?|ingresos?|compras?|consumos?|cargos?)\b.*\b(no (?:son|es) m[ií]os?|no hice|nunca hice|no reconozco|desconozco|no autorice|ajenos?|otra persona)\b",
+        r"\b(no hice|nunca hice|no reconozco|desconozco|no autorice|no (?:son|es) m[ií]os?)\b.*\b(transacciones?|movimientos?|datos|gastos?|ingresos?|compras?|consumos?|cargos?)\b",
+        r"\b(cuenta comprometida|me hackearon|hackearon mi cuenta|acceso no autorizado|robaron mi cuenta)\b",
+        r"\b(perdi|perd[ií])\b.*\b(transacciones?|movimientos?|datos)\b",
+        r"\b(error 500|error interno|database timeout|nullreference|server error)\b",
+    )
+
     _STRONG_PATTERNS = (
         r"\b(no puedo|no me deja|no funciona|no anda|fall[ao]|error|problema)\b.*\b(csv|pdf|informe|archivo|import|export|descarg|subir|cargar|login|sesion|contrase|perfil|cuenta|dashboard|meta|registro|boton|pantalla)\b",
         r"\b(csv|pdf|informe|archivo|import|export|descarg|subir|cargar|login|sesion|contrase|perfil|cuenta|dashboard|meta|registro|boton|pantalla)\b.*\b(no puedo|no me deja|no funciona|no anda|fall[ao]|error|problema|cero|vacio|rechaz)\b",
         r"\b(como|donde|que|para que)\b.*\b(importar|exportar|descargar|cambiar contrase|editar perfil|dar de baja|eliminar cuenta|compartir informe|iniciar sesion|registrarme|crear meta|dashboard|transacciones|analisis|recomendaciones|endeudamiento|capacidad de ahorro|frecuencia de ahorro)\b",
         r"\b(monto debe ser mayor que cero|archivo fue rechazado|ai-service|ventanas emergentes|popup|correo de soporte)\b",
         r"\b(dar de baja|eliminar cuenta|cerrar cuenta)\b",
+        r"\b(dashboard|pantalla principal)\b.*\b(transacciones?|movimientos?|datos)\b.*\b(no hice|no reconozco|incorrectos?|ajenos?|otra persona)\b",
+        r"\b(no puedo|error|falla|problema)\b.*\b(crear|guardar|cambiar|restablecer)\b.*\b(contrasena|clave|password|meta)\b",
+        r"\b(la )?(contrasena|clave) actual (es )?(incorrecta|invalida|erronea)\b",
+        r"\b(invalid|wrong|incorrect) current contrasena\b",
+        r"\bcurrent contrasena (is )?(incorrect|invalid|wrong)\b",
     )
 
     _PRODUCT_PATTERNS = (
@@ -36,7 +51,7 @@ class SupportIntentDetector:
     }
 
     _FOLLOW_UP_MARKERS = (
-        "respondeme con el numero",
+        "respóndeme con el numero",
         "que pasa cuando tocas",
         "descargar informe pdf",
         "importacion csv",
@@ -46,10 +61,14 @@ class SupportIntentDetector:
         "cual de estas situaciones",
         "copiame el mensaje de error",
         "cantidad de movimientos mayor que cero",
-        "respondeme si o no",
-        "respondeme si",
+        "respóndeme si o no",
+        "respóndeme si",
         "ahora aparecen los movimientos",
         "con eso seguimos al proximo paso",
+        "vamos a revisar que ocurre con la contrasena",
+        "mensaje exacto que aparece",
+        "aparece un mensaje de error al guardar",
+        "puedo ayudarte con algo mas",
     )
 
     _SUPPORT_WORDS = {
@@ -60,10 +79,19 @@ class SupportIntentDetector:
     }
 
     @classmethod
+    def is_critical_support_query(cls, text: str) -> bool:
+        normalized = cls._normalize(text)
+        return bool(normalized) and any(
+            re.search(pattern, normalized) for pattern in cls._CRITICAL_PATTERNS
+        )
+
+    @classmethod
     def is_support_query(cls, text: str) -> bool:
         normalized = cls._normalize(text)
         if not normalized:
             return False
+        if cls.is_critical_support_query(normalized):
+            return True
         if any(re.search(pattern, normalized) for pattern in cls._STRONG_PATTERNS):
             return True
         if any(re.search(pattern, normalized) for pattern in cls._PRODUCT_PATTERNS):

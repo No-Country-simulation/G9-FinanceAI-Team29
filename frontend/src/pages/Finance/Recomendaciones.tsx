@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import PageMeta from "../../components/common/PageMeta";
 import { analizarFinanzas, obtenerUsuario, obtenerTransacciones } from "../../services/api";
-import { AnalisisResponse } from "../../types/finance";
+import { AnalisisResponse, RecomendacionFinanciera } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { mostrarError, mostrarInfo } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
@@ -62,17 +62,14 @@ export default function Recomendaciones() {
     };
   }, [usuarioId, authLoading, navigate]);
 
-  const getPrioridadColor = (index: number) => {
-    if (index === 0) return 'border-l-error-500 bg-error-50 dark:bg-error-500/10';
-    if (index === 1) return 'border-l-warning-500 bg-warning-50 dark:bg-warning-500/10';
+  const getPrioridadColor = (prioridad: RecomendacionFinanciera["prioridad"]) => {
+    if (prioridad === "alta") return 'border-l-error-500 bg-error-50 dark:bg-error-500/10';
+    if (prioridad === "media") return 'border-l-warning-500 bg-warning-50 dark:bg-warning-500/10';
     return 'border-l-info-500 bg-info-50 dark:bg-info-500/10';
   };
 
-  const getIcono = (index: number) => {
-    if (index === 0) return '🔴';
-    if (index === 1) return '🟡';
-    return '🔵';
-  };
+  const getIcono = (prioridad: RecomendacionFinanciera["prioridad"]) =>
+    prioridad === "alta" ? '🔴' : prioridad === "media" ? '🟡' : '🔵';
 
   // Mismos umbrales que SavingsGauge en el Dashboard, para que el color signifique lo mismo en toda la app.
   const getAhorroColor = (pct: number) => {
@@ -93,12 +90,18 @@ export default function Recomendaciones() {
   const evitarPorcentajeLiteral = (texto: string) =>
     texto.replace(/(\d+(?:[.,]\d+)?)\s*%/g, '$1 por ciento');
 
-  const preguntarleAFinsi = (recomendacion: string) => {
-    navigate('/asistente-ia', {
-      state: {
-        autoPrompt: `Cuéntame más sobre esta recomendación y cómo aplicarla: "${evitarPorcentajeLiteral(recomendacion)}"`,
-      },
-    });
+  const preguntarleAFinsi = (recomendacion: RecomendacionFinanciera) => {
+    const contexto = [
+      recomendacion.preguntaFinsi,
+      `Perfil financiero: ${recomendacion.perfil}.`,
+      `Diagnóstico: ${evitarPorcentajeLiteral(recomendacion.diagnostico)}`,
+      `Acción sugerida: ${recomendacion.accion}`,
+      recomendacion.objetivo ? `Objetivo: ${evitarPorcentajeLiteral(recomendacion.objetivo)}` : null,
+      recomendacion.advertencia,
+      'Continúa desde esta recomendación, usa mis datos financieros actuales y no me pidas que repita el contexto.',
+    ].filter(Boolean).join('\n\n');
+
+    navigate('/asistente-ia', { state: { autoPrompt: contexto, recommendationId: recomendacion.id } });
   };
 
   // Se evita escribir el porcentaje como "96.2%": el detector de intención del
@@ -134,13 +137,13 @@ export default function Recomendaciones() {
                   <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                     <p className="text-sm text-gray-500">Ingresos</p>
                     <p className="text-lg font-bold text-success-600">
-                      ${Number(resultado.totalIngresos).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ${Number(resultado.totalIngresos).toLocaleString('es-419', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                     <p className="text-sm text-gray-500">Gastos</p>
                     <p className="text-lg font-bold text-error-600">
-                      ${Number(resultado.totalGastos).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ${Number(resultado.totalGastos).toLocaleString('es-419', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
@@ -157,18 +160,22 @@ export default function Recomendaciones() {
               
               {resultado.recomendaciones.length > 0 ? (
                 <div className="space-y-3">
-                  {resultado.recomendaciones.map((rec, index) => (
+                  {resultado.recomendaciones.map((rec) => (
                     <div
-                      key={index}
-                      className={`p-4 rounded-lg border-l-4 ${getPrioridadColor(index)}`}
+                      key={rec.id}
+                      className={`p-4 rounded-lg border-l-4 ${getPrioridadColor(rec.prioridad)}`}
                     >
                       <div className="flex items-start gap-3">
-                        <span className="text-lg">{getIcono(index)}</span>
+                        <span className="text-lg">{getIcono(rec.prioridad)}</span>
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-gray-800 dark:text-white/90 mb-1">
-                            {index === 0 ? 'Prioridad Alta' : index === 1 ? 'Prioridad Media' : 'Sugerencia'}
+                            {rec.prioridad === 'alta' ? 'Prioridad Alta' : rec.prioridad === 'media' ? 'Prioridad Media' : 'Sugerencia'}
                           </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{rec}</p>
+                          <h3 className="text-base font-semibold text-gray-800 dark:text-white/90">{rec.titulo}</h3>
+                          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{rec.diagnostico}</p>
+                          <p className="mt-3 text-sm text-gray-700 dark:text-gray-300"><strong>Acción sugerida:</strong> {rec.accion}</p>
+                          {rec.objetivo && <p className="mt-2 text-sm text-gray-700 dark:text-gray-300"><strong>Objetivo:</strong> {rec.objetivo}</p>}
+                          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{rec.advertencia}</p>
                           <button
                             type="button"
                             onClick={() => preguntarleAFinsi(rec)}

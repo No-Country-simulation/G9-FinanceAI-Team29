@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from urllib.parse import quote
 
 from app.config import settings
 from app.services.llm.schemas import LLMResponse
@@ -132,15 +131,9 @@ class SupportAgent:
         )
 
     def _contact_text(self, usuario_id: str, question: str) -> str:
-        subject = "Consulta de soporte FinSightAI"
-        body = (
-            f"Usuario: {usuario_id}\n"
-            f"Problema: {question.strip()}\n\n"
-            "Incluí también el mensaje de error exacto, la pantalla afectada y los pasos que realizaste."
-        )
-        mailto = f"mailto:{settings.support_email}?subject={quote(subject)}&body={quote(body)}"
         return (
-            "No tengo información suficiente para darte una solución confiable sin hacerte repetir pruebas.\n\n"
-            "Puedo dejarte preparado el contacto con el equipo de soporte.\n\n"
-            f"[📧 Contactar soporte]({mailto})"
+            "El problema necesita una revisión del equipo de TwentyNineDevs.\n\n"
+            "[🛠️ Ir a la página de Soporte](/soporte)\n\n"
+            "Incluye, si es posible, una captura y el mensaje de error exacto. "
+            "No compartas contraseñas, códigos de verificación, números de tarjeta ni datos bancarios."
         )

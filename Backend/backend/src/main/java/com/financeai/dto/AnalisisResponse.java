@@ -12,7 +12,7 @@ public class AnalisisResponse {
     private BigDecimal totalIngresos;
     private BigDecimal porcentajeAhorro;
     private String nivelRiesgo;
-    private java.util.List<String> recomendaciones;
+    private java.util.List<RecomendacionDTO> recomendaciones;
 
     // ---- Campos provenientes del modelo de ML (null cuando se usan las reglas internas) ----
     private Integer financialScore;
@@ -69,8 +69,8 @@ public class AnalisisResponse {
     public String getNivelRiesgo() { return nivelRiesgo; }
     public void setNivelRiesgo(String nivelRiesgo) { this.nivelRiesgo = nivelRiesgo; }
 
-    public java.util.List<String> getRecomendaciones() { return recomendaciones; }
-    public void setRecomendaciones(java.util.List<String> recomendaciones) { this.recomendaciones = recomendaciones; }
+    public java.util.List<RecomendacionDTO> getRecomendaciones() { return recomendaciones; }
+    public void setRecomendaciones(java.util.List<RecomendacionDTO> recomendaciones) { this.recomendaciones = recomendaciones; }
 
     public static class ResumenGastosDTO {
         private Map<String, BigDecimal> porCategoria;

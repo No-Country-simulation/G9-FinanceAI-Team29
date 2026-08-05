@@ -56,7 +56,7 @@ class IntentDetector:
         (Intent.SUMMARY, {"resumen", "resumime", "panorama", "vista general"}),
         (Intent.RECOMMENDATIONS, {"recomendacion", "recomendaciones", "consejo", "consejos", "que deberia mejorar", "como mejorar"}),
         (Intent.EXPENSES, {"gasto", "gastos", "consumo", "consumos", "egreso", "egresos", "en que gasto", "donde gasto", "donde estoy gastando", "categoria con mas gastos", "mayor gasto"}),
-        (Intent.INCOME, {"ingreso", "ingresos", "sueldo", "salario", "cuanto gano"}),
+        (Intent.INCOME, {"ingreso", "ingresos", "sueldo", "salario", "cuanto gano", "cuanto dinero me ingreso", "cuanto dinero me entro", "me depositaron dinero", "me acreditaron dinero"}),
         (Intent.DEBT, {"deuda", "deudas", "endeudamiento", "prestamo", "credito", "desendeudar", "desendeudarme"}),
         (Intent.SAVINGS, {"ahorro", "ahorros", "ahorrar", "capacidad de ahorro"}),
         (Intent.SCORE, {"financial score", "puntaje financiero", "score financiero", "puntaje"}),
@@ -234,6 +234,9 @@ class IntentDetector:
         "categoria con mas gastos",
         "donde se va mi dinero",
         "donde se me va la plata",
+        "donde se me va el dinero",
+        "en que se me va el dinero",
+        "en que se me esta yendo el dinero",
     }
 
     _SAVINGS_ADVICE_TERMS = {

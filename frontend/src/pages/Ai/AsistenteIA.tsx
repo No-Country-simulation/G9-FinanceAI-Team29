@@ -17,7 +17,7 @@ import {
   construirMensajeDespedida,
 } from "../../utils/sinDatosFlow";
 
-type PasoInteractivo = "sin-datos" | "otra-consulta" | null;
+type PasoInteractivo = "sin-datos" | "otra-consulta" | "support-help" | null;
 
 interface Message {
   id: number;
@@ -35,6 +35,16 @@ interface ChatGuardado {
 const CHATS_STORAGE_KEY = (usuarioId: string) => `finsight:asistente:chats:${usuarioId}`;
 const MAX_CHATS_GUARDADOS = 20;
 const MASCOTA_SRC = "/images/mascot/finsight-bird-v2.png";
+
+const CONTEXTO_FINANCIERO_INTERNO =
+  /<!--\s*finsi-financial-context\s+metric=(?:income|expense|unknown)\s+granularity=(?:year|month|rank|other)\s+year=(?:\d{4}|none)\s+month=(?:\d{1,2}|none)\s+position=(?:\d+|none)\s*-->/gi;
+
+function limpiarMetadataInterna(texto: string): string {
+  return texto
+    .replace(CONTEXTO_FINANCIERO_INTERNO, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 function AvatarFinsi({ pensando = false }: { pensando?: boolean }) {
   return (
@@ -154,6 +164,7 @@ export default function AsistenteIA() {
     "Finsi está analizando tus finanzas"
   );
   const [pasoPendiente, setPasoPendiente] = useState<PasoInteractivo>(null);
+  const ultimoMensajeAsistenteId = [...messages].reverse().find((m) => m.role === "assistant")?.id;
   const [vozActiva, setVozActiva] = useState(
     () => localStorage.getItem("asistenteVozActiva") === "true"
   );
@@ -258,9 +269,12 @@ export default function AsistenteIA() {
         ...prev,
         { id: prev.length + 1, role: "assistant", text: answer },
       ]);
+      if (/¿Puedo ayudarte con algo más\?/i.test(answer)) {
+        setPasoPendiente("support-help");
+      }
       setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playReceiveSound();
-      if (vozActiva) speakText(answer);
+      if (vozActiva) speakText(limpiarMetadataInterna(answer));
     } catch (error) {
       setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playErrorSound();
@@ -289,6 +303,11 @@ export default function AsistenteIA() {
       stopTypingSound();
       setEnviando(false);
     }
+  };
+
+  const responderSoporte = (respuesta: "sí" | "no") => {
+    setPasoPendiente(null);
+    void handleSubmit(respuesta);
   };
 
   const irAImportarDatos = () => {
@@ -542,14 +561,36 @@ export default function AsistenteIA() {
                     {message.role === "assistant" && (
                       <AvatarFinsi />
                     )}
-                    <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-3 text-theme-sm ${
-                        message.role === "user"
-                          ? "whitespace-pre-line bg-brand-500 text-white"
-                          : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                      }`}
-                    >
-                      {message.role === "assistant" ? renderMensajeAsistente(message.text) : message.text}
+                    <div className={`flex max-w-[80%] flex-col ${message.role === "user" ? "items-end" : "items-stretch"}`}>
+                      <div
+                        className={`rounded-2xl px-4 py-3 text-theme-sm ${
+                          message.role === "user"
+                            ? "whitespace-pre-line bg-brand-500 text-white"
+                            : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                        }`}
+                      >
+                        {message.role === "assistant"
+                          ? renderMensajeAsistente(limpiarMetadataInterna(message.text))
+                          : message.text}
+                      </div>
+                      {message.role === "assistant" &&
+                        message.id === ultimoMensajeAsistenteId &&
+                        /¿Puedo ayudarte con algo más\?/i.test(message.text) && (
+                          <div className="mt-3 flex w-full items-center justify-center gap-3">
+                            <button
+                              onClick={() => responderSoporte("sí")}
+                              className="min-w-16 rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white transition hover:bg-brand-600"
+                            >
+                              Sí
+                            </button>
+                            <button
+                              onClick={() => responderSoporte("no")}
+                              className="min-w-16 rounded-lg border border-gray-200 px-4 py-2 text-theme-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.06]"
+                            >
+                              No
+                            </button>
+                          </div>
+                        )}
                     </div>
                   </div>
                 ))}
@@ -568,7 +609,7 @@ export default function AsistenteIA() {
                     </div>
                   </div>
                 )}
-                {!enviando && pasoPendiente && (
+                {!enviando && pasoPendiente && pasoPendiente !== "support-help" && (
                   <div className="flex justify-start gap-3 pl-11">
                     {pasoPendiente === "sin-datos" ? (
                       <>

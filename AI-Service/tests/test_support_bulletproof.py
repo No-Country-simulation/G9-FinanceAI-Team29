@@ -26,7 +26,7 @@ def test_login_follow_up_does_not_repeat_change_password_answer() -> None:
     assert result is not None
     assert result.route == "support_login_diagnosis"
     assert "¿Olvidaste tu contraseña?" in result.content
-    assert "probá esto" in result.content
+    assert "Prueba" in result.content
 
 
 def test_repeated_login_problem_escalates_to_mail() -> None:
@@ -42,8 +42,8 @@ def test_repeated_login_problem_escalates_to_mail() -> None:
     )
     assert result is not None
     assert result.escalate is True
-    assert "mailto:" in result.content
-    assert "Contactar soporte" in result.content
+    assert "/soporte" in result.content
+    assert "¿Puedo ayudarte con algo más?" in result.content
 
 
 def test_product_screen_questions_are_support_queries() -> None:
@@ -91,8 +91,8 @@ def test_repeated_generic_problem_after_support_answer_escalates() -> None:
     )
     assert result is not None
     assert result.escalate is True
-    assert "Contactar soporte" in result.content
-    assert "mailto:" in result.content
+    assert "/soporte" in result.content
+    assert "¿Puedo ayudarte con algo más?" in result.content
 
 
 def test_generic_csv_error_asks_full_requirements_before_escalating() -> None:
@@ -107,12 +107,8 @@ def test_generic_csv_error_asks_full_requirements_before_escalating() -> None:
         support_email="soporte@example.com",
     )
     assert result is not None
-    assert result.route == "support_csv_requirements_confirmation"
-    assert "5 MB" in result.content
-    assert "fecha, descripcion, monto, tipo, categoria, medio_pago, recurrente" in result.content
-    assert "Ingreso" in result.content
-    assert "Gasto" in result.content
-    assert "todos" in result.content.lower()
+    assert result.route == "support_csv_triage"
+    assert "¿Qué ocurre exactamente?" in result.content
     assert result.escalate is False
 
 
@@ -132,7 +128,7 @@ def test_csv_requirements_confirmed_redirects_to_support_page() -> None:
     assert result.route == "support_page_referral"
     assert result.escalate is True
     assert "/soporte" in result.content
-    assert "Contactar por correo" in result.content
+    assert "Ir a la página de Soporte" in result.content
     assert "mailto:" not in result.content
 
 
@@ -151,5 +147,5 @@ def test_csv_requirements_not_met_tells_user_to_fix_file() -> None:
     assert result is not None
     assert result.route == "support_csv_requirements_fix"
     assert result.escalate is False
-    assert "corregí" in result.content
+    assert "corrige" in result.content
     assert "5 MB" in result.content

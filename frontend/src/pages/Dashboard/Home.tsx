@@ -31,6 +31,7 @@ import {
   Transaccion,
   ResumenTransacciones,
   AnalisisResponse,
+  RecomendacionFinanciera,
 } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { mostrarError } from "../../utils/alerts";
@@ -41,7 +42,7 @@ export default function Home() {
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [resumen, setResumen] = useState<ResumenTransacciones | null>(null);
   const [analisis, setAnalisis] = useState<AnalisisResponse | null>(null);
-  const [recomendaciones, setRecomendaciones] = useState<string[]>([]);
+  const [recomendaciones, setRecomendaciones] = useState<RecomendacionFinanciera[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mostrarDetalles, setMostrarDetalles] = useState(false);

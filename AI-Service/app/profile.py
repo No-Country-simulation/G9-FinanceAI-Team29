@@ -41,59 +41,157 @@ def _ensure_resources_loaded() -> None:
 
 
 
-def generar_recomendaciones(fila_usuario: pd.Series) -> list[str]:
-    recomendaciones: list[str] = []
-
+def generar_recomendaciones(
+    fila_usuario: pd.Series,
+    categorias_principales: list[dict] | None = None,
+    perfil_financiero: str | None = None,
+) -> list[dict]:
+    """Genera recomendaciones explicables, accionables y priorizadas sin usar LLM."""
+    categorias_principales = categorias_principales or []
+    perfil = str(perfil_financiero or fila_usuario.get("perfil_financiero", "En observación"))
     ratio_gasto = float(fila_usuario["ratio_gasto_ingreso_calculado"])
     ratio_deuda = float(fila_usuario["ratio_deuda_ingreso_calculado"])
     ratio_ahorro = float(fila_usuario["ratio_ahorro_ingreso_calculado"])
     recurrentes = int(fila_usuario["cantidad_recurrentes"])
 
+    categoria_principal = categorias_principales[0] if categorias_principales else None
+    categoria_nombre = str(categoria_principal.get("categoria", "la categoría principal")) if categoria_principal else "la categoría principal"
+    categoria_monto = float(categoria_principal.get("monto", 0)) if categoria_principal else 0.0
+    categoria_pct = float(categoria_principal.get("porcentaje", 0)) if categoria_principal else 0.0
+
+    recomendaciones: list[dict] = []
+    advertencia = (
+        "Esta orientación se basa en los datos registrados en FinSightAI. "
+        "Antes de tomar una decisión financiera importante, es recomendable consultar con un asesor financiero."
+    )
+
+    def agregar(**item):
+        item["perfil"] = perfil
+        item["advertencia"] = advertencia
+        recomendaciones.append(item)
+
     if ratio_gasto >= 0.80:
-        recomendaciones.append(
-            "Reducir los gastos mensuales y priorizar las categorías esenciales."
+        agregar(
+            id=f"gastos-altos-{categoria_nombre.lower().replace(' ', '-')}",
+            tipo="gastos_altos",
+            prioridad="alta",
+            titulo="Reducir el peso de los gastos",
+            diagnostico=(
+                f"Los gastos representan el {ratio_gasto * 100:.1f}% de los ingresos. "
+                f"{categoria_nombre} es la categoría de mayor consumo"
+                + (f", con ${categoria_monto:,.2f}" if categoria_monto > 0 else "") + "."
+            ),
+            accion=(
+                f"Revisar primero los movimientos de {categoria_nombre} y buscar una reducción gradual "
+                "del 5% al 10%, sin afectar necesidades esenciales."
+            ),
+            objetivo="Llevar gradualmente los gastos totales por debajo del 75% de los ingresos.",
+            evidencia={
+                "ratio_gasto_ingreso": round(ratio_gasto, 4),
+                "categoria_principal": categoria_nombre,
+                "monto_categoria_usd": round(categoria_monto, 2),
+                "porcentaje_categoria": round(categoria_pct, 2),
+            },
+            pregunta_finsi=(
+                f"Vengo de la recomendación 'Reducir el peso de los gastos'. "
+                f"Analiza conmigo los gastos de {categoria_nombre}, explica por qué son prioritarios "
+                "y ayúdame a armar un plan concreto para reducirlos."
+            ),
         )
     elif ratio_gasto >= 0.60:
-        recomendaciones.append(
-            "Revisar las categorías de mayor consumo para liberar capacidad de ahorro."
-        )
-    else:
-        recomendaciones.append(
-            "Mantener el nivel de gasto actual y revisar el presupuesto periódicamente."
+        agregar(
+            id=f"optimizar-gastos-{categoria_nombre.lower().replace(' ', '-')}",
+            tipo="optimizacion_gastos",
+            prioridad="media",
+            titulo="Optimizar las categorías de mayor consumo",
+            diagnostico=(
+                f"Los gastos utilizan el {ratio_gasto * 100:.1f}% de los ingresos. "
+                f"La mayor concentración está en {categoria_nombre}."
+            ),
+            accion=f"Comparar los movimientos de {categoria_nombre} e identificar ajustes posibles sin afectar gastos esenciales.",
+            objetivo="Liberar al menos un 5% adicional de los ingresos para ahorro o imprevistos.",
+            evidencia={"ratio_gasto_ingreso": round(ratio_gasto, 4), "categoria_principal": categoria_nombre},
+            pregunta_finsi=f"Ayúdame a revisar la recomendación sobre optimizar mis gastos de {categoria_nombre} y proponme acciones concretas.",
         )
 
     if ratio_deuda >= 0.35:
-        recomendaciones.append(
-            "Priorizar la reducción de deuda antes de asumir nuevos compromisos financieros."
+        agregar(
+            id="reducir-deuda-prioritaria",
+            tipo="deuda_alta",
+            prioridad="alta",
+            titulo="Priorizar la reducción de deuda",
+            diagnostico=f"Las obligaciones mensuales representan el {ratio_deuda * 100:.1f}% de los ingresos.",
+            accion="Ordenar las deudas por costo financiero, evitar nuevas obligaciones y dirigir el excedente a la deuda más costosa.",
+            objetivo="Reducir gradualmente las cuotas mensuales por debajo del 30% de los ingresos.",
+            evidencia={"ratio_deuda_ingreso": round(ratio_deuda, 4)},
+            pregunta_finsi="Vengo de la recomendación sobre reducir deuda. Ayúdame a priorizar pagos y crear un plan realista con mis datos.",
         )
     elif ratio_deuda >= 0.20:
-        recomendaciones.append(
-            "Evitar incrementar la deuda y planificar pagos anticipados cuando sea posible."
-        )
-    else:
-        recomendaciones.append(
-            "El nivel de endeudamiento se encuentra controlado."
+        agregar(
+            id="controlar-endeudamiento",
+            tipo="deuda_moderada",
+            prioridad="media",
+            titulo="Mantener la deuda bajo control",
+            diagnostico=f"La deuda mensual equivale al {ratio_deuda * 100:.1f}% de los ingresos.",
+            accion="Evitar nuevas cuotas y evaluar pagos anticipados solo si no comprometen el fondo de emergencia.",
+            objetivo="Evitar que la deuda supere el 30% de los ingresos.",
+            evidencia={"ratio_deuda_ingreso": round(ratio_deuda, 4)},
+            pregunta_finsi="Explícame cómo mantener mi deuda bajo control y qué debería revisar primero.",
         )
 
     if ratio_ahorro < 0.10:
-        recomendaciones.append(
-            "Definir un objetivo inicial de ahorro de al menos el 10% del ingreso mensual."
+        agregar(
+            id="construir-capacidad-ahorro",
+            tipo="ahorro_bajo",
+            prioridad="alta" if perfil == "En riesgo" else "media",
+            titulo="Construir capacidad de ahorro",
+            diagnostico=f"La capacidad de ahorro estimada es del {ratio_ahorro * 100:.1f}% de los ingresos.",
+            accion="Separar una parte de cada ingreso apenas se recibe y automatizar el ahorro cuando sea posible.",
+            objetivo="Alcanzar primero un ahorro mensual equivalente al 10% de los ingresos.",
+            evidencia={"ratio_ahorro_ingreso": round(ratio_ahorro, 4)},
+            pregunta_finsi="Vengo de la recomendación sobre construir capacidad de ahorro. Ayúdame a definir un plan mensual paso a paso.",
         )
     elif ratio_ahorro < 0.20:
-        recomendaciones.append(
-            "Incrementar gradualmente el porcentaje destinado al ahorro."
+        agregar(
+            id="fortalecer-ahorro",
+            tipo="ahorro_mejorable",
+            prioridad="media",
+            titulo="Fortalecer el ahorro mensual",
+            diagnostico=f"La capacidad de ahorro actual es del {ratio_ahorro * 100:.1f}% de los ingresos.",
+            accion="Aumentar el porcentaje reservado en pasos pequeños y sostenerlo durante varios meses.",
+            objetivo="Avanzar gradualmente hacia un ahorro cercano al 20% de los ingresos.",
+            evidencia={"ratio_ahorro_ingreso": round(ratio_ahorro, 4)},
+            pregunta_finsi="Explícame cómo aumentar mi ahorro sin desordenar mi presupuesto actual.",
         )
     else:
-        recomendaciones.append(
-            "Mantener el hábito de ahorro y considerar un fondo de emergencia."
+        agregar(
+            id="proteger-ahorro",
+            tipo="ahorro_saludable",
+            prioridad="sugerencia",
+            titulo="Proteger y organizar el ahorro",
+            diagnostico=f"La capacidad de ahorro estimada es del {ratio_ahorro * 100:.1f}% de los ingresos.",
+            accion="Separar el ahorro destinado a emergencias del ahorro para metas de mediano o largo plazo.",
+            objetivo="Construir o mantener un fondo de emergencia equivalente a entre 3 y 6 meses de gastos esenciales.",
+            evidencia={"ratio_ahorro_ingreso": round(ratio_ahorro, 4)},
+            pregunta_finsi="Vengo de la recomendación sobre proteger mi ahorro. Ayúdame a separar fondo de emergencia y metas.",
         )
 
     if recurrentes >= 15:
-        recomendaciones.append(
-            "Auditar suscripciones y débitos automáticos para eliminar cargos innecesarios."
+        agregar(
+            id="auditar-gastos-recurrentes",
+            tipo="recurrentes_altos",
+            prioridad="media",
+            titulo="Auditar pagos recurrentes",
+            diagnostico=f"Hay {recurrentes} movimientos recurrentes registrados.",
+            accion="Revisar suscripciones, membresías y débitos automáticos y cancelar los que ya no aportan valor.",
+            objetivo="Eliminar cargos recurrentes innecesarios y liberar margen mensual.",
+            evidencia={"cantidad_recurrentes": recurrentes},
+            pregunta_finsi="Ayúdame a revisar la recomendación sobre pagos recurrentes y a decidir cuáles debería analizar primero.",
         )
 
-    return recomendaciones
+    orden = {"alta": 0, "media": 1, "sugerencia": 2}
+    recomendaciones.sort(key=lambda item: orden[item["prioridad"]])
+    return recomendaciones[:4]
 
 
 def calcular_score_financiero(fila_usuario: pd.Series) -> int:
@@ -432,7 +530,9 @@ def construir_respuesta_analisis(
         },
         "wallet": construir_wallet(fila_metricas),
         "categorias_principales": categorias_principales,
-        "recomendaciones": generar_recomendaciones(fila_metricas),
+        "recomendaciones": generar_recomendaciones(
+            fila_metricas, categorias_principales, str(perfil_predicho)
+        ),
         "modelo_version": "10.0.0",
     }
 

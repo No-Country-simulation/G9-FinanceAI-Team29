@@ -21,10 +21,10 @@ export const teamMembers: TeamMember[] = [
     isLead: true,
   },
   {
-    id: "edgardo-villalba",
-    name: "Edgardo Villalba",
+    id: "alberto-edgardo-villalba",
+    name: "Alberto Edgardo Villalba",
     role: "Full Stack Developer · AI Developer · Data Scientist",
-    photo: "/team/edgardo-villalba.png",
+    photo: "/team/alberto-edgardo-villalba.webp",
     linkedin: "https://www.linkedin.com/in/edgardo-villalba/",
     github: "https://github.com/Linth84",
   },

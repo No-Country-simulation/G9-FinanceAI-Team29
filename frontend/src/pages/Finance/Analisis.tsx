@@ -83,34 +83,10 @@ export default function Analisis() {
     return 'text-error-600';
   };
 
-  const recomendacionesDelAgente = (data: AnalisisResponse) => {
-    const humanize = (recommendation: string) => {
-      const clean = recommendation.trim().replace(/^[-•]\s*/, '').replace(/\.$/, '');
-      if (/^te recomiendo\b/i.test(clean)) return `${clean}.`;
-      if (/^el nivel de endeudamiento se encuentra controlado/i.test(clean)) {
-        return 'Te recomiendo mantener tu nivel de endeudamiento bajo control y evitar asumir nuevas obligaciones innecesarias.';
-      }
-      if (/^el nivel de endeudamiento/i.test(clean)) {
-        return 'Te recomiendo revisar periódicamente tu nivel de endeudamiento para que no comprometa tu capacidad de pago.';
-      }
-      return `Te recomiendo ${clean.charAt(0).toLowerCase()}${clean.slice(1)}.`;
-    };
-
-    const items = data.recomendaciones.map(humanize);
-    const perfil = data.perfilFinanciero.toLowerCase();
-    const riesgo = data.nivelRiesgo.toLowerCase();
-    const isRisk = perfil.includes('riesgo') || riesgo.includes('alto');
-    const isObservation = perfil.includes('observación') || riesgo.includes('moderado') || riesgo.includes('medio');
-
-    if (isRisk) {
-      items.unshift('Te recomiendo crear una meta para saldar tu deuda y destinar aportes periódicos hasta completar el objetivo.');
-      items.push('Si tu deuda tiene intereses elevados, cuotas vencidas o te cuesta cumplir con los pagos, te recomiendo consultar con un asesor financiero.');
-    } else if (isObservation) {
-      items.push('Te recomiendo crear una meta financiera concreta para transformar tu margen de ahorro en un progreso medible.');
-    }
-
-    return Array.from(new Set(items));
-  };
+  const recomendacionesDelAgente = (data: AnalisisResponse) =>
+    data.recomendaciones.map((rec) =>
+      `${rec.titulo}: ${rec.diagnostico} Acción sugerida: ${rec.accion}`
+    );
 
   return (
     <>

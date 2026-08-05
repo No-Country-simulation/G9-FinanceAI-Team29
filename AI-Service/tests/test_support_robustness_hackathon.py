@@ -35,8 +35,8 @@ def test_password_answer_uses_real_profile_route() -> None:
         support_email="soporte@example.com",
     )
     assert result is not None
-    assert "Mi cuenta" in result.content
-    assert "¿Olvidaste tu contraseña?" in result.content
+    assert result.route == "support_password_triage"
+    assert "La nueva contraseña es rechazada" in result.content
     assert "Mi Perfil" not in result.content
 
 
