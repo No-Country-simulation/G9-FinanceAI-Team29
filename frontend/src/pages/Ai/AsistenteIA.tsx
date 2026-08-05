@@ -46,6 +46,16 @@ function limpiarMetadataInterna(texto: string): string {
     .trim();
 }
 
+// Easter egg: si el usuario repite la misma pregunta dos veces seguidas, se le
+// muestra el rickroll sin pasar por el backend. Mismo texto que el easter egg
+// "rickroll" de AI-Service/app/services/agent/easter_eggs.py.
+const RESPUESTA_RICKROLL_REPETIDA =
+  "😏 You just got Rickrolled. Classic.\n\n!video[Rickroll](https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1)";
+
+function normalizarPreguntaParaComparar(texto: string): string {
+  return texto.trim().toLowerCase();
+}
+
 function AvatarFinsi({ pensando = false }: { pensando?: boolean }) {
   return (
     <div
@@ -251,10 +261,30 @@ export default function AsistenteIA() {
   const handleSubmit = async (prompt: string) => {
     if (enviando) return;
     setPasoPendiente(null);
+
+    const ultimaPreguntaUsuario = [...messages].reverse().find((m) => m.role === "user")?.text;
+    const esPreguntaRepetida =
+      ultimaPreguntaUsuario !== undefined &&
+      normalizarPreguntaParaComparar(ultimaPreguntaUsuario) === normalizarPreguntaParaComparar(prompt);
+
     setMessages((prev) => [
       ...prev,
       { id: prev.length + 1, role: "user", text: prompt },
     ]);
+
+    if (esPreguntaRepetida) {
+      setAgentTabStatus("💬 El agente está escribiendo...");
+      if (sonidoActivo) playSendSound();
+      setMessages((prev) => [
+        ...prev,
+        { id: prev.length + 1, role: "assistant", text: RESPUESTA_RICKROLL_REPETIDA },
+      ]);
+      setAgentTabStatus("✅ El agente ha respondido", 2000);
+      if (sonidoActivo) playReceiveSound();
+      if (vozActiva) speakText("You just got Rickrolled. Classic.");
+      return;
+    }
+
     setEnviando(true);
     setMensajePensando(obtenerMensajePensando(prompt));
     setAgentTabStatus("💬 El agente está escribiendo...");
@@ -274,7 +304,13 @@ export default function AsistenteIA() {
       }
       setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playReceiveSound();
-      if (vozActiva) speakText(limpiarMetadataInterna(answer));
+      if (vozActiva) {
+        if (answer.includes("[[finsi-terminal-demo]]")) {
+          speakText("Hola, soy Finsi. ¿Reviso tus finanzas?");
+        } else {
+          speakText(limpiarMetadataInterna(answer));
+        }
+      }
     } catch (error) {
       setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playErrorSound();

@@ -22,11 +22,16 @@ frontend/.currency-check.zip
 frontend/.dashboard-layout-check/
 frontend/.dashboard-layout-check.zip
 docs/
+tmp/
 
+.vscode
+.claude
+.agents
 .env
 *.bat
 *.md
 
+MERGE_NOTES.txt
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

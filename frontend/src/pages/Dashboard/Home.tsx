@@ -53,6 +53,15 @@ export default function Home() {
   const location = useLocation();
   const chartRef = useRef<HTMLDivElement>(null);
 
+  // Supabase reemite la sesión (mismo contenido, referencia nueva) cada vez
+  // que la pestaña recupera el foco. Guardamos la sesión en un ref para
+  // poder chequearla dentro de cargarDatos sin que su identidad dispare
+  // un refetch innecesario del dashboard al volver de otra pestaña.
+  const sessionRef = useRef(session);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
   // Lectura síncrona (lazy initializer): SignInForm ya esperó a que el
   // usuarioId y el nombre completo estén resueltos antes de navegar acá,
   // así que el splash se decide y se pinta con el nombre final desde el
@@ -132,7 +141,7 @@ export default function Home() {
       // mientras esta carga estaba en vuelo), no mostramos el error: el
       // logout ya se está manejando (redirección a /signin) y no hay
       // nada "real" que reportarle al usuario.
-      if (isCancelled() || !session) return;
+      if (isCancelled() || !sessionRef.current) return;
 
       console.error("ERROR COMPLETO:", err);
 
@@ -162,7 +171,7 @@ export default function Home() {
         setLoading(false);
       }
     }
-  }, [usuarioId, session]);
+  }, [usuarioId]);
 
   useEffect(() => {
     if (authLoading) return;
