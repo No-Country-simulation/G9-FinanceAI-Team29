@@ -1,6 +1,8 @@
 package com.financeai.controller;
 
+import com.financeai.dto.PerfilActualizadoResponse;
 import com.financeai.dto.ProfileUpdateRequest;
+import jakarta.validation.Valid;
 import com.financeai.model.Recomendacion;
 import com.financeai.model.EstadoUsuario;
 import com.financeai.model.Usuario;
@@ -183,7 +185,7 @@ public class UsuarioController {
     @PatchMapping("/{id}/perfil")
     public ResponseEntity<?> actualizarPerfilBasico(
             @PathVariable String id,
-            @RequestBody ProfileUpdateRequest request
+            @Valid @RequestBody ProfileUpdateRequest request
     ) {
         return usuarioRepository.findById(id)
                 .map(usuario -> {
@@ -231,11 +233,11 @@ public class UsuarioController {
                     usuario.setApellido(apellido);
                     usuarioRepository.save(usuario);
 
-                    return ResponseEntity.ok(Map.of(
-                            "mensaje", "Perfil actualizado correctamente.",
-                            "nombre", nombre,
-                            "apellido", apellido,
-                            "email", usuario.getEmail()
+                    return ResponseEntity.ok(new PerfilActualizadoResponse(
+                            "Perfil actualizado correctamente.",
+                            nombre,
+                            apellido,
+                            usuario.getEmail()
                     ));
                 })
                 .orElse(ResponseEntity.notFound().build());
@@ -271,13 +273,14 @@ public class UsuarioController {
             @PathVariable String authUserId
     ) {
         return usuarioRepository.findByAuthUserId(authUserId)
-                .<ResponseEntity<?>>map(usuario -> ResponseEntity.ok(
-                        Map.of(
-                                "usuarioId", usuario.getId(),
-                                "authUserId", usuario.getAuthUserId(),
-                                "email", usuario.getEmail()
-                        )
-                ))
+                .<ResponseEntity<?>>map(usuario -> {
+                    // HashMap (no Map.of) porque el email puede ser null y Map.of no lo admite.
+                    Map<String, Object> body = new HashMap<>();
+                    body.put("usuarioId", usuario.getId());
+                    body.put("authUserId", usuario.getAuthUserId());
+                    body.put("email", usuario.getEmail());
+                    return ResponseEntity.ok(body);
+                })
                 .orElseGet(() -> ResponseEntity
                         .status(HttpStatus.NOT_FOUND)
                         .body(Map.of(

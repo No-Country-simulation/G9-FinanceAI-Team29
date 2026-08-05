@@ -1,9 +1,15 @@
 package com.financeai.controller;
 
+import com.financeai.dto.PagedResponse;
+import com.financeai.dto.ResumenTransaccionesDTO;
 import com.financeai.dto.TransaccionResponseDTO;
 import com.financeai.model.Transaccion;
 import com.financeai.repository.TransaccionRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,8 +41,25 @@ public class TransaccionController {
         return ResponseEntity.ok(dtos);
     }
 
+    /**
+     * Igual que el listado, pero paginado: trae las transacciones de a tandas.
+     * Ej: GET /api/usuarios/{id}/transacciones/pagina?page=0&size=20
+     * Por defecto: 20 por página, ordenadas por fecha descendente (más nuevas primero).
+     */
+    @GetMapping("/pagina")
+    public ResponseEntity<PagedResponse<TransaccionResponseDTO>> listarPaginado(
+            @PathVariable String usuarioId,
+            @PageableDefault(size = 20, sort = "fecha", direction = Sort.Direction.DESC)
+            Pageable pageable) {
+
+        Page<TransaccionResponseDTO> pagina =
+            transaccionRepository.findByUsuarioId(usuarioId, pageable).map(this::toDTO);
+
+        return ResponseEntity.ok(PagedResponse.from(pagina));
+    }
+
     @GetMapping("/resumen")
-    public ResponseEntity<Map<String, Object>> resumenTransacciones(
+    public ResponseEntity<ResumenTransaccionesDTO> resumenTransacciones(
             @PathVariable String usuarioId) {
 
         List<Transaccion> transacciones = transaccionRepository.findByUsuarioId(usuarioId);
@@ -58,11 +81,11 @@ public class TransaccionController {
                 Collectors.reducing(java.math.BigDecimal.ZERO, Transaccion::getMonto, java.math.BigDecimal::add)
             ));
 
-        return ResponseEntity.ok(Map.of(
-            "totalGastos", totalGastos,
-            "totalIngresos", totalIngresos,
-            "porCategoria", porCategoria,
-            "cantidadTransacciones", transacciones.size()
+        return ResponseEntity.ok(new ResumenTransaccionesDTO(
+            totalGastos,
+            totalIngresos,
+            porCategoria,
+            transacciones.size()
         ));
     }
 

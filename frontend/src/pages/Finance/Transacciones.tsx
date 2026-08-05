@@ -6,6 +6,7 @@ import { SkeletonBlock } from "../../components/common/Skeleton";
 import { formatMoney } from "../../utils/export/format";
 import { exportDashboardXlsx } from "../../utils/export/exportXlsxDashboard";
 import { obtenerTransacciones } from "../../services/api";
+import Pagination from "../../components/ui/pagination/Pagination";
 import { Transaccion } from "../../types/finance";
 import { getCategoriaColor } from "../../utils/categoriaColors";
 import { mostrarError, mostrarInfo } from "../../utils/alerts";
@@ -62,6 +63,8 @@ export default function Transacciones() {
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('Todos');
+  const [paginaActual, setPaginaActual] = useState(1);
+  const POR_PAGINA = 20;
 
   const { usuarioId } = useAuth();
   const navigate = useNavigate();
@@ -97,6 +100,15 @@ export default function Transacciones() {
 
   const totalIngresos = filtradas.filter(t => t.tipo === 'Ingreso').reduce((acc, t) => acc + Number(t.monto), 0);
   const totalGastos = filtradas.filter(t => t.tipo === 'Gasto').reduce((acc, t) => acc + Number(t.monto), 0);
+
+  // Paginación en pantalla: mostramos de a POR_PAGINA. Totales/exportar siguen usando `filtradas` (todas).
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA));
+  const paginadas = filtradas.slice((paginaActual - 1) * POR_PAGINA, paginaActual * POR_PAGINA);
+
+  // Al cambiar el filtro, volvemos a la primera página.
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [filtro]);
 
   return (
     <>
@@ -150,7 +162,7 @@ export default function Transacciones() {
           <>
             {/* Vista de tarjetas — solo móvil */}
             <div className="space-y-3 sm:hidden">
-              {filtradas.map((t) => (
+              {paginadas.map((t) => (
                 <div
                   key={t.id}
                   className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]"
@@ -204,7 +216,7 @@ export default function Transacciones() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtradas.map((t) => (
+                    {paginadas.map((t) => (
                       <tr key={t.id} className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                         <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{t.fecha}</td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-800 dark:text-white/90">{t.descripcion}</td>
@@ -233,6 +245,16 @@ export default function Transacciones() {
                 </table>
               </div>
             </div>
+
+            {totalPaginas > 1 && (
+              <div className="flex justify-center pt-2">
+                <Pagination
+                  currentPage={paginaActual}
+                  totalPages={totalPaginas}
+                  onPageChange={setPaginaActual}
+                />
+              </div>
+            )}
           </>
         )}
       </div>

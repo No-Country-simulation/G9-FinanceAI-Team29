@@ -52,6 +52,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()     // crear perfil (registro)
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html",
                                  "/v3/api-docs/**", "/error").permitAll()
+                .requestMatchers("/actuator/health").permitAll()                   // health-check público
                 .anyRequest().authenticated())
             // Valida el JWT de Supabase usando el jwk-set-uri del application.yml.
             .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()))

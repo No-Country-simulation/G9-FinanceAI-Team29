@@ -97,3 +97,13 @@ logging:
 supabase:
   url: ${SUPABASE_URL:https://wfypvyfhpworindwllsz.supabase.co}
   service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}
+
+# Actuator: exponemos SOLO el health-check por la web (sin detalles sensibles).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

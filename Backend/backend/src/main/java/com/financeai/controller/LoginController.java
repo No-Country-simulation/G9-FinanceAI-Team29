@@ -31,7 +31,7 @@ public class LoginController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> loginConUid(@RequestBody LoginUidRequest request) {
+    public ResponseEntity<?> loginConUid(@Valid @RequestBody LoginUidRequest request) {
         try {
             // 1. Validar las credenciales (Email + Password) contra Supabase Auth API
             // El servicio intenta hacer login en Supabase y te devuelve el UID (authUserId)

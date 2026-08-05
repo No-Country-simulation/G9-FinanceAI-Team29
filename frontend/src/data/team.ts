@@ -20,7 +20,7 @@ export const teamMembers: TeamMember[] = [
     name: "Guillermo Illanes",
     role: "Team Lead · Full Stack Developer",
     photo: "/team/guillermo-illanes.webp",
-    quote: "Cuando sale algo es bkn, pero cuando no sale nada es gg nomás.",
+    quote: "Cuando sale algo es bons, pero cuando no sale nada es gg nomás.",
     linkedin: "https://www.linkedin.com/in/guillermo-illanes-172aaa229/",
     github: "https://github.com/guille2506",
     isLead: true,
