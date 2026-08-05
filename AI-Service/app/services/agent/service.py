@@ -9,6 +9,7 @@ from app.profile import analizar_usuario
 from app.services.agent.calculator import FinancialCalculator
 from app.services.agent.context_builder import FinancialContextBuilder
 from app.services.agent.deterministic_responder import DeterministicFinancialResponder
+from app.services.agent.easter_eggs import EasterEggResponder
 from app.services.agent.intent import Intent, IntentDetector
 from app.services.agent.goal_responder import DeterministicGoalResponder
 from app.services.agent.rules_engine import FinancialRulesEngine
@@ -56,6 +57,29 @@ class FinSightAgentService:
         previous_answer: str | None = None,
         time_zone: str | None = None,
     ) -> LLMResponse:
+        easter_egg = EasterEggResponder.match(question)
+        if easter_egg is not None:
+            # Respuesta temprana: no pasa por intents, soporte, consultas,
+            # políticas ni LLM. Si había contexto financiero, conserva solo
+            # su marcador oculto para no alterar un seguimiento posterior.
+            preserved_context = self._financial_context_marker(previous_answer)
+            content = easter_egg.response
+            if preserved_context:
+                content = f"{content}\n\n{preserved_context}"
+            return LLMResponse(
+                content=content,
+                provider="internal",
+                model="easter-egg",
+                metadata={
+                    "intent": "easter_egg",
+                    "route": f"easter_egg_{easter_egg.key}",
+                    "easter_egg": easter_egg.key,
+                    "used_financial_context": False,
+                    "save_history": False,
+                    "update_context": False,
+                },
+            )
+
         preserved_context = self._financial_context_marker(previous_answer)
         if preserved_context and self._is_context_noise(question):
             return LLMResponse(
