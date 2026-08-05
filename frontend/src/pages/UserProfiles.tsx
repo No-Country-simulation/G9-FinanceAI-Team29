@@ -8,16 +8,9 @@ import Button from '../components/ui/button/Button';
 import { Modal } from '../components/ui/modal';
 import { useModal } from '../hooks/useModal';
 import { useAuth } from '../context/AuthContext';
-import {
-  actualizarPerfil,
-  darDeBajaCuenta,
-  obtenerPerfilCompleto,
-  obtenerResumen,
-  obtenerTransacciones,
-  PerfilCompleto,
-} from '../services/api';
+import { usePerfilData } from '../context/PerfilDataContext';
+import { actualizarPerfil, darDeBajaCuenta } from '../services/api';
 import { supabase } from '../services/supabase';
-import type { ResumenTransacciones, Transaccion } from '../types/finance';
 import UserAvatar from '../components/common/UserAvatar';
 import { AVATAR_OPTIONS } from '../utils/avatarOptions';
 import { exportToPdf } from '../utils/export/exportPdf';
@@ -144,13 +137,60 @@ function coloresEstado(estado: string) {
   }
 }
 
+function SkeletonCard({ className = '' }: { className?: string }) {
+  return (
+    <div className={`animate-pulse rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6 ${className}`}>
+      <div className="flex items-center gap-5">
+        <div className="h-20 w-20 shrink-0 rounded-full bg-gray-200 dark:bg-gray-700" />
+        <div className="flex-1 space-y-3">
+          <div className="h-4 w-40 rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="h-3 w-24 rounded bg-gray-200 dark:bg-gray-700" />
+        </div>
+      </div>
+      <div className="mt-6 grid grid-cols-1 gap-4 border-t border-gray-100 pt-6 dark:border-gray-800 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="space-y-2">
+            <div className="h-3 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+            <div className="h-4 w-28 rounded bg-gray-200 dark:bg-gray-700" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PerfilSkeleton() {
+  return (
+    <>
+      <PageMeta title="Mi cuenta | FinSightAI" description="Perfil y opciones de cuenta" />
+      <PageBreadcrumb pageTitle="Mi cuenta" />
+      <div className="space-y-6">
+        <SkeletonCard />
+        <div className="animate-pulse rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+          <div className="mb-6 h-4 w-40 rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-3 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+                <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 h-2 w-full rounded-full bg-gray-200 pt-4 dark:bg-gray-700" />
+        </div>
+        <div className="animate-pulse rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+          <div className="mb-2 h-4 w-40 rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="h-3 w-64 rounded bg-gray-200 dark:bg-gray-700" />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function UserProfiles() {
   const { usuarioId, email, avatarIcon, signOut, refreshSession } = useAuth();
+  const { perfil, transacciones, resumen, loading, actualizarPerfilLocal } = usePerfilData();
   const { isOpen, openModal, closeModal } = useModal();
-  const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
-  const [resumen, setResumen] = useState<ResumenTransacciones | null>(null);
-  const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
-  const [loading, setLoading] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
@@ -169,29 +209,12 @@ export default function UserProfiles() {
   const anchoBarraAhorro = Math.max(0, Math.min(100, Math.abs(porcentajeAhorro)));
 
   useEffect(() => {
-    if (!usuarioId) {
-      setLoading(false);
-      return;
-    }
+    if (!perfil) return;
 
-    Promise.all([
-      obtenerPerfilCompleto(usuarioId),
-      obtenerResumen(usuarioId),
-      obtenerTransacciones(usuarioId),
-    ])
-      .then(([perfilData, resumenData, transaccionesData]) => {
-        setPerfil(perfilData);
-        setResumen(resumenData);
-        setTransacciones(transaccionesData);
-        setNombre(perfilData.nombre ?? '');
-        setApellido(perfilData.apellido ?? '');
-        setCorreo(perfilData.email ?? '');
-      })
-      .catch((error) => {
-        void Swal.fire('No se pudo cargar el perfil', error.message, 'error');
-      })
-      .finally(() => setLoading(false));
-  }, [usuarioId]);
+    setNombre(perfil.nombre ?? '');
+    setApellido(perfil.apellido ?? '');
+    setCorreo(perfil.email ?? '');
+  }, [perfil]);
 
   const abrirEdicion = () => {
     setNombre(perfil?.nombre ?? '');
@@ -215,7 +238,7 @@ export default function UserProfiles() {
         if (error) throw error;
       }
 
-      setPerfil((actual) => actual ? { ...actual, nombre, apellido, email: correo } : actual);
+      actualizarPerfilLocal({ nombre, apellido, email: correo });
 
       try {
         await refreshSession();
@@ -497,7 +520,7 @@ export default function UserProfiles() {
     }
   };
 
-  if (loading) return <p className="p-6 text-gray-500">Cargando perfil...</p>;
+  if (loading) return <PerfilSkeleton />;
 
   return (
     <>

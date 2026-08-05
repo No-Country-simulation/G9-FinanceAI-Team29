@@ -3,6 +3,7 @@ import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import ResetPassword from "./pages/AuthPages/ResetPassword";
 import EmailPreview from "./pages/Dev/EmailPreview";
+import MermaidPreview from "./pages/Dev/MermaidPreview";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
 import Soporte from "./pages/Soporte";
@@ -18,6 +19,7 @@ import ImportarCsv from "./pages/Finance/ImportarCsv";
 import Terminos from "./pages/Legal/Terminos";
 import PoliticaPrivacidad from "./pages/Legal/PoliticaPrivacidad";
 import { AuthProvider } from "./context/AuthContext";
+import { PerfilDataProvider } from "./context/PerfilDataContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { usePageVisibilityTitle } from "./hooks/usePageVisibilityTitle";
 import { ConsoleBanner } from "./components/common/ConsoleBanner";
@@ -33,6 +35,7 @@ export default function App() {
       <Router>
         <ConsoleBanner />
         <AuthProvider>
+        <PerfilDataProvider>
         <ScrollToTop />
         <Routes>
           {/* Dashboard Layout (rutas privadas) */}
@@ -59,6 +62,7 @@ export default function App() {
 
           {/* Ruta oculta sin enlace en el menú: preview de correos de Supabase */}
           <Route path="/dev/email-preview" element={<EmailPreview />} />
+          <Route path="/dev/mermaid-preview" element={<MermaidPreview />} />
           <Route path="/terminos" element={<Terminos />} />
           <Route path="/privacidad" element={<PoliticaPrivacidad />} />
 
@@ -66,6 +70,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
         <TabTitleManager />
+        </PerfilDataProvider>
         </AuthProvider>
       </Router>
     </>

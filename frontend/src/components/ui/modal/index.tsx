@@ -1,4 +1,5 @@
 import { useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 interface ModalProps {
   isOpen: boolean;
@@ -53,7 +54,7 @@ export const Modal: React.FC<ModalProps> = ({
     ? "w-full h-full"
     : "relative w-full rounded-3xl bg-white  dark:bg-gray-900";
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 flex items-center justify-center overflow-y-auto modal z-99999">
       {!isFullscreen && (
         <div
@@ -89,6 +90,7 @@ export const Modal: React.FC<ModalProps> = ({
         )}
         <div>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

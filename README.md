@@ -186,9 +186,9 @@ El microservicio de Machine Learning expone los siguientes endpoints:
 - ✅ Análisis Exploratorio de Datos (EDA).
 - ✅ Entrenamiento de modelos de Machine Learning.
 - ✅ Desarrollo del microservicio FastAPI.
-- 🔄 Integración con Spring Boot.
-- 🔄 Desarrollo del Frontend.
-- 🔄 Integración con Supabase.
+- ✅ Integración con Spring Boot.
+- ✅ Desarrollo del Frontend.
+- ✅ Integración con Supabase.
 - ⬜ Despliegue en Oracle Cloud Infrastructure (OCI).
 - ⬜ Despliegue del Frontend.
 - ⬜ Presentación final del proyecto.

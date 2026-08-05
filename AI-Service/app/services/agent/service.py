@@ -13,6 +13,7 @@ from app.services.agent.intent import Intent, IntentDetector
 from app.services.agent.goal_responder import DeterministicGoalResponder
 from app.services.agent.rules_engine import FinancialRulesEngine
 from app.services.agent.normalizer import QueryNormalizer
+from app.services.agent.recommendation_advisor import RecommendationAdvisor
 from app.services.agent.policies import AgentPolicies
 from app.services.agent.router import AgentRoute, AgentRouter
 from app.services.agent.schemas import IntentResult, NormalizedQuery
@@ -22,6 +23,7 @@ from app.services.llm.schemas import LLMResponse
 from app.services.llm.service import LLMService
 from app.services.goals.repository import GoalRepository
 from app.services.support import SupportAgent, SupportIntentDetector
+from app.services.support.product_knowledge import ProductKnowledgeResponder
 from app.services.agent.transaction_queries import TransactionQueryEngine
 from app.services.backend_financial_data import (
     BackendDataError,
@@ -54,7 +56,77 @@ class FinSightAgentService:
         previous_answer: str | None = None,
         time_zone: str | None = None,
     ) -> LLMResponse:
+        preserved_context = self._financial_context_marker(previous_answer)
+        if preserved_context and self._is_context_noise(question):
+            return LLMResponse(
+                content=(
+                    "No pude interpretar ese mensaje. Puedes continuar con la consulta financiera anterior "
+                    "o escribir una nueva pregunta.\n\n"
+                    + preserved_context
+                ),
+                provider="internal",
+                model="financial-context-guard",
+                metadata={
+                    "intent": "context_noise",
+                    "route": "financial_context_preserved",
+                    "used_financial_context": True,
+                },
+            )
+
         query = self._prepare_query(question)
+
+        # Los mensajes originados en una tarjeta de recomendación ya incluyen
+        # diagnóstico, acción y objetivo verificados. Deben continuar por el
+        # flujo de asesoramiento, sin pasar por el clasificador transaccional
+        # general (que podría confundir palabras como "movimientos" o "gastos"
+        # con una solicitud de resumen).
+        if self._is_recommendation_context(question):
+            content = self._recommendation_context_response(question)
+            response = self._internal_response(
+                content,
+                Intent.RECOMMENDATIONS,
+                query,
+                used_financial_context=True,
+            )
+            response.metadata["route"] = "recommendation_context"
+            response.metadata["recommendation_origin"] = True
+            return response
+
+        # Los reportes de seguridad, datos ajenos o errores técnicos críticos
+        # deben ir a soporte antes de cualquier interpretación financiera.
+        if SupportIntentDetector.is_critical_support_query(query.original):
+            return await self.support_agent.answer(
+                usuario_id=usuario_id,
+                question=query.original,
+                provider=provider,
+                previous_answer=previous_answer,
+            )
+
+        # Una frase que describe un fallo debe ir al diagnóstico guiado.
+        # Product Knowledge queda reservado para preguntas informativas.
+        explicit_support_query = SupportIntentDetector.is_support_query(query.original)
+
+        # Las consultas informativas sobre funciones reales de FinSightAI se
+        # resuelven antes de los intents financieros y antes de UNKNOWN.
+        product_knowledge = (
+            None
+            if explicit_support_query
+            else ProductKnowledgeResponder.answer(query.original)
+        )
+        if product_knowledge is not None:
+            return LLMResponse(
+                content=product_knowledge.content,
+                provider="internal",
+                model="support-product-knowledge",
+                metadata={
+                    "intent": "product_knowledge",
+                    "route": product_knowledge.route,
+                    "topic": product_knowledge.topic,
+                    "used_financial_context": False,
+                    "corrections_count": len(query.corrections),
+                },
+            )
+
         local_today = self._today_for_time_zone(time_zone)
         is_contextual_date_follow_up = TransactionQueryEngine.is_contextual_date_follow_up(
             query.corrected, previous_answer
@@ -69,12 +141,9 @@ class FinSightAgentService:
             query.corrected,
             previous_answer,
         )
-        is_general_financial_knowledge = self._is_general_financial_knowledge_query(
-            query.corrected
-        )
 
         # Las intenciones conversacionales globales tienen prioridad sobre el
-        # soporte. Esto evita que preguntas como "¿qué podés hacer?" sean
+        # soporte. Esto evita que preguntas como "¿qué puedes hacer?" sean
         # interpretadas como continuación de un diagnóstico técnico solo porque
         # la respuesta anterior mencionó que el asistente puede ayudar.
         early_intent = self.intent_detector.detect_result(query.corrected)
@@ -84,6 +153,7 @@ class FinSightAgentService:
             Intent.FAREWELL,
             Intent.CAPABILITIES,
             Intent.CREATOR_INFO,
+            Intent.NON_FINANCIAL_CALCULATION,
         }:
             return self._internal_response(
                 self._simple_response(early_intent.intent),
@@ -94,15 +164,13 @@ class FinSightAgentService:
         # El soporte se evalúa antes de las políticas financieras para que las
         # consultas sobre el uso de FinSightAI no sean tratadas como fuera de alcance.
         # El flujo financiero existente permanece intacto para el resto.
-        if not (
-            is_contextual_financial_follow_up
-            or is_financial_query
-            or is_general_financial_knowledge
-        ) and (
-            SupportIntentDetector.is_support_query(query.original)
-            or SupportIntentDetector.is_support_follow_up(
-                query.original, previous_answer
-            )
+        support_follow_up = SupportIntentDetector.is_support_follow_up(
+            query.original, previous_answer
+        )
+        if explicit_support_query or (
+            support_follow_up
+            and early_intent.intent != Intent.FINANCIAL_EDUCATION
+            and not (is_contextual_financial_follow_up or is_financial_query)
         ):
             return await self.support_agent.answer(
                usuario_id=usuario_id,
@@ -119,27 +187,6 @@ class FinSightAgentService:
                 policy.intent,
                 query,
             )
-
-        # Las preguntas educativas sobre conceptos financieros no son incidentes
-        # técnicos. Se responden con el LLM sin cargar datos personales.
-        if is_general_financial_knowledge:
-            messages = PromptBuilder.build(
-                original_question=query.original,
-                processed_question=query.corrected,
-                corrections=query.corrections,
-                context={},
-                intent="financial_education",
-            )
-            response = await self.llm.generate(messages=messages, provider=provider)
-            response.metadata.update(
-                {
-                    "intent": "financial_education",
-                    "route": "llm_without_context",
-                    "used_financial_context": False,
-                    "corrections_count": len(query.corrections),
-                }
-            )
-            return response
 
         if previous_answer and self._is_follow_up(query.corrected):
             messages = PromptBuilder.build_follow_up(
@@ -179,13 +226,30 @@ class FinSightAgentService:
                 user_name = str(profile.get("nombre") or "").strip() or None
             except (BackendDataError, ValueError):
                 user_name = None
+            # Evita que el contexto de una recomendación previa altere
+            # consultas transaccionales explícitas.
+            # Una consulta explícita contiene su propia intención ("cuánto gasté",
+            # "cuánto ingresé", "qué compré", etc.) y no debe heredar el contexto
+            # anterior, aunque también mencione un mes. En cambio, una consulta
+            # elíptica como "¿y el mes anterior?" sí necesita previous_answer.
+            explicit_transaction_query = self._is_explicit_transaction_query(
+                query.corrected
+            )
+
+            transaction_previous_answer = (
+                None
+                if explicit_transaction_query
+                else previous_answer
+                if is_contextual_financial_follow_up
+                else previous_answer
+            )
+
             transaction_answer = TransactionQueryEngine.answer(
                 query.corrected,
                 transactions,
                 user_name=user_name,
                 analysis=analysis_for_query,
-                previous_answer=previous_answer,
-                today=local_today,
+                previous_answer=transaction_previous_answer,
             )
             if transaction_answer is not None:
                 response = self._internal_response(
@@ -279,77 +343,51 @@ class FinSightAgentService:
         return response
 
     @staticmethod
-    def _is_general_financial_knowledge_query(question: str) -> bool:
-        """Detecta definiciones financieras que deben ir al LLM, no a soporte."""
+    def _is_recommendation_context(question: str) -> bool:
         normalized = QueryNormalizer.normalize(question)
-        if not normalized:
-            return False
-
-        definition_patterns = (
-            r"^(?:que|cual)\s+(?:es|son|significa|significan)\b",
-            r"^(?:como funciona|como funcionan|como se usa|como se usan)\b",
-            r"^(?:para que sirve|para que sirven|como se calcula|como se calculan)\b",
-            r"^(?:en que consiste|en que consisten)\b",
-            r"^(?:explicame|explica|definime|defini|dame una definicion de)\b",
+        markers = (
+            "continua desde esta recomendacion",
+            "vengo de esta recomendacion",
+            "perfil financiero",
+            "diagnostico",
+            "accion sugerida",
+            "objetivo",
         )
-        if not any(re.search(pattern, normalized) for pattern in definition_patterns):
-            return False
-
-        financial_concepts = (
-            "pib",
-            "producto interno bruto",
-            "pbi",
-            "producto bruto interno",
-            "inflacion",
-            "deflacion",
-            "ipc",
-            "indice de precios al consumidor",
-            "tasa de interes",
-            "interes simple",
-            "interes compuesto",
-            "credito",
-            "tarjeta de credito",
-            "prestamo",
-            "hipoteca",
-            "presupuesto",
-            "ahorro",
-            "inversion",
-            "accion",
-            "acciones",
-            "bono",
-            "bonos",
-            "etf",
-            "fondo de inversion",
-            "fondo comun",
-            "riesgo financiero",
-            "diversificacion",
-            "deuda",
-            "score crediticio",
-            "tipo de cambio",
-            "recesion",
-            "liquidez",
-            "rentabilidad",
-            "patrimonio",
-            "capital",
-            "impuesto",
-            "iva",
-            "ganancias",
-            "mercado financiero",
-            "mercado de capitales",
-            "dividendo",
-            "dividendos",
-            "interes",
-            "moneda",
-            "tipo de interes",
-            "tasa nominal",
-            "tasa efectiva",
-            "costo financiero total",
-            "cft",
-            "plazo fijo",
-            "cuenta corriente",
-            "caja de ahorro",
+        strong_marker = any(
+            marker in normalized
+            for marker in (
+                "continua desde esta recomendacion",
+                "vengo de esta recomendacion",
+            )
         )
-        return any(concept in normalized for concept in financial_concepts)
+        structured_fields = sum(marker in normalized for marker in markers[2:])
+        return strong_marker or structured_fields >= 3
+
+    @classmethod
+    def _recommendation_context_response(cls, question: str) -> str:
+        fields = cls._extract_recommendation_fields(question)
+        return RecommendationAdvisor.build(fields)
+
+    @staticmethod
+    def _extract_recommendation_fields(question: str) -> dict[str, str]:
+        labels = {
+            "perfil financiero": "perfil financiero",
+            "diagnostico": "diagnostico",
+            "acción sugerida": "accion sugerida",
+            "accion sugerida": "accion sugerida",
+            "objetivo": "objetivo",
+        }
+        result: dict[str, str] = {}
+        for raw_line in question.splitlines():
+            line = raw_line.strip()
+            if not line or ":" not in line:
+                continue
+            raw_label, value = line.split(":", 1)
+            normalized_label = QueryNormalizer.normalize(raw_label)
+            canonical = labels.get(normalized_label)
+            if canonical and value.strip():
+                result[canonical] = value.strip()
+        return result
 
     @staticmethod
     def _today_for_time_zone(time_zone: str | None) -> date:
@@ -524,6 +562,57 @@ class FinSightAgentService:
         return pattern.sub(replace, content)
 
     @staticmethod
+    def _is_explicit_transaction_query(question: str) -> bool:
+        """Detecta consultas que expresan por sí solas gasto o ingreso.
+
+        No considera explícitas expresiones elípticas como "¿y el mes anterior?",
+        porque esas sí necesitan la respuesta previa para conservar el tipo de
+        movimiento consultado.
+        """
+        normalized = QueryNormalizer.normalize(question)
+
+        expense_patterns = (
+            r"\bcuanto\s+(?:gaste|gasto|pague)\b",
+            r"\bque\s+(?:gaste|compre|pague)\b",
+            r"\ben\s+que\s+gaste\b",
+            r"\btotal\s+de\s+gastos\b",
+            r"\bgastos?\s+(?:de|del|en|este|esta)\b",
+        )
+        income_patterns = (
+            r"\bcuanto\s+(?:ingrese|cobre|gane)\b",
+            r"\bque\s+(?:ingrese|cobre)\b",
+            r"\btotal\s+de\s+ingresos\b",
+            r"\bingresos?\s+(?:de|del|en|este|esta)\b",
+        )
+
+        return any(
+            re.search(pattern, normalized)
+            for pattern in expense_patterns + income_patterns
+        )
+
+    @staticmethod
+    def _financial_context_marker(previous_answer: str | None) -> str | None:
+        if not previous_answer:
+            return None
+        match = re.search(
+            r"<!--\s*finsi-financial-context\s+metric=(?:income|expense|unknown)\s+"
+            r"granularity=(?:year|month|rank|other)\s+year=(?:\d{4}|none)\s+"
+            r"month=(?:\d{1,2}|none)\s+position=(?:\d+|none)\s*-->",
+            previous_answer,
+            flags=re.IGNORECASE,
+        )
+        return match.group(0) if match else None
+
+    @staticmethod
+    def _is_context_noise(question: str) -> bool:
+        raw = (question or "").strip().casefold()
+        if raw in {"v", "ok", "oki", "okay", "dale", "mmm", "mm", "eh", "👍", "👎", "👌"}:
+            return True
+        if raw and all(char in ".,!?¿¡…-_~" for char in raw):
+            return True
+        return False
+
+    @staticmethod
     def _is_follow_up(question: str) -> bool:
         normalized = QueryNormalizer.normalize(question)
         follow_up_terms = (
@@ -588,7 +677,7 @@ class FinSightAgentService:
                 "¡Hola! Soy el asistente financiero de FinSightAI. Puedo ayudarte con tus ingresos, "
                 "gastos, ahorro, deudas, presupuesto y perfil financiero."
             ),
-            Intent.THANKS: "Con gusto. Podés realizar otra consulta sobre tus finanzas cuando lo necesites.",
+            Intent.THANKS: "Con gusto. Puedes realizar otra consulta sobre tus finanzas cuando lo necesites.",
             Intent.FAREWELL: "Hasta luego. Estaré disponible cuando necesites revisar tus finanzas.",
             Intent.CAPABILITIES: (
                 "Puedo resumir y analizar tu situación financiera, revisar ingresos, gastos, ahorro, deudas, "
@@ -603,7 +692,7 @@ class FinSightAgentService:
                 "financiera clara y un monto monetario explícito."
             ),
             Intent.UNKNOWN: (
-                "No pude comprender completamente tu consulta. Volvé a escribirla indicando si querés revisar "
+                "No pude comprender completamente tu consulta. Vuelve a escribirla indicando si quieres revisar "
                 "ingresos, gastos, ahorro, deudas, presupuesto, perfil financiero, metas o recomendaciones."
             ),
             Intent.OUT_OF_SCOPE: (

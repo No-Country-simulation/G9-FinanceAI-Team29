@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
+import { useOnboarding } from "../../context/OnboardingContext";
 import { isSpeechSupported, speakText, stopSpeaking } from "../../utils/speech";
 import {
   playDismiss,
@@ -164,6 +165,7 @@ export default function OnboardingTour() {
     toggleMobileSidebar,
     closeMobileSidebar,
   } = useSidebar();
+  const { setIsTourActive } = useOnboarding();
   const authId = session?.user.id ?? "guest";
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [active, setActive] = useState(false);
@@ -194,6 +196,10 @@ export default function OnboardingTour() {
     localStorage.setItem("finsight:onboarding:narration", String(narration));
     if (!narration) stopSpeaking();
   }, [narration]);
+
+  useEffect(() => {
+    setIsTourActive(active || welcomeOpen);
+  }, [active, welcomeOpen, setIsTourActive]);
 
   const finish = useCallback(
     (completed = false) => {

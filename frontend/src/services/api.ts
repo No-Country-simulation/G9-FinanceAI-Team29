@@ -111,6 +111,7 @@ export async function preguntarAgente(
 export async function analizarFinanzas(
   request: AnalisisRequest,
   usuarioId: string,
+  signal?: AbortSignal,
 ): Promise<AnalisisResponse> {
   const id = exigirUsuarioId(usuarioId);
 
@@ -122,6 +123,7 @@ export async function analizarFinanzas(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
+      signal,
     },
   );
 
@@ -186,11 +188,13 @@ export async function crearUsuario(
 
 export async function obtenerUsuario(
   usuarioId: string,
+  signal?: AbortSignal,
 ): Promise<PerfilUsuario> {
   const id = exigirUsuarioId(usuarioId);
 
   const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/perfil`,
+    { signal },
   );
 
   if (!response.ok) {
@@ -216,11 +220,13 @@ function normalizarTipo(tipo: string): string {
 
 export async function obtenerTransacciones(
   usuarioId: string,
+  signal?: AbortSignal,
 ): Promise<Transaccion[]> {
   const id = exigirUsuarioId(usuarioId);
 
   const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/transacciones`,
+    { signal },
   );
 
   if (!response.ok) {
@@ -237,11 +243,13 @@ export async function obtenerTransacciones(
 
 export async function obtenerResumen(
   usuarioId: string,
+  signal?: AbortSignal,
 ): Promise<ResumenTransacciones> {
   const id = exigirUsuarioId(usuarioId);
 
   const response = await apiFetch(
     `${API_BASE}/usuarios/${encodeURIComponent(id)}/transacciones/resumen`,
+    { signal },
   );
 
   if (!response.ok) {

@@ -3,6 +3,8 @@ package com.financeai.dto.ml;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import com.financeai.dto.RecomendacionDTO;
+
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -44,7 +46,7 @@ public class MlAnalysisResponse {
     private List<String> oportunidadesMejora;
 
     @JsonProperty("recomendaciones")
-    private List<String> recomendaciones;
+    private List<RecomendacionDTO> recomendaciones;
 
     @JsonProperty("modelo_version")
     private String modeloVersion;
@@ -79,8 +81,8 @@ public class MlAnalysisResponse {
     public List<String> getOportunidadesMejora() { return oportunidadesMejora; }
     public void setOportunidadesMejora(List<String> oportunidadesMejora) { this.oportunidadesMejora = oportunidadesMejora; }
 
-    public List<String> getRecomendaciones() { return recomendaciones; }
-    public void setRecomendaciones(List<String> recomendaciones) { this.recomendaciones = recomendaciones; }
+    public List<RecomendacionDTO> getRecomendaciones() { return recomendaciones; }
+    public void setRecomendaciones(List<RecomendacionDTO> recomendaciones) { this.recomendaciones = recomendaciones; }
 
     public String getModeloVersion() { return modeloVersion; }
     public void setModeloVersion(String modeloVersion) { this.modeloVersion = modeloVersion; }

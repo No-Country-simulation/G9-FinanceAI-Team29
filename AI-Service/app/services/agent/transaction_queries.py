@@ -58,6 +58,8 @@ class TransactionQueryEngine:
         )
         contextual_terms = (
             "y el mes pasado", "y el anterior", "y el siguiente",
+            "y el ano anterior", "y el año anterior", "y el ano siguiente", "y el año siguiente",
+            "y la segunda", "y la tercera", "y la cuarta", "y la quinta",
             "que movimiento fue ese", "que movimiento fue esa",
             "que compra fue esa", "que gastos fueron esos",
             "que compre ese dia", "en que gaste ese dia",
@@ -133,6 +135,34 @@ class TransactionQueryEngine:
         )
         expenses = frame[frame["_kind"].eq("expense")].copy() if not frame.empty else frame
         incomes = frame[frame["_kind"].eq("income")].copy() if not frame.empty else frame
+
+        contextual_summary_result = cls._contextual_summary_follow_up(
+            q,
+            previous_answer,
+            expenses=expenses,
+            incomes=incomes,
+            reference_today=query_today,
+        )
+        if contextual_summary_result is not None:
+            return contextual_summary_result
+
+        contextual_year_result = cls._contextual_year_follow_up(
+            q,
+            previous_answer,
+            expenses=expenses,
+            incomes=incomes,
+            reference_today=query_today,
+        )
+        if contextual_year_result is not None:
+            return contextual_year_result
+
+        contextual_category_result = cls._contextual_category_ranking_follow_up(
+            q,
+            previous_answer,
+            expenses=expenses,
+        )
+        if contextual_category_result is not None:
+            return contextual_category_result
 
         contextual_movement_result = cls._contextual_movement_follow_up(
             q,
@@ -249,6 +279,171 @@ class TransactionQueryEngine:
         )
 
     @classmethod
+    def _contextual_summary_follow_up(
+        cls,
+        q: str,
+        previous_answer: str | None,
+        *,
+        expenses: pd.DataFrame,
+        incomes: pd.DataFrame,
+        reference_today: date,
+    ) -> TransactionQueryResult | None:
+        if not previous_answer or not cls._has(
+            q,
+            "y el total", "el total", "y total", "y la suma",
+            "y el promedio", "el promedio", "y la media",
+        ):
+            return None
+
+        previous = QueryNormalizer.normalize(previous_answer)
+        asks_average = cls._has(q, "promedio", "media")
+        is_income = cls._has(previous, "ingres", "cobraste", "cobro") and not cls._has(previous, "gasto")
+        frame = incomes if is_income else expenses
+        noun = "ingresos" if is_income else "gastos"
+
+        # Conserva el período anual cuando la respuesta anterior lo menciona.
+        year_match = re.search(r"\b(20\d{2})\b", previous)
+        if year_match:
+            year = int(year_match.group(1))
+            selected = frame[frame["fecha"].dt.year.eq(year)]
+            label = f"durante {year}"
+        elif cls._has(previous, "este ano", "este año", "durante el ano"):
+            selected = frame[frame["fecha"].dt.year.eq(reference_today.year)]
+            label = f"durante {reference_today.year}"
+        else:
+            selected = frame
+            label = "en el período registrado"
+
+        if asks_average:
+            return cls._result(
+                cls._monthly_average(selected, noun),
+                f"contextual_{'income' if is_income else 'expense'}_average",
+            )
+
+        count = len(selected)
+        movement_noun = "movimiento" if count == 1 else "movimientos"
+        verb = "Ingresaste" if is_income else "Gastaste"
+        return cls._result(
+            f"{verb} {cls._money(selected['monto'].sum())} {label} en {count} {movement_noun}.",
+            f"contextual_{'income' if is_income else 'expense'}_total",
+        )
+
+    @classmethod
+    def _contextual_year_follow_up(
+        cls,
+        q: str,
+        previous_answer: str | None,
+        *,
+        expenses: pd.DataFrame,
+        incomes: pd.DataFrame,
+        reference_today: date,
+    ) -> TransactionQueryResult | None:
+        if not previous_answer:
+            return None
+
+        direction = 0
+        if cls._has(q, "ano anterior", "año anterior", "ano pasado", "año pasado"):
+            direction = -1
+        elif cls._has(q, "ano siguiente", "año siguiente"):
+            direction = 1
+        elif re.fullmatch(r"(?:y\s+)?(?:el\s+)?anterior\??", q):
+            previous_normalized = QueryNormalizer.normalize(previous_answer)
+            context = cls._context_data(previous_answer)
+            month_in_previous = cls._contains_month_name(previous_normalized)
+            annual_context = (
+                context.get("granularity") == "year"
+                or (context.get("granularity") not in {"month", "rank"} and (
+                    cls._has(previous_normalized, "durante", "ano", "año") or not month_in_previous
+                ))
+            )
+            if re.search(r"\b20\d{2}\b", previous_normalized) and annual_context:
+                direction = -1
+        elif re.fullmatch(r"(?:y\s+)?(?:el\s+)?siguiente\??", q):
+            previous_normalized = QueryNormalizer.normalize(previous_answer)
+            context = cls._context_data(previous_answer)
+            month_in_previous = cls._contains_month_name(previous_normalized)
+            annual_context = (
+                context.get("granularity") == "year"
+                or (context.get("granularity") not in {"month", "rank"} and (
+                    cls._has(previous_normalized, "durante", "ano", "año") or not month_in_previous
+                ))
+            )
+            if re.search(r"\b20\d{2}\b", previous_normalized) and annual_context:
+                direction = 1
+
+        explicit_year = cls._extract_requested_year(q)
+        if direction == 0 and explicit_year is None:
+            return None
+
+        previous = QueryNormalizer.normalize(previous_answer)
+        context = cls._context_data(previous_answer)
+        year_match = re.findall(r"\b(20\d{2})\b", previous)
+        base_year = context.get("year") or (int(year_match[-1]) if year_match else reference_today.year)
+        year = explicit_year if explicit_year is not None else base_year + direction
+
+        context_metric = context.get("metric")
+        inferred_income = (
+            cls._has(previous, "ingresaste", "ingreso", "ingresos", "cobraste", "cobro")
+            and not cls._has(previous, "gastaste", "gasto", "gastos")
+        )
+        inferred_expense = (
+            cls._has(previous, "gastaste", "gasto", "gastos")
+            and not cls._has(previous, "ingresaste", "ingreso", "ingresos")
+        )
+        if context_metric not in {"income", "expense"} and not (inferred_income or inferred_expense):
+            return cls._result(
+                "No pude determinar si te refieres a ingresos o gastos. Indica cuál de los dos quieres consultar.",
+                "contextual_year_metric_clarification",
+            )
+        is_income = context_metric == "income" or (context_metric is None and inferred_income)
+        frame = incomes if is_income else expenses
+        selected = frame[frame["fecha"].dt.year.eq(year)]
+        count = len(selected)
+        movement_noun = "movimiento" if count == 1 else "movimientos"
+        verb = "Ingresaste" if is_income else "Gastaste"
+        return cls._result(
+            f"{verb} {cls._money(selected['monto'].sum())} en {year} en {count} {movement_noun}.",
+            f"contextual_{'income' if is_income else 'expense'}_year_total",
+        )
+
+    @classmethod
+    def _contextual_category_ranking_follow_up(
+        cls,
+        q: str,
+        previous_answer: str | None,
+        *,
+        expenses: pd.DataFrame,
+    ) -> TransactionQueryResult | None:
+        if not previous_answer:
+            return None
+        previous = QueryNormalizer.normalize(previous_answer)
+        context = cls._context_data(previous_answer)
+        if not (
+            context.get("granularity") == "rank"
+            or cls._has(previous, "categoria en la que mas gastaste", "categoria numero", "categoria con mas gastos")
+            or (cls._has(previous, "categoria") and cls._has(previous, "gastaste", "gasto"))
+        ):
+            return None
+
+        ordinal_patterns = {
+            1: ("la primera", "primera categoria", "numero 1"),
+            2: ("la segunda", "segunda categoria", "numero 2"),
+            3: ("la tercera", "tercera categoria", "numero 3"),
+            4: ("la cuarta", "cuarta categoria", "numero 4"),
+            5: ("la quinta", "quinta categoria", "numero 5"),
+        }
+        position = next(
+            (pos for pos, markers in ordinal_patterns.items() if cls._has(q, *markers)),
+            None,
+        )
+        if position is None:
+            return None
+        return cls._result(
+            cls._category_position(expenses, position),
+            f"contextual_expense_category_position_{position}",
+        )
+
+    @classmethod
     def _contextual_movement_follow_up(
         cls,
         q: str,
@@ -315,10 +510,15 @@ class TransactionQueryEngine:
             return None
 
         previous = QueryNormalizer.normalize(previous_answer)
+        context = cls._context_data(previous_answer)
         requested = cls._extract_requested_month(q, reference_today)
 
         if requested is None:
-            previous_month = cls._extract_requested_month(previous, reference_today)
+            previous_month = (
+                (context.get("year"), context.get("month"))
+                if context.get("granularity") == "month" and context.get("year") and context.get("month")
+                else cls._extract_requested_month(previous, reference_today)
+            )
             if cls._has(q, "mes pasado", "mes anterior", "el anterior"):
                 requested = (
                     cls._shift_month(previous_month[0], previous_month[1], -1)
@@ -394,7 +594,7 @@ class TransactionQueryEngine:
                 "contextual_month_top_category",
             )
 
-        if cls._has(previous, "ingresaste", "ingreso", "cobraste", "cobro"):
+        if context.get("metric") == "income" or cls._has(previous, "ingresaste", "ingreso", "cobraste", "cobro"):
             selected = cls._month_frame(incomes, year, month, reference_today)
             count = len(selected)
             noun = "movimiento" if count == 1 else "movimientos"
@@ -403,7 +603,7 @@ class TransactionQueryEngine:
                 "contextual_month_income_total",
             )
 
-        if cls._has(previous, "gastaste", "gasto", "compra"):
+        if context.get("metric") == "expense" or cls._has(previous, "gastaste", "gasto", "compra"):
             selected = cls._month_frame(expenses, year, month, reference_today)
             count = len(selected)
             noun = "movimiento" if count == 1 else "movimientos"
@@ -503,6 +703,19 @@ class TransactionQueryEngine:
     def _expense_query(cls, q: str, expenses: pd.DataFrame, today: date) -> TransactionQueryResult | None:
         if expenses.empty or not cls._has(q, "gasto", "gastos", "gaste", "compra", "compras", "consumo", "egreso", "categoria", "medio de pago", "compre", "compré"):
             return None
+
+        requested_year = cls._extract_requested_year(q)
+        if requested_year is not None and cls._has(
+            q,
+            "cuanto gaste", "cuanto gasto", "total de gastos", "gastos en", "gaste en",
+        ):
+            selected = expenses[expenses["fecha"].dt.year.eq(requested_year)]
+            count = len(selected)
+            noun = "movimiento" if count == 1 else "movimientos"
+            return cls._result(
+                f"Gastaste {cls._money(selected['monto'].sum())} en {requested_year} en {count} {noun}.",
+                "expenses_specific_year_total",
+            )
 
         requested_date = cls._extract_requested_date(q, today)
         if requested_date and cls._has(q, "que gaste", "en que gaste", "que compre", "que compré", "gastos tuve", "compras hice"):
@@ -704,7 +917,13 @@ class TransactionQueryEngine:
                 selected = cls._period_frame(selected, period, today)
             return cls._result(f"Gastaste {cls._money(selected['monto'].sum())} en {category} {label if cls._explicit_period(q) else 'en el período registrado'}.", "expenses_category_total")
 
-        if cls._has(q, "cuanto gaste", "total de gastos", "gastos de hoy", "gastos esta semana", "gastos este mes", "gastos este ano", "gaste hoy"):
+        if cls._has(
+            q,
+            "cuanto gaste", "total de gastos", "suma total de mis gastos",
+            "suma total de gastos", "total gastado", "gastos de hoy",
+            "gastos esta semana", "gastos este mes", "gastos este ano",
+            "gastos de este ano", "gaste hoy",
+        ):
             period, label = cls._select_period(q, today)
             selected = cls._period_frame(expenses, period, today)
             count = len(selected)
@@ -723,6 +942,34 @@ class TransactionQueryEngine:
     def _income_query(cls, q: str, incomes: pd.DataFrame, today: date) -> TransactionQueryResult | None:
         if incomes.empty or not cls._has(q, "ingreso", "ingresos", "ingrese", "gane", "cobre", "sueldo", "salario"):
             return None
+
+        requested_year = cls._extract_requested_year(q)
+        if requested_year is not None and cls._has(
+            q,
+            "cuanto ingrese", "total de ingresos", "ingresos en", "ingrese en",
+        ):
+            selected = incomes[incomes["fecha"].dt.year.eq(requested_year)]
+            count = len(selected)
+            noun = "movimiento" if count == 1 else "movimientos"
+            return cls._result(
+                f"Ingresaste {cls._money(selected['monto'].sum())} en {requested_year} en {count} {noun}.",
+                "income_specific_year_total",
+            )
+
+        requested_month = cls._extract_requested_month(q, today)
+        if requested_month is not None and cls._has(
+            q,
+            "cuanto ingrese en", "cuanto ingreso en", "ingresos en",
+        ):
+            year, month = requested_month
+            selected = cls._month_frame(incomes, year, month, today)
+            period_name = cls._spanish_month(year, month)
+            count = len(selected)
+            noun = "movimiento" if count == 1 else "movimientos"
+            return cls._result(
+                f"Ingresaste {cls._money(selected['monto'].sum())} en {period_name} en {count} {noun}.",
+                "income_specific_month_total",
+            )
 
         # El dataset no distingue de forma confiable sueldo frente a trabajos extra.
         if cls._has(
@@ -893,12 +1140,12 @@ class TransactionQueryEngine:
         if cls._has(q, "gastos podria reducir", "que puedo mejorar"):
             lines = []
             if top:
-                lines.append(f"1. Revisá {top[0]}, tu categoría de mayor gasto ({cls._money(top[1])}).")
+                lines.append(f"1. Revisa {top[0]}, tu categoría de mayor gasto ({cls._money(top[1])}).")
             if ratio is not None and ratio > 80:
                 lines.append(f"2. Tus gastos consumen el {ratio:.1f}% de tus ingresos; buscá liberar al menos un 10%.")
             recurring = expenses[expenses["recurrente"]]
             if not recurring.empty:
-                lines.append(f"3. Revisá tus gastos recurrentes, que suman {cls._money(recurring['monto'].sum())}.")
+                lines.append(f"3. Revisa tus gastos recurrentes, que suman {cls._money(recurring['monto'].sum())}.")
             return cls._result("\n".join(lines or ["No detecté una mejora concreta con los datos disponibles."]), "analysis_improvements")
         if cls._has(q, "salud financiera"):
             if analysis:
@@ -949,7 +1196,7 @@ class TransactionQueryEngine:
         days = pd.Period(today, freq="M").days_in_month
         projected_expense = spent / elapsed * days
         projected_income = earned / elapsed * days
-        return f"Si mantenés el ritmo actual, cerrarías el mes con gastos cercanos a {cls._money(projected_expense)}, ingresos cercanos a {cls._money(projected_income)} y un balance estimado de {cls._money(projected_income - projected_expense)}."
+        return f"Si mantienes el ritmo actual, cerrarías el mes con gastos cercanos a {cls._money(projected_expense)}, ingresos cercanos a {cls._money(projected_income)} y un balance estimado de {cls._money(projected_income - projected_expense)}."
 
     @classmethod
     def _anomalies(cls, expenses: pd.DataFrame) -> str:
@@ -1075,7 +1322,11 @@ class TransactionQueryEngine:
         if (actual_today.year, actual_today.month) == (reference_today.year, reference_today.month):
             return result
 
-        content = result.content
+        # La respuesta puede traer una marca de contexto generada antes de
+        # reemplazar referencias como "este año" por el año real del dataset.
+        # Se elimina temporalmente y se regenera al final con el contenido ya
+        # corregido, para que year/month/granularity queden exactos.
+        content = cls._CONTEXT_PATTERN.sub("", result.content).strip()
         note: str | None = None
         if "mes pasado" in q or "mes anterior" in q:
             y, m = cls._shift_month(reference_today.year, reference_today.month, -1)
@@ -1107,7 +1358,12 @@ class TransactionQueryEngine:
 
         if note and note not in content:
             content = f"{content} {note}"
-        return TransactionQueryResult(content=content, action=result.action)
+
+        marker = cls._context_marker(content, result.action)
+        return TransactionQueryResult(
+            content=f"{content}\n\n{marker}",
+            action=result.action,
+        )
 
     @staticmethod
     def _spanish_month(year: int, month: int) -> str:
@@ -1219,10 +1475,10 @@ class TransactionQueryEngine:
     @classmethod
     def _no_expenses_for_period(cls, expenses: pd.DataFrame, period_label: str) -> str:
         if expenses.empty:
-            return f"No tenés gastos registrados {period_label}."
+            return f"No tienes gastos registrados {period_label}."
         latest = expenses.dropna(subset=["fecha"]).sort_values("fecha", ascending=False)
         if latest.empty:
-            return f"No tenés gastos registrados {period_label}."
+            return f"No tienes gastos registrados {period_label}."
         row = latest.iloc[0]
         return (
             f"No tuviste gastos registrados {period_label}. "
@@ -1327,6 +1583,22 @@ class TransactionQueryEngine:
         count = int(row["count"])
         noun = "movimiento" if count == 1 else "movimientos"
         return f"El día que hiciste más compras fue el {day.strftime('%d/%m/%Y')}: {count} {noun} por {cls._money(row['total'])}."
+
+    @staticmethod
+    def _contains_month_name(text: str) -> bool:
+        return any(
+            month in text
+            for month in (
+                "enero", "febrero", "marzo", "abril", "mayo", "junio",
+                "julio", "agosto", "septiembre", "setiembre", "octubre",
+                "noviembre", "diciembre",
+            )
+        )
+
+    @staticmethod
+    def _extract_requested_year(q: str) -> int | None:
+        match = re.search(r"(?<!\d)(20\d{2})(?!\d)", q)
+        return int(match.group(1)) if match else None
 
     @staticmethod
     def _extract_requested_month(q: str, today: date) -> tuple[int, int] | None:
@@ -1582,6 +1854,88 @@ class TransactionQueryEngine:
                     if any(c in norm for c in candidates): return category
         return None
 
+    _CONTEXT_PATTERN = re.compile(
+        r"<!--\s*finsi-financial-context\s+"
+        r"metric=(income|expense|unknown)\s+"
+        r"granularity=(year|month|rank|other)\s+"
+        r"year=(\d{4}|none)\s+"
+        r"month=(\d{1,2}|none)\s+"
+        r"position=(\d+|none)\s*-->",
+        re.IGNORECASE,
+    )
+
+    @classmethod
+    def _context_data(cls, previous_answer: str | None) -> dict[str, Any]:
+        if not previous_answer:
+            return {}
+        match = cls._CONTEXT_PATTERN.search(previous_answer)
+        if not match:
+            return {}
+        metric, granularity, year, month, position = match.groups()
+        return {
+            "metric": metric.lower(),
+            "granularity": granularity.lower(),
+            "year": None if year.lower() == "none" else int(year),
+            "month": None if month.lower() == "none" else int(month),
+            "position": None if position.lower() == "none" else int(position),
+        }
+
+    @classmethod
+    def _context_marker(cls, content: str, action: str) -> str:
+        normalized = QueryNormalizer.normalize(content)
+        action_normalized = QueryNormalizer.normalize(action)
+
+        metric = "unknown"
+        if "income" in action_normalized or cls._has(normalized, "ingresaste", "ingreso", "ingresos", "cobraste"):
+            metric = "income"
+        elif (
+            "expense" in action_normalized
+            or cls._has(normalized, "gastaste", "gasto", "gastos", "categoria numero", "categoria en la que mas gastaste")
+        ):
+            metric = "expense"
+
+        granularity = "other"
+        year = None
+        month = None
+        position = None
+
+        rank_match = re.search(r"(?:categoria numero|numero)\s+(\d+)", normalized)
+        if (
+            "category_position" in action_normalized
+            or rank_match
+            or cls._has(normalized, "categoria en la que mas gastaste", "categoria con mas gastos")
+        ):
+            granularity = "rank"
+            position = int(rank_match.group(1)) if rank_match else 1
+        else:
+            month_match = re.search(
+                r"\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+de\s+(20\d{2})\b",
+                normalized,
+            )
+            if month_match:
+                months = {
+                    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4,
+                    "mayo": 5, "junio": 6, "julio": 7, "agosto": 8,
+                    "septiembre": 9, "setiembre": 9, "octubre": 10,
+                    "noviembre": 11, "diciembre": 12,
+                }
+                granularity = "month"
+                month = months[month_match.group(1)]
+                year = int(month_match.group(2))
+            else:
+                years = re.findall(r"\b(20\d{2})\b", normalized)
+                if years and ("year" in action_normalized or cls._has(normalized, "durante", "en 20")):
+                    granularity = "year"
+                    year = int(years[-1])
+
+        return (
+            "<!-- finsi-financial-context "
+            f"metric={metric} granularity={granularity} "
+            f"year={year if year is not None else 'none'} "
+            f"month={month if month is not None else 'none'} "
+            f"position={position if position is not None else 'none'} -->"
+        )
+
     @staticmethod
     def _bool(value: Any) -> bool:
         return value if isinstance(value,bool) else str(value).strip().casefold() in {"true","1","si","sí","yes"}
@@ -1590,9 +1944,10 @@ class TransactionQueryEngine:
     def _has(q: str, *terms: str) -> bool:
         return any(QueryNormalizer.normalize(term) in q for term in terms)
 
-    @staticmethod
-    def _result(content: str, action: str) -> TransactionQueryResult:
-        return TransactionQueryResult(content=content, action=action)
+    @classmethod
+    def _result(cls, content: str, action: str) -> TransactionQueryResult:
+        marker = cls._context_marker(content, action)
+        return TransactionQueryResult(content=f"{content}\n\n{marker}", action=action)
 
     @staticmethod
     def _date(value: Any) -> str:

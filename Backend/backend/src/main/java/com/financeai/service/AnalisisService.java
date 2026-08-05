@@ -292,7 +292,7 @@ log.info(
         String nivelRiesgo = determinarNivelRiesgo(
             request.getNivelEndeudamiento(), porcentajeGastos);
 
-        List<String> recomendaciones = recomendacionService.generarRecomendaciones(
+        List<com.financeai.dto.RecomendacionDTO> recomendaciones = recomendacionService.generarRecomendaciones(
             perfil, request.getNivelEndeudamiento(), porcentajeGastos,
             request.getFrecuenciaAhorro(), gastosPorCategoria, totalGastos, request.getIngresoMensual());
 

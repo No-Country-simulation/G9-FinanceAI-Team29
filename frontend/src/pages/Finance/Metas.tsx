@@ -5,12 +5,14 @@ import { actualizarMeta, agregarAhorroMeta, cancelarMeta, crearMeta, obtenerMeta
 import type { Goal, GoalCategory, GoalInput } from '../../types/finance';
 import { confirmarAccion, mostrarExito, mostrarInfo, solicitarMonto } from '../../utils/alerts';
 import { useAuth } from '../../context/AuthContext';
+import { useOnboarding } from '../../context/OnboardingContext';
+import { formatMoney } from '../../utils/export/format';
 
-const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' });
 const emptyForm: GoalInput = { nombre: '', descripcion: '', categoria: 'AHORRO', montoObjetivo: 0, fechaObjetivo: '' };
 
 export default function Metas() {
   const { usuarioId } = useAuth();
+  const { isTourActive } = useOnboarding();
   const navigate = useNavigate();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [form, setForm] = useState<GoalInput>(emptyForm);
@@ -35,7 +37,7 @@ export default function Metas() {
     (async () => {
       try {
         const transacciones = await obtenerTransacciones(usuarioId);
-        if (transacciones.length === 0) {
+        if (transacciones.length === 0 && !isTourActive) {
           await mostrarInfo(
             'Todavía no tienes datos financieros',
             'Carga tus movimientos antes de crear metas. Te llevamos al resumen financiero.',
@@ -46,7 +48,7 @@ export default function Metas() {
         console.error(e);
       }
     })();
-  }, [usuarioId, navigate]);
+  }, [usuarioId, navigate, isTourActive]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -69,14 +71,14 @@ export default function Metas() {
     setError('');
     const amount = await solicitarMonto(
       `Agregar ahorro a “${goal.nombre}”`,
-      `Llevás ${money.format(goal.montoReservado)} de ${money.format(goal.montoObjetivo)}.`,
+      `Llevás ${formatMoney(goal.montoReservado)} de ${formatMoney(goal.montoObjetivo)}.`,
     );
     if (amount == null) return;
 
     try {
       await agregarAhorroMeta(goal.id, amount, usuarioId);
       await load();
-      await mostrarExito('Ahorro agregado', `Se sumaron ${money.format(amount)} a tu meta.`);
+      await mostrarExito('Ahorro agregado', `Se sumaron ${formatMoney(amount)} a tu meta.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo agregar el ahorro');
     }
@@ -132,8 +134,8 @@ export default function Metas() {
         {goal.progreso >= 100 && <div className="mb-4 flex items-center gap-3 rounded-xl bg-success-50 p-3 dark:bg-success-500/10"><img src="/images/mascot/finsight-bird-goal-complete.png" alt="Finsi celebra la meta completada" className="h-20 w-16 shrink-0 object-contain" /><p className="text-sm font-semibold text-success-700 dark:text-success-400">¡Meta cumplida! Finsi celebra tu progreso.</p></div>}
         <div className="flex items-start justify-between gap-3"><div><span className="text-xs font-medium text-brand-500">{goal.categoria}</span><h3 className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{goal.nombre}</h3></div><span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs dark:bg-gray-800 dark:text-gray-300">{goal.estado}</span></div>
         {goal.descripcion && <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{goal.descripcion}</p>}
-        <div className="mt-5"><div className="mb-2 flex justify-between text-sm"><span className="text-gray-600 dark:text-gray-300">{money.format(goal.montoReservado)} ahorrados</span><strong className="text-gray-700 dark:text-gray-200">{goal.progreso.toFixed(0)}%</strong></div><div className="h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(goal.progreso, 100)}%` }} /></div></div>
-        <div className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><p className="text-gray-500">Objetivo</p><p className="font-medium dark:text-white">{money.format(goal.montoObjetivo)}</p></div><div><p className="text-gray-500">Faltan</p><p className="font-medium dark:text-white">{money.format(goal.montoRestante)}</p></div>{goal.reservaMensualSugerida != null && <div><p className="text-gray-500">Sugerido/mes</p><p className="font-medium dark:text-white">{money.format(goal.reservaMensualSugerida)}</p></div>}{goal.fechaObjetivo && <div><p className="text-gray-500">Fecha objetivo</p><p className="font-medium dark:text-white">{new Date(`${goal.fechaObjetivo}T00:00:00`).toLocaleDateString('es-AR')}</p></div>}</div>
+        <div className="mt-5"><div className="mb-2 flex justify-between text-sm"><span className="text-gray-600 dark:text-gray-300">{formatMoney(goal.montoReservado)} ahorrados</span><strong className="text-gray-700 dark:text-gray-200">{goal.progreso.toFixed(0)}%</strong></div><div className="h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div className="h-full rounded-full bg-brand-500" style={{ width: `${Math.min(goal.progreso, 100)}%` }} /></div></div>
+        <div className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><p className="text-gray-500">Objetivo</p><p className="font-medium dark:text-white">{formatMoney(goal.montoObjetivo)}</p></div><div><p className="text-gray-500">Faltan</p><p className="font-medium dark:text-white">{formatMoney(goal.montoRestante)}</p></div>{goal.reservaMensualSugerida != null && <div><p className="text-gray-500">Sugerido/mes</p><p className="font-medium dark:text-white">{formatMoney(goal.reservaMensualSugerida)}</p></div>}{goal.fechaObjetivo && <div><p className="text-gray-500">Fecha objetivo</p><p className="font-medium dark:text-white">{new Date(`${goal.fechaObjetivo}T00:00:00`).toLocaleDateString('es-AR')}</p></div>}</div>
         <div className="mt-5 flex flex-wrap gap-2"><button onClick={() => addSavings(goal)} className="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white">+ Agregar ahorro</button><button onClick={() => edit(goal)} className="rounded-lg border border-gray-300 px-3 py-2 text-xs dark:border-gray-700 dark:text-white">Editar</button><button onClick={() => cancel(goal)} className="rounded-lg border border-error-300 px-3 py-2 text-xs text-error-600 dark:border-error-800">Cancelar</button></div>
       </article>)}</div>}
     </div>

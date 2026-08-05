@@ -344,8 +344,49 @@ layer(base);
   animation: team-fade-up 0.5s ease-out both;
 }
 
+@keyframes team-spotlight-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+.animate-team-spotlight-in {
+  animation: team-spotlight-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-team-fade-up {
+  .animate-team-fade-up,
+  .animate-team-spotlight-in {
+    animation: none;
+  }
+}
+
+@keyframes sponsors-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* Recorre exactamente una copia de la lista (duplicada 2x en el DOM),
+       para que el loop sea continuo y sin salto visible. */
+    transform: translateX(-50%);
+  }
+}
+
+.animate-sponsors-marquee {
+  animation: sponsors-marquee-scroll 40s linear infinite;
+}
+
+.animate-sponsors-marquee:hover {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sponsors-marquee {
     animation: none;
   }
 }
@@ -396,6 +437,203 @@ layer(base);
   .animate-aurora-drift-1,
   .animate-aurora-drift-2,
   .animate-aurora-drift-3 {
+    animation: none;
+  }
+}
+
+/* Splash de bienvenida (post-login): íconos orbitando, anillos de pulso
+   expansivo y destellos titilantes alrededor del mascote. */
+@keyframes welcome-orbit-cw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes welcome-orbit-ccw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes welcome-ping-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+@keyframes welcome-twinkle {
+  0%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+/* Flotación orgánica para los íconos financieros del fondo: reemplaza el
+   bounce genérico por algo más suave/premium. */
+@keyframes welcome-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(4deg);
+  }
+}
+
+/* Resplandor detrás del mascote que respira lentamente, para que el círculo
+   no quede flotando solo en un fondo oscuro plano. */
+@keyframes welcome-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.08);
+  }
+}
+
+/* Entrada escalonada del texto de bienvenida (fade + slide-up). */
+@keyframes welcome-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-welcome-orbit-cw {
+  animation: welcome-orbit-cw linear infinite;
+}
+
+.animate-welcome-orbit-ccw {
+  animation: welcome-orbit-ccw linear infinite;
+}
+
+.animate-welcome-ping-ring {
+  animation: welcome-ping-ring 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-welcome-twinkle {
+  animation: welcome-twinkle ease-in-out infinite;
+}
+
+.animate-welcome-float {
+  animation: welcome-float ease-in-out infinite;
+}
+
+.animate-welcome-glow-pulse {
+  animation: welcome-glow-pulse 4s ease-in-out infinite;
+}
+
+.animate-welcome-fade-up {
+  animation: welcome-fade-up 0.7s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-welcome-orbit-cw,
+  .animate-welcome-orbit-ccw,
+  .animate-welcome-ping-ring,
+  .animate-welcome-twinkle,
+  .animate-welcome-float,
+  .animate-welcome-glow-pulse,
+  .animate-welcome-fade-up {
+    animation: none;
+  }
+}
+
+@keyframes admin-badge-pop {
+  0% {
+    transform: translate(-50%, 6px) scale(0.4) rotate(-8deg);
+    opacity: 0;
+  }
+  18% {
+    transform: translate(-50%, -8px) scale(1.2) rotate(5deg);
+    opacity: 1;
+  }
+  32% {
+    transform: translate(-50%, -4px) scale(0.94) rotate(-3deg);
+  }
+  46% {
+    transform: translate(-50%, -6px) scale(1.06) rotate(2deg);
+  }
+  60%,
+  78% {
+    transform: translate(-50%, -6px) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -16px) scale(0.85) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+.animate-admin-badge-pop {
+  animation: admin-badge-pop 1.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes admin-badge-easter-egg {
+  0% {
+    transform: translate(-50%, -10px) scale(0.5) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    transform: translate(-50%, 0) scale(1.3) rotate(-8deg);
+    opacity: 1;
+  }
+  20% {
+    transform: translate(calc(-50% - 7px), 0) scale(1.12) rotate(7deg);
+  }
+  30% {
+    transform: translate(calc(-50% + 7px), 0) scale(1.12) rotate(-7deg);
+  }
+  40% {
+    transform: translate(calc(-50% - 6px), 0) scale(1.06) rotate(6deg);
+  }
+  50% {
+    transform: translate(calc(-50% + 6px), 0) scale(1.06) rotate(-6deg);
+  }
+  60% {
+    transform: translate(calc(-50% - 3px), 0) scale(1) rotate(3deg);
+  }
+  70%,
+  85% {
+    transform: translate(-50%, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -14px) scale(0.85) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+.animate-admin-badge-easter-egg {
+  animation: admin-badge-easter-egg 1.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-admin-badge-pop,
+  .animate-admin-badge-easter-egg {
     animation: none;
   }
 }

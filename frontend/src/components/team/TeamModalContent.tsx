@@ -1,6 +1,8 @@
+import { useRef, useState } from "react";
 import { teamMembers } from "../../data/team";
 import TeamAvatar from "./TeamAvatar";
 import TeamGraphBackground from "./TeamGraphBackground";
+import SponsorsMarquee from "./SponsorsMarquee";
 import type { TeamMember } from "../../data/team";
 
 function LinkedInIcon() {
@@ -52,7 +54,86 @@ function SocialLinks({ member }: { member: TeamMember }) {
   );
 }
 
+function MemberIdentity({
+  member,
+  avatarSize,
+}: {
+  member: TeamMember;
+  avatarSize: number;
+}) {
+  return (
+    <div className="relative">
+      <TeamAvatar
+        name={member.name}
+        photo={member.photo}
+        size={avatarSize}
+        className="ring-4 ring-gray-50 dark:ring-gray-900"
+      />
+      {member.countryFlag && (
+        <div className="group/flag absolute -right-2 -top-2 z-20">
+          <img
+            src={member.countryFlag}
+            alt={member.country ?? "País"}
+            className="h-7 w-7 object-contain drop-shadow-md"
+          />
+          {member.location && (
+            <div
+              role="tooltip"
+              className="pointer-events-none absolute left-full top-1/2 z-30 ml-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/flag:opacity-100 dark:bg-gray-700"
+            >
+              📍 {member.location}
+            </div>
+          )}
+        </div>
+      )}
+      {member.isLead && (
+        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-medium text-white shadow-theme-xs">
+          Lead
+        </span>
+      )}
+    </div>
+  );
+}
+
+type SpotlightRect = { top: number; left: number; width: number; height: number };
+
 export default function TeamModalContent() {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
+
+  const focusMember = (id: string) => {
+    const cardEl = cardRefs.current[id];
+    const gridEl = gridRef.current;
+    if (!cardEl || !gridEl) return;
+    const cardBox = cardEl.getBoundingClientRect();
+    const gridBox = gridEl.getBoundingClientRect();
+
+    // Se ensancha respecto a la card original para que nombres largos
+    // ("Raúl Enrique Vidaurre Vallejos") entren en una sola línea,
+    // recentrada y sin salirse de los bordes de la grilla.
+    const extraWidth = 120;
+    const width = cardBox.width + extraWidth;
+    const rawLeft = cardBox.left - gridBox.left - extraWidth / 2;
+    const left = Math.min(Math.max(rawLeft, 0), Math.max(gridBox.width - width, 0));
+
+    setSpotlightRect({
+      top: cardBox.top - gridBox.top,
+      left,
+      width,
+      height: cardBox.height,
+    });
+    setFocusedId(id);
+  };
+
+  const clearFocus = () => {
+    setFocusedId(null);
+    setSpotlightRect(null);
+  };
+
+  const focusedMember = teamMembers.find((m) => m.id === focusedId) ?? null;
+
   return (
     <div className="relative w-full overflow-hidden rounded-3xl bg-white dark:bg-gray-900">
       <TeamGraphBackground />
@@ -76,34 +157,78 @@ export default function TeamModalContent() {
           </p>
         </div>
 
-        <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-5">
-          {teamMembers.map((member, index) => (
-            <div
-              key={member.id}
-              className="animate-team-fade-up flex flex-col items-center rounded-2xl border border-gray-200 bg-white px-3 py-5 text-center transition-all duration-300 hover:-translate-y-1 hover:border-brand-300 hover:shadow-lg dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-brand-500/40 sm:px-4 sm:py-6"
-              style={{ animationDelay: `${80 + index * 90}ms` }}
-            >
-              <div className="relative">
-                <TeamAvatar
-                  name={member.name}
-                  photo={member.photo}
-                  size={92}
-                  className="ring-4 ring-gray-50 dark:ring-gray-900"
-                />
-                {member.isLead && (
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-brand-500 px-2 py-0.5 text-[10px] font-medium text-white shadow-theme-xs">
-                    Lead
-                  </span>
-                )}
+        {/* Fuera del wrapper con pr-8 (reservado para el botón de cerrar en
+            mobile) para que la banda quede al ancho completo, igual que la
+            grilla de miembros de abajo. */}
+        <SponsorsMarquee />
+
+        <div
+          ref={gridRef}
+          className="relative mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-5"
+          onMouseLeave={clearFocus}
+        >
+          {teamMembers.map((member, index) => {
+            const isFocused = focusedId === member.id;
+            const isDimmed = focusedId !== null && !isFocused;
+
+            return (
+              <div
+                key={member.id}
+                ref={(el) => {
+                  cardRefs.current[member.id] = el;
+                }}
+                onMouseEnter={() => focusMember(member.id)}
+                onClick={() => (isFocused ? clearFocus() : focusMember(member.id))}
+                className={`animate-team-fade-up flex cursor-pointer flex-col items-center rounded-2xl border border-gray-200 bg-white px-3 py-5 text-center transition-all duration-500 ease-out dark:border-gray-800 dark:bg-white/[0.02] sm:px-4 sm:py-6 ${
+                  isFocused ? "opacity-0" : isDimmed ? "scale-[0.97] opacity-70 blur-[3px]" : "opacity-100"
+                }`}
+                style={{ animationDelay: `${80 + index * 90}ms` }}
+              >
+                <MemberIdentity member={member} avatarSize={92} />
+                <h6 className="mt-4 text-sm font-semibold text-gray-800 dark:text-white/90 sm:text-base">
+                  {member.name}
+                </h6>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{member.role}</p>
+                <SocialLinks member={member} />
               </div>
+            );
+          })}
+
+          {/* Clon flotante: se posiciona exactamente sobre la card real y crece
+              mostrando la frase, sin mover ni recortar el resto de la grilla. */}
+          {focusedMember && spotlightRect && (
+            <div
+              key={focusedMember.id}
+              className="pointer-events-auto absolute z-30 flex animate-team-spotlight-in flex-col items-center rounded-2xl border border-brand-300 bg-white px-4 py-5 text-center shadow-2xl dark:border-brand-500/50 dark:bg-gray-900 sm:px-5 sm:py-6"
+              style={{
+                top: spotlightRect.top,
+                left: spotlightRect.left,
+                width: spotlightRect.width,
+              }}
+              onMouseLeave={clearFocus}
+            >
+              <MemberIdentity member={focusedMember} avatarSize={92} />
               <h6 className="mt-4 text-sm font-semibold text-gray-800 dark:text-white/90 sm:text-base">
-                {member.name}
+                {focusedMember.name}
               </h6>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{member.role}</p>
-              <SocialLinks member={member} />
+              <p className="text-xs text-gray-500 dark:text-gray-400">{focusedMember.role}</p>
+              {focusedMember.quote && (
+                <p className="mt-3 text-xs italic leading-5 text-gray-500 dark:text-gray-400">
+                  "{focusedMember.quote}"
+                </p>
+              )}
+              <SocialLinks member={focusedMember} />
             </div>
-          ))}
+          )}
         </div>
+
+        {/* Reserva espacio real cuando hay alguien enfocado, para que el cuadro
+            blanco crezca y la frase de la card flotante no quede recortada. */}
+        <div
+          aria-hidden="true"
+          className="transition-all duration-300 ease-out"
+          style={{ height: focusedId ? 110 : 0 }}
+        />
       </div>
     </div>
   );

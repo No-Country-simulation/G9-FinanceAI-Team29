@@ -26,63 +26,147 @@ class ProductKnowledgeResponder:
             return None
 
         # Acceso y cuenta
+        if cls._has(
+            q,
+            "requisitos de la contrasena",
+            "que requisitos necesita la contrasena",
+            "como debe ser la contrasena",
+            "que debe tener la contrasena",
+            "que contrasena tengo que poner",
+            "que clave tengo que poner",
+            "como crear una contrasena segura",
+            "que necesita mi contrasena",
+        ):
+            return cls._result(
+                "password_requirements",
+                "Para que la contraseña alcance una seguridad **Muy fuerte**, debe incluir:\n\n"
+                "- Al menos **8 caracteres**.\n"
+                "- Una letra **mayúscula** (`A-Z`).\n"
+                "- Una letra **minúscula** (`a-z`).\n"
+                "- Un número (`0-9`).\n"
+                "- Un símbolo, por ejemplo: `! @ # $ %`.\n\n"
+                "Además, la contraseña y su confirmación deben coincidir exactamente. "
+                "Si estás creando una cuenta, también debes aceptar los **Términos y condiciones** "
+                "y la **Política de privacidad**.\n\n"
+                "Por seguridad, no escribas ni compartas tu contraseña en este chat.",
+            )
+
         if cls._has(q, "cambiar mi contrasena", "cambiar contrasena", "actualizar contrasena"):
             return cls._result(
                 "password_change",
-                "Para cambiar tu contraseña con la sesión iniciada, entrá en **Mi cuenta** y, en la sección **Seguridad**, tocá **Cambiar contraseña**.\n\n"
-                "Si no recordás la contraseña o no podés iniciar sesión, usá **¿Olvidaste tu contraseña?** en la pantalla de inicio de sesión. La nueva clave debe tener al menos 8 caracteres.",
+                "Para cambiar tu contraseña con la sesión iniciada, entra en **Mi cuenta** y, "
+                "en la sección **Seguridad**, selecciona **Cambiar contraseña**.\n\n"
+                "La nueva contraseña debe alcanzar una seguridad **Muy fuerte** e incluir:\n\n"
+                "- Al menos **8 caracteres**.\n"
+                "- Una letra **mayúscula** (`A-Z`).\n"
+                "- Una letra **minúscula** (`a-z`).\n"
+                "- Un número (`0-9`).\n"
+                "- Un símbolo, por ejemplo: `! @ # $ %`.\n\n"
+                "La contraseña y su confirmación deben coincidir exactamente. "
+                "Si no recuerdas la contraseña o no puedes iniciar sesión, usa "
+                "**¿Olvidaste tu contraseña?** en la pantalla de inicio de sesión.\n\n"
+                "Por seguridad, no escribas ni compartas tu contraseña en este chat.",
             )
 
         if cls._has(q, "olvide mi contrasena", "recuperar contrasena", "restablecer contrasena"):
             return cls._result(
                 "password_recovery",
-                "Desde la pantalla de inicio de sesión, tocá **¿Olvidaste tu contraseña?**, ingresá tu correo y seguí el enlace de recuperación. Revisá también spam o correo no deseado.\n\n"
-                "Si el mensaje no llega o el enlace falla, usá **Contactar por correo** en Soporte.",
+                "Desde la pantalla de inicio de sesión, selecciona **¿Olvidaste tu contraseña?**, ingresa tu correo y sigue el enlace de recuperación. Revisa también spam o correo no deseado.\n\n"
+                "Si el mensaje no llega o el enlace falla, usa **Contactar por correo** en Soporte.",
             )
 
         if cls._has(q, "cerrar sesion en todos", "cerrar todas las sesiones", "otros dispositivos"):
             return cls._result(
                 "close_sessions",
-                "Entrá en **Mi cuenta** y bajá hasta **Zona de peligro**. Allí podés usar **Cerrar sesiones** para cerrar tu sesión en este y en los demás dispositivos.",
+                "Entra en **Mi cuenta** y desplázate hasta **Zona de peligro**. Allí puedes usar **Cerrar sesiones** para cerrar tu sesión en este y en los demás dispositivos.",
             )
 
         if cls._has(q, "eliminar cuenta", "dar de baja mi cuenta", "baja de cuenta"):
             return cls._result(
                 "delete_account",
-                "Entrá en **Mi cuenta**, bajá hasta **Zona de peligro** y tocá **Eliminar cuenta**. La cuenta pasa al estado `ELIMINADO` y los datos financieros se conservan según el flujo actual de la aplicación.",
+                "Entra en **Mi cuenta**, desplázate hasta **Zona de peligro** y selecciona **Eliminar cuenta**. La cuenta pasa al estado `ELIMINADO` y los datos financieros se conservan según el flujo actual de la aplicación.",
             )
 
         if cls._has(q, "editar perfil", "cambiar nombre", "cambiar apellido", "actualizar perfil"):
             return cls._result(
                 "edit_profile",
-                "Entrá en **Mi cuenta** y tocá **Editar**, arriba a la derecha. Desde ahí podés actualizar los datos personales disponibles en tu perfil.",
+                "Entra en **Mi cuenta** y selecciona **Editar**, arriba a la derecha. Desde ahí puedes actualizar los datos personales disponibles en tu perfil.",
             )
 
         # Exportaciones e informes
         if cls._has(q, "descargar informe pdf", "exportar pdf", "bajar informe pdf"):
             return cls._result(
                 "export_pdf",
-                "Entrá en **Mi cuenta** y, en **Informe financiero**, tocá **Descargar informe PDF**. También existen opciones de exportación en otras pantallas, pero ese botón descarga el resumen de tus principales indicadores.",
+                "Entra en **Mi cuenta** y, en **Informe financiero**, selecciona **Descargar informe PDF**. También existen opciones de exportación en otras pantallas, pero ese botón descarga el resumen de tus principales indicadores.",
             )
 
         if cls._has(q, "exportar movimientos csv", "descargar movimientos csv", "exportar transacciones"):
             return cls._result(
                 "export_transactions",
-                "Podés exportar los movimientos desde **Mi cuenta** con **Exportar movimientos CSV** o desde **Transacciones** usando el botón **Exportar**.",
+                "Puedes exportar los movimientos desde **Mi cuenta** con **Exportar movimientos CSV** o desde **Transacciones** usando el botón **Exportar**.",
             )
 
         if cls._has(q, "compartir informe", "como comparto", "compartir reporte"):
             return cls._result(
                 "share_report",
-                "Entrá en **Mi cuenta** y, dentro de **Informe financiero**, tocá **Compartir informe**.",
+                "Entra en **Mi cuenta** y, dentro de **Informe financiero**, selecciona **Compartir informe**.",
             )
 
         # CSV
         if cls._has(q, "como importar", "como importo", "importar csv", "cargar csv", "subir csv", "importar movimientos"):
             return cls._result(
                 "import_csv",
-                "Abrí **Importar CSV** desde el menú lateral. Tocá **Seleccionar CSV**, elegí un archivo de hasta 5 MB y después presioná **Procesar CSV**.\n\n"
-                "Las columnas requeridas son: `fecha, descripcion, monto, tipo, categoria, medio_pago, recurrente`. En la misma pantalla podés usar **Descargar plantilla de ejemplo**.",
+                "Abre **Importar CSV** desde el menú lateral. Selecciona **Seleccionar CSV**, elige un archivo de hasta 5 MB y después presioná **Procesar CSV**.\n\n"
+                "Las columnas requeridas son: `fecha, descripcion, monto, tipo, categoria, medio_pago, recurrente`. En la misma pantalla puedes usar **Descargar plantilla de ejemplo**.",
+            )
+
+        if cls._has(
+            q,
+            "que columnas necesita el csv",
+            "que columnas debe tener el csv",
+            "columnas obligatorias del csv",
+        ):
+            return cls._result(
+                "csv_columns",
+                "El archivo CSV debe incluir estas columnas obligatorias: "
+                "`fecha, descripcion, monto, tipo, categoria, medio_pago, recurrente`. "
+                "Los encabezados deben conservar esos nombres.",
+            )
+
+        if cls._has(
+            q,
+            "que formato debe tener la fecha",
+            "que formato debe tener la fecha del csv",
+            "formato de fecha del csv",
+            "como escribir la fecha en el csv",
+        ):
+            return cls._result(
+                "csv_date_format",
+                "La columna `fecha` debe contener fechas válidas. Se recomienda usar el formato "
+                "`AAAA-MM-DD`, por ejemplo `2026-08-05`.",
+            )
+
+        if cls._has(
+            q,
+            "tamano maximo del csv",
+            "cuanto puede pesar el csv",
+            "peso maximo del csv",
+        ):
+            return cls._result(
+                "csv_max_size",
+                "El archivo CSV puede pesar como máximo **5 MB**.",
+            )
+
+        if cls._has(
+            q,
+            "que significa recurrente",
+            "columna recurrente",
+            "como completar recurrente",
+        ):
+            return cls._result(
+                "csv_recurrent",
+                "La columna `recurrente` indica si el movimiento se repite periódicamente. "
+                "Acepta valores como `Sí/No`, `true/false` o `1/0`.",
             )
 
         if cls._has(q, "columnas csv", "formato csv", "plantilla csv", "requisitos csv"):
@@ -95,20 +179,20 @@ class ProductKnowledgeResponder:
         if cls._has(q, "ver transacciones", "ver movimientos", "donde estan mis movimientos"):
             return cls._result(
                 "transactions_view",
-                "Entrá en **Transacciones** desde el menú lateral. Allí podés ver fecha, descripción, categoría, tipo y monto de cada movimiento.",
+                "Entra en **Transacciones** desde el menú lateral. Allí puedes ver fecha, descripción, categoría, tipo y monto de cada movimiento.",
             )
 
         if cls._has(q, "filtrar ingresos", "solo ingresos", "filtrar gastos", "solo gastos"):
             return cls._result(
                 "transactions_filters",
-                "En **Transacciones**, usá los botones **Todos**, **Ingreso** o **Gasto** de la parte superior para filtrar el listado.",
+                "En **Transacciones**, usa los botones **Todos**, **Ingreso** o **Gasto** de la parte superior para filtrar el listado.",
             )
 
         # Metas
         if cls._has(q, "crear meta", "creo una meta", "nueva meta", "como hago una meta", "agregar meta"):
             return cls._result(
                 "create_goal",
-                "Entrá en **Metas**. En **Nueva meta**, completá el nombre, el tipo, el monto objetivo en USD y la fecha. La descripción es opcional. Después tocá **Crear meta**.",
+                "Entra en **Metas**. En **Nueva meta**, completá el nombre, el tipo, el monto objetivo en $ y la fecha. La descripción es opcional. Después selecciona **Crear meta**.",
             )
 
         if cls._has(q, "no tengo metas", "sin metas activas", "meta activa"):
@@ -121,7 +205,7 @@ class ProductKnowledgeResponder:
         if cls._has(q, "prioridad alta", "prioridad media", "que significa sugerencia"):
             return cls._result(
                 "recommendation_priority",
-                "En **Recomendaciones**, **Prioridad Alta** señala el aspecto más urgente, **Prioridad Media** indica una mejora importante y **Sugerencia** propone una acción conveniente de menor urgencia. Podés usar **Preguntar a Finsi sobre esto** para pedir una explicación más detallada.",
+                "En **Recomendaciones**, **Prioridad Alta** señala el aspecto más urgente, **Prioridad Media** indica una mejora importante y **Sugerencia** propone una acción conveniente de menor urgencia. Puedes usar **Preguntar a Finsi sobre esto** para pedir una explicación más detallada.",
             )
 
         if cls._has(q, "como se generan las recomendaciones", "de donde salen las recomendaciones", "que son las recomendaciones"):
@@ -134,7 +218,7 @@ class ProductKnowledgeResponder:
         if cls._has(q, "como uso analisis", "analizar finanzas", "pantalla analisis", "hacer analisis"):
             return cls._result(
                 "analysis",
-                "Entrá en **Análisis**, revisá o completá **Ingreso Mensual**, **Nivel de Endeudamiento** y **Frecuencia de Ahorro**, y tocá **Analizar Finanzas**. El resultado aparece en el panel derecho y luego puede exportarse.",
+                "Entra en **Análisis**, revisa o completá **Ingreso Mensual**, **Nivel de Endeudamiento** y **Frecuencia de Ahorro**, y selecciona **Analizar Finanzas**. El resultado aparece en el panel derecho y luego puede exportarse.",
             )
 
         # Dashboard e indicadores
@@ -159,7 +243,7 @@ class ProductKnowledgeResponder:
         if cls._has(q, "perfil en riesgo", "estoy en riesgo", "que significa en riesgo"):
             return cls._result(
                 "risk_profile",
-                "La clasificación **En riesgo** indica que uno o más indicadores necesitan atención, por ejemplo un endeudamiento elevado, gastos altos o una capacidad de ahorro insuficiente. Revisá **Recomendaciones** para ver qué conviene priorizar.",
+                "La clasificación **En riesgo** indica que uno o más indicadores necesitan atención, por ejemplo un endeudamiento elevado, gastos altos o una capacidad de ahorro insuficiente. Revisa **Recomendaciones** para ver qué conviene priorizar.",
             )
 
         if cls._has(q, "frecuencia de ahorro", "que significa nunca"):
@@ -178,7 +262,7 @@ class ProductKnowledgeResponder:
         if cls._has(q, "contactar soporte", "mandar mail", "correo de soporte", "hablar con soporte"):
             return cls._result(
                 "support_contact",
-                "Entrá en **Soporte** y tocá **Contactar por correo**. El equipo TwentyNineDevs recibe las consultas en `g9latamteam29@gmail.com` y la pantalla informa un tiempo estimado de respuesta de 24 a 48 horas hábiles.",
+                "Entra en **Soporte** y selecciona **Contactar por correo**. El equipo TwentyNineDevs recibe las consultas en `g9latamteam29@gmail.com` y la pantalla informa un tiempo estimado de respuesta de 24 a 48 horas hábiles.",
             )
 
         return None

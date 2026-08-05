@@ -139,6 +139,20 @@ class Wallet(BaseModel):
     saldo_disponible: float
 
 
+class RecomendacionFinanciera(BaseModel):
+    id: str
+    tipo: str
+    perfil: str
+    prioridad: Literal["alta", "media", "sugerencia"]
+    titulo: str
+    diagnostico: str
+    accion: str
+    objetivo: str | None = None
+    evidencia: dict[str, str | float | int]
+    pregunta_finsi: str
+    advertencia: str
+
+
 class AnalisisResponse(BaseModel):
     usuario_id: str
     financial_score: int
@@ -154,5 +168,5 @@ class AnalisisResponse(BaseModel):
     metricas: Metricas
     wallet: Wallet
     categorias_principales: list[CategoriaPrincipal]
-    recomendaciones: list[str]
+    recomendaciones: list[RecomendacionFinanciera]
     modelo_version: str

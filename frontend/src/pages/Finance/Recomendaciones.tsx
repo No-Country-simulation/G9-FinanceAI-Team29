@@ -1,19 +1,65 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import PageMeta from "../../components/common/PageMeta";
+import { SkeletonBlock } from "../../components/common/Skeleton";
 import { analizarFinanzas, obtenerUsuario, obtenerTransacciones } from "../../services/api";
-import { AnalisisResponse } from "../../types/finance";
+import { AnalisisResponse, RecomendacionFinanciera } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { mostrarError, mostrarInfo } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
+import { useOnboarding } from "../../context/OnboardingContext";
 
 const MASCOTA_SRC = "/images/mascot/finsight-bird.png";
+
+function RecomendacionesSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="animate-pulse rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+        <SkeletonBlock className="mb-4 h-5 w-44" />
+        <div className="space-y-4">
+          <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50">
+            <SkeletonBlock className="mb-2 h-3 w-24" />
+            <SkeletonBlock className="h-6 w-32" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50">
+              <SkeletonBlock className="mb-2 h-3 w-16" />
+              <SkeletonBlock className="h-5 w-20" />
+            </div>
+            <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50">
+              <SkeletonBlock className="mb-2 h-3 w-16" />
+              <SkeletonBlock className="h-5 w-20" />
+            </div>
+          </div>
+          <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50">
+            <SkeletonBlock className="mb-2 h-3 w-32" />
+            <SkeletonBlock className="h-5 w-16" />
+          </div>
+        </div>
+      </div>
+
+      <div className="animate-pulse rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+        <SkeletonBlock className="mb-4 h-5 w-56" />
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="rounded-lg border-l-4 border-l-gray-200 bg-gray-50 p-4 dark:border-l-gray-700 dark:bg-gray-800/50">
+              <SkeletonBlock className="mb-2 h-3 w-24" />
+              <SkeletonBlock className="h-3 w-full" />
+              <SkeletonBlock className="mt-2 h-3 w-3/4" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Recomendaciones() {
   const [resultado, setResultado] = useState<AnalisisResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   const { usuarioId, loading: authLoading } = useAuth();
+  const { isTourActive } = useOnboarding();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,11 +80,13 @@ export default function Recomendaciones() {
         // un análisis, le avisamos que será redirigido a cargar sus datos.
         if (transacciones.length === 0) {
           setLoading(false);
-          await mostrarInfo(
-            'No has cargado datos a tu perfil',
-            'Serás redirigido al inicio para que puedas ingresar tus datos.',
-          );
-          if (!cancelado) navigate('/');
+          if (!isTourActive) {
+            await mostrarInfo(
+              'No has cargado datos a tu perfil',
+              'Serás redirigido al inicio para que puedas ingresar tus datos.',
+            );
+            if (!cancelado) navigate('/');
+          }
           return;
         }
 
@@ -60,19 +108,16 @@ export default function Recomendaciones() {
     return () => {
       cancelado = true;
     };
-  }, [usuarioId, authLoading, navigate]);
+  }, [usuarioId, authLoading, navigate, isTourActive]);
 
-  const getPrioridadColor = (index: number) => {
-    if (index === 0) return 'border-l-error-500 bg-error-50 dark:bg-error-500/10';
-    if (index === 1) return 'border-l-warning-500 bg-warning-50 dark:bg-warning-500/10';
+  const getPrioridadColor = (prioridad: RecomendacionFinanciera['prioridad']) => {
+    if (prioridad === 'alta') return 'border-l-error-500 bg-error-50 dark:bg-error-500/10';
+    if (prioridad === 'media') return 'border-l-warning-500 bg-warning-50 dark:bg-warning-500/10';
     return 'border-l-info-500 bg-info-50 dark:bg-info-500/10';
   };
 
-  const getIcono = (index: number) => {
-    if (index === 0) return '🔴';
-    if (index === 1) return '🟡';
-    return '🔵';
-  };
+  const getIcono = (prioridad: RecomendacionFinanciera['prioridad']) =>
+    prioridad === 'alta' ? '🔴' : prioridad === 'media' ? '🟡' : '🔵';
 
   // Mismos umbrales que SavingsGauge en el Dashboard, para que el color signifique lo mismo en toda la app.
   const getAhorroColor = (pct: number) => {
@@ -93,12 +138,18 @@ export default function Recomendaciones() {
   const evitarPorcentajeLiteral = (texto: string) =>
     texto.replace(/(\d+(?:[.,]\d+)?)\s*%/g, '$1 por ciento');
 
-  const preguntarleAFinsi = (recomendacion: string) => {
-    navigate('/asistente-ia', {
-      state: {
-        autoPrompt: `Cuéntame más sobre esta recomendación y cómo aplicarla: "${evitarPorcentajeLiteral(recomendacion)}"`,
-      },
-    });
+  const preguntarleAFinsi = (recomendacion: RecomendacionFinanciera) => {
+    const contexto = [
+      recomendacion.preguntaFinsi,
+      `Perfil financiero: ${recomendacion.perfil}.`,
+      `Diagnóstico: ${evitarPorcentajeLiteral(recomendacion.diagnostico)}`,
+      `Acción sugerida: ${recomendacion.accion}`,
+      recomendacion.objetivo ? `Objetivo: ${evitarPorcentajeLiteral(recomendacion.objetivo)}` : null,
+      recomendacion.advertencia,
+      'Continúa desde esta recomendación, usa mis datos financieros actuales y no me pidas que repita el contexto.',
+    ].filter(Boolean).join('\n\n');
+
+    navigate('/asistente-ia', { state: { autoPrompt: contexto } });
   };
 
   // Se evita escribir el porcentaje como "96.2%": el detector de intención del
@@ -116,9 +167,7 @@ export default function Recomendaciones() {
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">Recomendaciones</h1>
 
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
+          <RecomendacionesSkeleton />
         ) : resultado ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div id="perfil-financiero-recomendaciones" className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -157,18 +206,22 @@ export default function Recomendaciones() {
               
               {resultado.recomendaciones.length > 0 ? (
                 <div className="space-y-3">
-                  {resultado.recomendaciones.map((rec, index) => (
+                  {resultado.recomendaciones.map((rec) => (
                     <div
-                      key={index}
-                      className={`p-4 rounded-lg border-l-4 ${getPrioridadColor(index)}`}
+                      key={rec.id}
+                      className={`p-4 rounded-lg border-l-4 ${getPrioridadColor(rec.prioridad)}`}
                     >
                       <div className="flex items-start gap-3">
-                        <span className="text-lg">{getIcono(index)}</span>
+                        <span className="text-lg">{getIcono(rec.prioridad)}</span>
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-gray-800 dark:text-white/90 mb-1">
-                            {index === 0 ? 'Prioridad Alta' : index === 1 ? 'Prioridad Media' : 'Sugerencia'}
+                            {rec.prioridad === 'alta' ? 'Prioridad Alta' : rec.prioridad === 'media' ? 'Prioridad Media' : 'Sugerencia'}
                           </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{rec}</p>
+                          <h3 className="text-base font-semibold text-gray-800 dark:text-white/90">{rec.titulo}</h3>
+                          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{rec.diagnostico}</p>
+                          <p className="mt-3 text-sm text-gray-700 dark:text-gray-300"><strong>Acción sugerida:</strong> {rec.accion}</p>
+                          {rec.objetivo && <p className="mt-2 text-sm text-gray-700 dark:text-gray-300"><strong>Objetivo:</strong> {rec.objetivo}</p>}
+                          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{rec.advertencia}</p>
                           <button
                             type="button"
                             onClick={() => preguntarleAFinsi(rec)}

@@ -35,6 +35,17 @@ export function apiDevMiddleware(): Plugin {
         }
       }
 
+      // @supabase/supabase-js instancia un RealtimeClient apenas se llama
+      // createClient(), aunque la función nunca use Realtime. Ese cliente
+      // exige un WebSocket global nativo, que Node trae recién desde la
+      // v22. En Node 20 esto hace que createClient() explote y el catch
+      // de más abajo lo confunda con "la función no existe". En producción
+      // (Vercel Edge Runtime) sí hay WebSocket nativo, así que este stub es
+      // solo para poder correr `vite dev` en Node < 22.
+      if (typeof globalThis.WebSocket === 'undefined') {
+        globalThis.WebSocket = class {} as unknown as typeof WebSocket;
+      }
+
       server.middlewares.use(async (req, res, next) => {
         if (!req.url || !req.url.startsWith('/api/')) {
           return next();

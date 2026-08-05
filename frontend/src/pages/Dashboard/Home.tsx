@@ -31,24 +31,55 @@ import {
   Transaccion,
   ResumenTransacciones,
   AnalisisResponse,
+  RecomendacionFinanciera,
 } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { mostrarError } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
+import WelcomeSplash from "../../components/common/WelcomeSplash";
+import DashboardSkeleton from "../../components/finance/DashboardSkeleton";
 
 export default function Home() {
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [resumen, setResumen] = useState<ResumenTransacciones | null>(null);
   const [analisis, setAnalisis] = useState<AnalisisResponse | null>(null);
-  const [recomendaciones, setRecomendaciones] = useState<string[]>([]);
+  const [recomendaciones, setRecomendaciones] = useState<RecomendacionFinanciera[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mostrarDetalles, setMostrarDetalles] = useState(false);
 
-  const { usuarioId, loading: authLoading } = useAuth();
+  const { usuarioId, loading: authLoading, email, session } = useAuth();
   const location = useLocation();
   const chartRef = useRef<HTMLDivElement>(null);
+
+  // Lectura síncrona (lazy initializer): SignInForm ya esperó a que el
+  // usuarioId y el nombre completo estén resueltos antes de navegar acá,
+  // así que el splash se decide y se pinta con el nombre final desde el
+  // primerísimo render de Home, sin ningún estado intermedio.
+  const [intentoBienvenida] = useState(
+    () => sessionStorage.getItem("finsight.showWelcomeSplash") === "1",
+  );
+  const [nombreCompletoBienvenida] = useState(
+    () => sessionStorage.getItem("finsight.welcomeNombre") ?? "",
+  );
+
+  useEffect(() => {
+    if (intentoBienvenida) {
+      sessionStorage.removeItem("finsight.showWelcomeSplash");
+      sessionStorage.removeItem("finsight.welcomeNombre");
+    }
+  }, [intentoBienvenida]);
+
+  // splashCerrado solo pasa a true cuando el propio WelcomeSplash termina su
+  // animación de salida (fade visual + audio), así evitamos el corte brusco
+  // que había al desmontarlo apenas terminaba de cargar la data.
+  const [splashCerrado, setSplashCerrado] = useState(false);
+
+  // La intro dura lo que tarden en llegar los datos del backend, más el
+  // tiempo del fade de salida.
+  const datosListosBienvenida = !authLoading && !loading;
+  const mostrarSplashBienvenida = intentoBienvenida && !splashCerrado;
 
   useEffect(() => {
     if (
@@ -59,7 +90,7 @@ export default function Home() {
     }
   }, [location.hash]);
 
-  const cargarDatos = useCallback(async () => {
+  const cargarDatos = useCallback(async (isCancelled: () => boolean) => {
     try {
       setLoading(true);
       setError(null);
@@ -96,6 +127,13 @@ export default function Home() {
       setAnalisis(analisisData);
       setRecomendaciones(analisisData.recomendaciones ?? []);
     } catch (err) {
+      // Si mientras cargábamos el componente se desmontó o la sesión ya
+      // no es válida (p. ej. el usuario se deslogueó por token vencido
+      // mientras esta carga estaba en vuelo), no mostramos el error: el
+      // logout ya se está manejando (redirección a /signin) y no hay
+      // nada "real" que reportarle al usuario.
+      if (isCancelled() || !session) return;
+
       console.error("ERROR COMPLETO:", err);
 
       let mensaje = "Error desconocido";
@@ -120,16 +158,41 @@ export default function Home() {
         mensaje,
       );
     } finally {
-      setLoading(false);
+      if (!isCancelled()) {
+        setLoading(false);
+      }
     }
-  }, [usuarioId]);
+  }, [usuarioId, session]);
 
   useEffect(() => {
-  if (authLoading) return;
-  if (!usuarioId) return;
+    if (authLoading) return;
+    if (!usuarioId) return;
 
-  void cargarDatos();
-}, [authLoading, usuarioId, cargarDatos]);
+    let cancelled = false;
+    void cargarDatos(() => cancelled);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, usuarioId, cargarDatos]);
+
+if (mostrarSplashBienvenida) {
+  return (
+    <>
+      <PageMeta
+        title="FinSightAI | Dashboard"
+        description="Dashboard de análisis financiero"
+      />
+
+      <WelcomeSplash
+        nombreCompleto={nombreCompletoBienvenida}
+        email={email}
+        datosListos={datosListosBienvenida}
+        onSalidaCompleta={() => setSplashCerrado(true)}
+      />
+    </>
+  );
+}
 
 if (authLoading) {
   return (
@@ -149,15 +212,7 @@ if (authLoading) {
           description="Dashboard de análisis financiero"
         />
 
-        <div className="flex h-64 items-center justify-center">
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-
-            <p className="text-gray-500 dark:text-gray-400">
-              Cargando datos financieros...
-            </p>
-          </div>
-        </div>
+        <DashboardSkeleton />
       </>
     );
   }
@@ -186,7 +241,7 @@ if (authLoading) {
 
             <button
               type="button"
-              onClick={() => void cargarDatos()}
+              onClick={() => void cargarDatos(() => false)}
               className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-brand-600"
             >
               Reintentar
@@ -219,7 +274,7 @@ if (authLoading) {
               </h1>
 
               <p className="max-w-2xl text-base leading-7 text-white/90 sm:text-lg">
-                Ya creamos tu cuenta. Ahora subí tus movimientos para armar tu
+                Ya creamos tu cuenta. Ahora sube tus movimientos para armar tu
                 dashboard y entender de un vistazo en qué se te va la plata.
               </p>
             </div>
@@ -227,7 +282,7 @@ if (authLoading) {
             <div className="grid gap-8 px-6 py-10 sm:px-10 lg:grid-cols-[1fr_0.9fr] lg:px-12">
               <div>
                 <h2 className="mb-5 text-xl font-semibold text-gray-800 dark:text-white/90">
-                  Qué vas a encontrar acá
+                  ¿Qué vas a encontrar acá?
                 </h2>
 
                 <div className="space-y-4">
@@ -267,7 +322,7 @@ if (authLoading) {
                   </div>
 
                   <h2 className="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
-                    Subí tu primer archivo
+                    Sube tu primer archivo
                   </h2>
 
                   <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
@@ -448,6 +503,7 @@ if (authLoading) {
             <div id="recomendaciones-dashboard" className="col-span-12 scroll-mt-24 xl:col-span-6">
               <RecommendationsList
                 recomendaciones={recomendaciones}
+                className="h-full"
               />
             </div>
           </div>

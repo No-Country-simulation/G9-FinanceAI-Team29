@@ -34,6 +34,20 @@ export interface TransaccionInput {
   fecha: string;
 }
 
+export interface RecomendacionFinanciera {
+  id: string;
+  tipo: string;
+  perfil: 'Saludable' | 'En observación' | 'En riesgo' | string;
+  prioridad: 'alta' | 'media' | 'sugerencia';
+  titulo: string;
+  diagnostico: string;
+  accion: string;
+  objetivo?: string | null;
+  evidencia: Record<string, string | number>;
+  preguntaFinsi: string;
+  advertencia: string;
+}
+
 export interface AnalisisResponse {
   perfilFinanciero: string;
   probabilidad: number;
@@ -45,7 +59,7 @@ export interface AnalisisResponse {
   totalIngresos: number;
   porcentajeAhorro: number;
   nivelRiesgo: string;
-  recomendaciones: string[];
+  recomendaciones: RecomendacionFinanciera[];
 }
 
 export interface PerfilUsuario {

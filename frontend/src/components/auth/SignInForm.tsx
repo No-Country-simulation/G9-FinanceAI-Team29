@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import { Link, useLocation, useNavigate } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
@@ -8,8 +8,16 @@ import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import { mostrarError, mostrarExito } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
+import { obtenerPerfilCompleto } from "../../services/api";
 import AuthLegalFooter from "./AuthLegalFooter";
 import AuthBrandWithMascot from "./AuthBrandWithMascot";
+
+const ESPERA_USUARIO_MS = 6000;
+const INTERVALO_POLL_MS = 100;
+
+function esperar(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export default function SignInForm() {
   const navigate = useNavigate();
@@ -17,12 +25,54 @@ export default function SignInForm() {
   const vieneDeCerrarSesion = Boolean(
     (location.state as { loggedOut?: boolean } | null)?.loggedOut
   );
-  const { signIn } = useAuth();
+  const { signIn, usuarioId, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [enviando, setEnviando] = useState(false);
+
+  // Referencia siempre al día con el estado de auth más reciente, para
+  // poder "esperarlo" desde dentro del handler async sin depender de
+  // closures viejas.
+  const authRef = useRef({ usuarioId, authLoading });
+  useEffect(() => {
+    authRef.current = { usuarioId, authLoading };
+  }, [usuarioId, authLoading]);
+
+  /**
+   * Tras autenticar, esperamos a que el usuarioId (USRxxxx) y el nombre
+   * completo del perfil estén resueltos ANTES de navegar al dashboard.
+   * Así el botón se queda con su animación de carga y el splash de
+   * bienvenida aparece ya con el nombre listo, sin pantallas intermedias.
+   */
+  const prepararBienvenidaYNavegar = async () => {
+    const limite = Date.now() + ESPERA_USUARIO_MS;
+    let idResuelto = authRef.current.usuarioId;
+
+    while (
+      (authRef.current.authLoading || !authRef.current.usuarioId) &&
+      Date.now() < limite
+    ) {
+      await esperar(INTERVALO_POLL_MS);
+      idResuelto = authRef.current.usuarioId;
+    }
+
+    let nombreCompleto = "";
+
+    if (idResuelto) {
+      try {
+        const perfilCompleto = await obtenerPerfilCompleto(idResuelto);
+        nombreCompleto = `${perfilCompleto.nombre ?? ""} ${perfilCompleto.apellido ?? ""}`.trim();
+      } catch {
+        // Si falla, el splash cae de vuelta a un saludo genérico.
+      }
+    }
+
+    sessionStorage.setItem("finsight.showWelcomeSplash", "1");
+    sessionStorage.setItem("finsight.welcomeNombre", nombreCompleto);
+    navigate("/");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +88,8 @@ export default function SignInForm() {
     setEnviando(true);
     try {
       await signIn(email.trim(), password);
-      await mostrarExito("¡Bienvenido!", "Has iniciado sesión correctamente.");
-      navigate("/");
+      await prepararBienvenidaYNavegar();
+      return;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[Login] Supabase auth error:", msg, err);

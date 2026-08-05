@@ -1,4 +1,5 @@
 import { SidebarProvider, useSidebar } from "../context/SidebarContext";
+import { OnboardingProvider } from "../context/OnboardingContext";
 import { Outlet, useLocation, Link } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
@@ -63,7 +64,9 @@ const LayoutContent: React.FC = () => {
 const AppLayout: React.FC = () => {
   return (
     <SidebarProvider>
-      <LayoutContent />
+      <OnboardingProvider>
+        <LayoutContent />
+      </OnboardingProvider>
     </SidebarProvider>
   );
 };

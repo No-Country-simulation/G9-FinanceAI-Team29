@@ -2,12 +2,34 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import PageMeta from "../../components/common/PageMeta";
 import ExportMenu from "../../components/common/ExportMenu";
+import { SkeletonBlock } from "../../components/common/Skeleton";
 import { formatMoney } from "../../utils/export/format";
 import { analizarFinanzas, obtenerUsuario, obtenerTransacciones } from "../../services/api";
 import { AnalisisRequest, AnalisisResponse } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { useAuth } from "../../context/AuthContext";
+import { useOnboarding } from "../../context/OnboardingContext";
 import { mostrarError, mostrarExito, mostrarInfo } from "../../utils/alerts";
+
+function DatosEntradaSkeleton() {
+  return (
+    <div className="animate-pulse space-y-4">
+      <div>
+        <SkeletonBlock className="mb-2 h-4 w-32" />
+        <SkeletonBlock className="h-10 w-full rounded-lg" />
+      </div>
+      <div>
+        <SkeletonBlock className="mb-2 h-4 w-40" />
+        <SkeletonBlock className="h-10 w-full rounded-lg" />
+      </div>
+      <div>
+        <SkeletonBlock className="mb-2 h-4 w-36" />
+        <SkeletonBlock className="h-10 w-full rounded-lg" />
+      </div>
+      <SkeletonBlock className="h-10 w-full rounded-lg" />
+    </div>
+  );
+}
 
 export default function Analisis() {
   const [formData, setFormData] = useState<AnalisisRequest | null>(null);
@@ -16,6 +38,7 @@ export default function Analisis() {
   const [cargandoDatos, setCargandoDatos] = useState(true);
 
   const { usuarioId } = useAuth();
+  const { isTourActive } = useOnboarding();
   const navigate = useNavigate();
 
   // El formulario se llena con el perfil y las transacciones reales de la
@@ -32,11 +55,13 @@ export default function Analisis() {
 
         if (transacciones.length === 0) {
           setFormData(null);
-          await mostrarInfo(
-            'Todavía no tienes datos financieros',
-            'Carga tus movimientos para poder analizar tus finanzas. Te llevamos al resumen financiero.',
-          );
-          navigate('/');
+          if (!isTourActive) {
+            await mostrarInfo(
+              'Todavía no tienes datos financieros',
+              'Carga tus movimientos para poder analizar tus finanzas. Te llevamos al resumen financiero.',
+            );
+            navigate('/');
+          }
           return;
         }
 
@@ -49,7 +74,7 @@ export default function Analisis() {
         setCargandoDatos(false);
       }
     }
-  }, [usuarioId]);
+  }, [usuarioId, isTourActive, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,19 +109,9 @@ export default function Analisis() {
   };
 
   const recomendacionesDelAgente = (data: AnalisisResponse) => {
-    const humanize = (recommendation: string) => {
-      const clean = recommendation.trim().replace(/^[-•]\s*/, '').replace(/\.$/, '');
-      if (/^te recomiendo\b/i.test(clean)) return `${clean}.`;
-      if (/^el nivel de endeudamiento se encuentra controlado/i.test(clean)) {
-        return 'Te recomiendo mantener tu nivel de endeudamiento bajo control y evitar asumir nuevas obligaciones innecesarias.';
-      }
-      if (/^el nivel de endeudamiento/i.test(clean)) {
-        return 'Te recomiendo revisar periódicamente tu nivel de endeudamiento para que no comprometa tu capacidad de pago.';
-      }
-      return `Te recomiendo ${clean.charAt(0).toLowerCase()}${clean.slice(1)}.`;
-    };
-
-    const items = data.recomendaciones.map(humanize);
+    const items = data.recomendaciones.map(
+      (rec) => `${rec.titulo}: ${rec.diagnostico} Acción sugerida: ${rec.accion}`
+    );
     const perfil = data.perfilFinanciero.toLowerCase();
     const riesgo = data.nivelRiesgo.toLowerCase();
     const isRisk = perfil.includes('riesgo') || riesgo.includes('alto');
@@ -123,9 +138,7 @@ export default function Analisis() {
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">Datos de Entrada</h2>
             
             {cargandoDatos ? (
-              <div className="flex items-center justify-center h-64 text-gray-500">
-                Cargando tus datos...
-              </div>
+              <DatosEntradaSkeleton />
             ) : !formData ? (
               <div className="flex items-center justify-center h-64 text-gray-500">
                 No se pudieron cargar tus datos. Reintenta más tarde.

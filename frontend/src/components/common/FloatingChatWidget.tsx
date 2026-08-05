@@ -157,6 +157,7 @@ export default function FloatingChatWidget() {
   };
 
   const nuevoChat = () => {
+    stopSpeaking();
     setPasoPendiente(null);
     setMessages([]);
     respuestasCountRef.current = 0;

@@ -294,6 +294,16 @@ export default function Soporte() {
         <div className="flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
           <h4 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">Contacto</h4>
 
+          <span className="relative mb-4 inline-flex h-20 w-20 shrink-0 rounded-full">
+            <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-brand-50 ring-1 ring-gray-200 dark:bg-brand-500/10 dark:ring-gray-800">
+              <img src="/logo_team.png" alt="TwentyNineDevs" className="h-full w-full object-cover" />
+            </span>
+            <span
+              className="absolute bottom-0.5 right-0.5 h-4 w-4 rounded-full border-2 border-white bg-success-500 dark:border-gray-900"
+              aria-label="Equipo en línea"
+            />
+          </span>
+
           <div className="mb-6 flex items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-50 text-gray-500 dark:bg-white/5 dark:text-gray-400">
               <TaskIcon className="h-4 w-4" />
@@ -319,8 +329,24 @@ export default function Soporte() {
               <TimeIcon className="h-4 w-4" />
             </span>
             <div>
-              <p className="text-xs leading-normal text-gray-500 dark:text-gray-400">Tiempo de respuesta</p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">Dentro de 24-48 horas hábiles</p>
+              <p className="text-xs leading-normal text-gray-500 dark:text-gray-400">Horario de atención</p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">Lunes a viernes, 9:00 - 18:00</p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Respuesta por correo dentro de 24-48 horas hábiles</p>
+            </div>
+          </div>
+
+          <div className="mb-6 flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-50 text-gray-500 dark:bg-white/5 dark:text-gray-400">
+              <DocsIcon className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-xs leading-normal text-gray-500 dark:text-gray-400">Recursos</p>
+              <a
+                href="#preguntas-frecuentes"
+                className="text-sm font-medium text-brand-500 hover:text-brand-600"
+              >
+                Ver preguntas frecuentes
+              </a>
             </div>
           </div>
 
@@ -377,7 +403,10 @@ export default function Soporte() {
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+          <div
+            id="preguntas-frecuentes"
+            className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6"
+          >
             <div className="mb-4 flex items-center gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-500 dark:bg-brand-500/10">
                 <DocsIcon className="h-5 w-5" />

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import PageMeta from "../../components/common/PageMeta";
 import ExportMenu from "../../components/common/ExportMenu";
+import { SkeletonBlock } from "../../components/common/Skeleton";
 import { formatMoney } from "../../utils/export/format";
 import { exportDashboardXlsx } from "../../utils/export/exportXlsxDashboard";
 import { obtenerTransacciones } from "../../services/api";
@@ -9,6 +10,53 @@ import { Transaccion } from "../../types/finance";
 import { getCategoriaColor } from "../../utils/categoriaColors";
 import { mostrarError, mostrarInfo } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
+
+function TransaccionesSkeleton() {
+  return (
+    <>
+      {/* Vista de tarjetas — solo móvil */}
+      <div className="space-y-3 sm:hidden">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="animate-pulse rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-2">
+                <SkeletonBlock className="h-4 w-3/4" />
+                <SkeletonBlock className="h-3 w-20" />
+              </div>
+              <SkeletonBlock className="h-4 w-16 shrink-0" />
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <SkeletonBlock className="h-5 w-16 rounded-full" />
+              <SkeletonBlock className="h-5 w-14 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Vista de tabla — desde sm hacia arriba */}
+      <div className="hidden animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] sm:block">
+        <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+          <div className="flex gap-10">
+            <SkeletonBlock className="h-3 w-16" />
+            <SkeletonBlock className="h-3 w-24" />
+            <SkeletonBlock className="h-3 w-20" />
+            <SkeletonBlock className="h-3 w-14" />
+            <SkeletonBlock className="ml-auto h-3 w-16" />
+          </div>
+        </div>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex items-center gap-10 border-b border-gray-100 px-6 py-4 last:border-b-0 dark:border-gray-800/50">
+            <SkeletonBlock className="h-4 w-16" />
+            <SkeletonBlock className="h-4 w-40" />
+            <SkeletonBlock className="h-5 w-20 rounded-full" />
+            <SkeletonBlock className="h-5 w-16 rounded-full" />
+            <SkeletonBlock className="ml-auto h-4 w-20" />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
 
 export default function Transacciones() {
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
@@ -97,9 +145,7 @@ export default function Transacciones() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
+          <TransaccionesSkeleton />
         ) : (
           <>
             {/* Vista de tarjetas — solo móvil */}

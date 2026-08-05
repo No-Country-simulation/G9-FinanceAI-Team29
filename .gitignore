@@ -21,6 +21,7 @@ frontend/.currency-check/
 frontend/.currency-check.zip
 frontend/.dashboard-layout-check/
 frontend/.dashboard-layout-check.zip
+docs/
 
 .env
 *.bat
