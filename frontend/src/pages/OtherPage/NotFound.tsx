@@ -1,7 +1,6 @@
 import GridShape from "../../components/common/GridShape";
 import { Link } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
-import TeamCredit from "../../components/team/TeamCredit";
 
 export default function NotFound() {
   return (
@@ -40,7 +39,7 @@ export default function NotFound() {
         </div>
         {/* <!-- Footer --> */}
         <p className="absolute text-sm text-center text-gray-500 -translate-x-1/2 bottom-6 left-1/2 dark:text-gray-400">
-          &copy; {new Date().getFullYear()} - <TeamCredit />
+          &copy; {new Date().getFullYear()} - TwentyNineDevs
         </p>
       </div>
     </>

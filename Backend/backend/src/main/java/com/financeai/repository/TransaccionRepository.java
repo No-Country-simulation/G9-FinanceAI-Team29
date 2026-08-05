@@ -1,6 +1,8 @@
 package com.financeai.repository;
 
 import com.financeai.model.Transaccion;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,6 +16,9 @@ import java.util.List;
 public interface TransaccionRepository extends JpaRepository<Transaccion, String> {
 
     List<Transaccion> findByUsuarioId(String usuarioId);
+
+    // Variante paginada: trae las transacciones de a "páginas" (page/size/orden).
+    Page<Transaccion> findByUsuarioId(String usuarioId, Pageable pageable);
 
     void deleteByUsuarioId(String usuarioId);
 

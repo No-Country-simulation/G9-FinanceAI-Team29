@@ -7,7 +7,7 @@ import { analizarFinanzas, obtenerUsuario, obtenerTransacciones } from "../../se
 import { AnalisisRequest, AnalisisResponse } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { useAuth } from "../../context/AuthContext";
-import { mostrarError, mostrarExito, mostrarInfo } from "../../utils/alerts";
+import { mostrarError, mostrarExito } from "../../utils/alerts";
 
 export default function Analisis() {
   const [formData, setFormData] = useState<AnalisisRequest | null>(null);
@@ -29,17 +29,6 @@ export default function Analisis() {
           obtenerUsuario(usuarioId),
           obtenerTransacciones(usuarioId),
         ]);
-
-        if (transacciones.length === 0) {
-          setFormData(null);
-          await mostrarInfo(
-            'Todavía no tienes datos financieros',
-            'Carga tus movimientos para poder analizar tus finanzas. Te llevamos al resumen financiero.',
-          );
-          navigate('/');
-          return;
-        }
-
         setFormData(construirAnalisisRequest(perfil, transacciones));
       } catch (err) {
         console.error(err);

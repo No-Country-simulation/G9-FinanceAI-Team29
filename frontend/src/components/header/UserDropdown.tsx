@@ -5,7 +5,6 @@ import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { obtenerPerfilCompleto } from "../../services/api";
 import { confirmarCierreSesion } from "../../utils/alerts";
-import UserAvatar from "../common/UserAvatar";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -65,7 +64,9 @@ export default function UserDropdown() {
         aria-label="Menú de usuario"
         className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
       >
-        <UserAvatar className="h-11 w-11 sm:mr-3" />
+        <span className="block h-11 w-11 overflow-hidden rounded-full sm:mr-3">
+          <img src="/logo_crop.png" alt="Usuario" className="h-full w-full object-cover" />
+        </span>
 
         <span className="hidden mr-1 font-medium sm:block text-theme-sm">{nombreMostrado}</span>
         <svg

@@ -10,7 +10,6 @@ from app.services.support.knowledge_base import KnowledgeChunk, SupportKnowledge
 from app.services.support.capabilities import CapabilityChecker
 from app.services.support.diagnosis import GuidedSupportDiagnosis
 from app.services.support.prompt import build_support_messages
-from app.services.support.product_knowledge import ProductKnowledgeResponder
 
 
 class SupportAgent:
@@ -56,20 +55,6 @@ class SupportAgent:
                     "route": diagnosis.route,
                     "solved": diagnosis.solved,
                     "escalate": diagnosis.escalate,
-                    "support_email": settings.support_email,
-                },
-            )
-
-        product = ProductKnowledgeResponder.answer(question)
-        if product is not None:
-            return LLMResponse(
-                content=product.content,
-                provider="internal",
-                model="support-product-knowledge",
-                metadata={
-                    "intent": "technical_support",
-                    "route": product.route,
-                    "topic": product.topic,
                     "support_email": settings.support_email,
                 },
             )

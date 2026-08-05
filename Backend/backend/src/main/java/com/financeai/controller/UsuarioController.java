@@ -215,18 +215,6 @@ public class UsuarioController {
                         usuario.setEmail(emailNormalizado);
                     }
 
-                    boolean nombreCambio = !nombre.equals(usuario.getNombre()) || !apellido.equals(usuario.getApellido());
-
-                    if (nombreCambio) {
-                        try {
-                            supabaseAuthService.actualizarNombreEnSupabase(usuario.getAuthUserId(), nombre, apellido);
-                        } catch (RuntimeException e) {
-                            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(
-                                    Map.of("mensaje", e.getMessage())
-                            );
-                        }
-                    }
-
                     usuario.setNombre(nombre);
                     usuario.setApellido(apellido);
                     usuarioRepository.save(usuario);

@@ -14,15 +14,9 @@ class SupportIntentDetector:
     _STRONG_PATTERNS = (
         r"\b(no puedo|no me deja|no funciona|no anda|fall[ao]|error|problema)\b.*\b(csv|pdf|informe|archivo|import|export|descarg|subir|cargar|login|sesion|contrase|perfil|cuenta|dashboard|meta|registro|boton|pantalla)\b",
         r"\b(csv|pdf|informe|archivo|import|export|descarg|subir|cargar|login|sesion|contrase|perfil|cuenta|dashboard|meta|registro|boton|pantalla)\b.*\b(no puedo|no me deja|no funciona|no anda|fall[ao]|error|problema|cero|vacio|rechaz)\b",
-        r"\b(como|donde|que|para que)\b.*\b(importar|exportar|descargar|cambiar contrase|editar perfil|dar de baja|eliminar cuenta|compartir informe|iniciar sesion|registrarme|crear meta|dashboard|transacciones|analisis|recomendaciones|endeudamiento|capacidad de ahorro|frecuencia de ahorro)\b",
+        r"\b(como|donde)\b.*\b(importar|exportar|descargar|cambiar contrase|editar perfil|dar de baja|eliminar cuenta|compartir informe|iniciar sesion|registrarme)\b",
         r"\b(monto debe ser mayor que cero|archivo fue rechazado|ai-service|ventanas emergentes|popup|correo de soporte)\b",
         r"\b(dar de baja|eliminar cuenta|cerrar cuenta)\b",
-    )
-
-    _PRODUCT_PATTERNS = (
-        r"\b(como|donde)\b.*\b(creo|crear|importo|importar|exporto|exportar|cambio|cambiar|elimino|eliminar|comparto|compartir)\b.*\b(meta|csv|pdf|contrasena|cuenta|perfil|movimientos|informe)\b",
-        r"\b(que|para que)\b.*\b(significa|muestra|sirve|son|hace)\b.*\b(dashboard|endeudamiento|capacidad de ahorro|frecuencia de ahorro|en riesgo|recomendaciones|prioridad alta|prioridad media|sugerencia)\b",
-        r"\b(dashboard|transacciones|importar csv|analisis|recomendaciones|metas|mi cuenta|mi perfil|asistente ia|soporte)\b.*\b(como|que|donde|para que|funciona|sirve|muestra)\b",
     )
 
     _APP_TERMS = {
@@ -30,9 +24,7 @@ class SupportIntentDetector:
         "iniciar sesion", "login", "registro", "registrarme", "contraseña",
         "contrasena", "editar perfil", "mi cuenta", "dar de baja", "cuenta eliminada",
         "exportar movimientos", "compartir informe", "descargar informe", "importar archivo",
-        "cargar archivo", "archivo", "perfil calculado", "preview", "vista previa", "ai-service",
-        "transacciones", "analisis", "recomendaciones", "metas", "mi perfil", "mi cuenta",
-        "capacidad de ahorro", "endeudamiento", "frecuencia de ahorro", "en riesgo",
+        "cargar archivo", "perfil calculado", "preview", "vista previa", "ai-service",
     }
 
     _FOLLOW_UP_MARKERS = (
@@ -56,7 +48,6 @@ class SupportIntentDetector:
         "error", "falla", "fallo", "problema", "ayuda", "funciona", "anda", "cargar",
         "importar", "exportar", "descargar", "descarga", "rechazado", "rechaza", "aparece", "muestra",
         "guardar", "guardado", "boton", "pantalla", "como", "donde", "cambiar", "editar",
-        "responde", "respuesta",
     }
 
     @classmethod
@@ -65,8 +56,6 @@ class SupportIntentDetector:
         if not normalized:
             return False
         if any(re.search(pattern, normalized) for pattern in cls._STRONG_PATTERNS):
-            return True
-        if any(re.search(pattern, normalized) for pattern in cls._PRODUCT_PATTERNS):
             return True
         app_hits = sum(1 for term in cls._APP_TERMS if term in normalized)
         support_hits = sum(1 for term in cls._SUPPORT_WORDS if term in normalized)

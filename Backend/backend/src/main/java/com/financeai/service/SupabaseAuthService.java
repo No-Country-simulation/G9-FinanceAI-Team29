@@ -120,41 +120,6 @@ public class SupabaseAuthService {
         }
     }
 
-    /**
-     * Actualiza nombre/apellido en el user_metadata de Supabase Auth (auth.users)
-     * usando la Admin API, para mantenerlo sincronizado con la tabla local de usuarios.
-     * Requiere el authUserId (UUID), no el ID local (USR0001).
-     */
-    public void actualizarNombreEnSupabase(String authUserId, String nombre, String apellido) {
-        RestTemplate restTemplate = new RestTemplate();
-        String url = supabaseUrl + "/auth/v1/admin/users/" + authUserId;
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("apikey", serviceRoleKey);
-        headers.set("Authorization", "Bearer " + serviceRoleKey);
-
-        Map<String, Object> userMetadata = new HashMap<>();
-        userMetadata.put("nombre", nombre);
-        userMetadata.put("apellido", apellido);
-        userMetadata.put("display_name", (nombre + " " + apellido).trim());
-
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("user_metadata", userMetadata);
-
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.PUT, entity, Map.class);
-
-            if (!response.getStatusCode().is2xxSuccessful()) {
-                throw new RuntimeException("Supabase rechazó la actualización de nombre.");
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("No se pudo actualizar el nombre en Supabase Auth: " + e.getMessage());
-        }
-    }
-
     public String autenticarYObtenerUid(String email, String password) {
         RestTemplate restTemplate = new RestTemplate();
         // Endpoint estándar de Supabase GoTrue Auth para login con contraseña

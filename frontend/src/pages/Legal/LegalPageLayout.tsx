@@ -1,7 +1,6 @@
 import { useLocation, useNavigate } from "react-router";
 import { ChevronLeftIcon } from "../../icons";
 import PageMeta from "../../components/common/PageMeta";
-import TeamCredit from "../../components/team/TeamCredit";
 
 interface LegalPageLayoutProps {
   title: string;
@@ -58,7 +57,7 @@ export default function LegalPageLayout({
           </div>
 
           <p className="mt-12 border-t border-gray-100 pt-6 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
-            &copy; {new Date().getFullYear()} FinSightAI — <TeamCredit />
+            &copy; {new Date().getFullYear()} FinSightAI — TwentyNineDevs
           </p>
         </div>
       </div>

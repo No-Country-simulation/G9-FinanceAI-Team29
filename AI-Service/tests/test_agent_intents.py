@@ -35,11 +35,3 @@ def test_multiple_financial_topics_use_full_analysis() -> None:
         detector.detect("Compara mis ingresos, gastos y ahorro")
         == Intent.FULL_ANALYSIS
     )
-
-
-def test_specific_expense_questions_are_detected() -> None:
-    detector = IntentDetector()
-    assert detector.detect("¿Qué día tuve más gastos?") == Intent.HIGHEST_EXPENSE_DAY
-    assert detector.detect("¿Cuál fue mi gasto más grande?") == Intent.LARGEST_EXPENSE
-    assert detector.detect("¿Cuál es la categoría con más gastos?") == Intent.TOP_EXPENSE_CATEGORY
-    assert detector.detect("¿Qué mes gasté más?") == Intent.HIGHEST_EXPENSE_MONTH

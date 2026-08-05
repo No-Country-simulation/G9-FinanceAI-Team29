@@ -20,10 +20,6 @@ class Intent(StrEnum):
     INCOME = "income"
     EXPENSES = "expenses"
     RECENT_EXPENSES = "recent_expenses"
-    HIGHEST_EXPENSE_DAY = "highest_expense_day"
-    LARGEST_EXPENSE = "largest_expense"
-    TOP_EXPENSE_CATEGORY = "top_expense_category"
-    HIGHEST_EXPENSE_MONTH = "highest_expense_month"
     DEBT = "debt"
     SAVINGS = "savings"
     SCORE = "score"
@@ -291,45 +287,6 @@ class IntentDetector:
         "quien creo esta aplicacion",
     }
 
-
-    _HIGHEST_EXPENSE_DAY_TERMS = {
-        "que dia tuve mas gastos",
-        "que dia gaste mas",
-        "cual fue el dia que mas gaste",
-        "cual fue el dia con mas gastos",
-        "dia que mas gaste",
-        "dia con mas gastos",
-        "fecha con mas gastos",
-        "cuando gaste mas",
-        "en que dia gaste mas",
-    }
-
-    _LARGEST_EXPENSE_TERMS = {
-        "cual fue mi gasto mas grande",
-        "cual fue mi mayor gasto",
-        "gasto mas grande",
-        "mayor gasto individual",
-        "compra mas cara",
-        "mayor compra",
-        "transaccion mas alta",
-        "egreso mas grande",
-    }
-
-    _TOP_EXPENSE_CATEGORY_TERMS = {
-        "cual es la categoria con mas gastos",
-        "categoria con mas gastos",
-        "en que categoria gasto mas",
-        "categoria donde mas gasto",
-    }
-
-    _HIGHEST_EXPENSE_MONTH_TERMS = {
-        "que mes gaste mas",
-        "cual fue el mes que mas gaste",
-        "mes con mas gastos",
-        "mes donde mas gaste",
-        "en que mes gaste mas",
-    }
-
     _RECENT_EXPENSE_TERMS = {
         "ultimos gastos",
         "gastos recientes",
@@ -531,25 +488,6 @@ class IntentDetector:
                 mode=QueryMode.DIRECT,
                 matched_terms=creator_terms,
             )
-
-        # Consultas puntuales sobre transacciones: deben evaluarse antes de
-        # la intención genérica EXPENSES para no devolver el promedio mensual.
-        expense_detail_rules = (
-            (Intent.HIGHEST_EXPENSE_DAY, self._HIGHEST_EXPENSE_DAY_TERMS),
-            (Intent.LARGEST_EXPENSE, self._LARGEST_EXPENSE_TERMS),
-            (Intent.TOP_EXPENSE_CATEGORY, self._TOP_EXPENSE_CATEGORY_TERMS),
-            (Intent.HIGHEST_EXPENSE_MONTH, self._HIGHEST_EXPENSE_MONTH_TERMS),
-        )
-        for specific_intent, terms in expense_detail_rules:
-            matched = tuple(
-                term for term in terms if self._contains_term(normalized, term)
-            )
-            if matched:
-                return IntentResult(
-                    intent=specific_intent,
-                    mode=QueryMode.DIRECT,
-                    matched_terms=matched,
-                )
 
         # Las consultas por gastos recientes deben evaluarse antes de la regla
         # genérica de gastos para no devolver solamente el promedio mensual.

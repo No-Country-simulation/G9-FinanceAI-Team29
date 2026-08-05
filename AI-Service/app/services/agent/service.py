@@ -1,6 +1,4 @@
 import re
-from datetime import date, datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any
 
@@ -22,12 +20,10 @@ from app.services.llm.schemas import LLMResponse
 from app.services.llm.service import LLMService
 from app.services.goals.repository import GoalRepository
 from app.services.support import SupportAgent, SupportIntentDetector
-from app.services.agent.transaction_queries import TransactionQueryEngine
 from app.services.backend_financial_data import (
     BackendDataError,
     fetch_live_analysis,
     fetch_user_transactions,
-    fetch_user_profile,
 )
 
 
@@ -52,64 +48,24 @@ class FinSightAgentService:
         question: str,
         provider: str | None = None,
         previous_answer: str | None = None,
-        time_zone: str | None = None,
     ) -> LLMResponse:
         query = self._prepare_query(question)
-        local_today = self._today_for_time_zone(time_zone)
-        is_contextual_date_follow_up = TransactionQueryEngine.is_contextual_date_follow_up(
-            query.corrected, previous_answer
-        )
-        is_contextual_month_follow_up = TransactionQueryEngine.is_contextual_month_follow_up(
-            query.corrected, previous_answer
-        )
-        is_contextual_financial_follow_up = (
-            is_contextual_date_follow_up or is_contextual_month_follow_up
-        )
-        is_financial_query = TransactionQueryEngine.is_financial_query_candidate(
-            query.corrected,
-            previous_answer,
-        )
-        is_general_financial_knowledge = self._is_general_financial_knowledge_query(
-            query.corrected
-        )
-
-        # Las intenciones conversacionales globales tienen prioridad sobre el
-        # soporte. Esto evita que preguntas como "¿qué podés hacer?" sean
-        # interpretadas como continuación de un diagnóstico técnico solo porque
-        # la respuesta anterior mencionó que el asistente puede ayudar.
-        early_intent = self.intent_detector.detect_result(query.corrected)
-        if early_intent.intent in {
-            Intent.GREETING,
-            Intent.THANKS,
-            Intent.FAREWELL,
-            Intent.CAPABILITIES,
-            Intent.CREATOR_INFO,
-        }:
-            return self._internal_response(
-                self._simple_response(early_intent.intent),
-                early_intent.intent,
-                query,
-            )
 
         # El soporte se evalúa antes de las políticas financieras para que las
         # consultas sobre el uso de FinSightAI no sean tratadas como fuera de alcance.
         # El flujo financiero existente permanece intacto para el resto.
-        if not (
-            is_contextual_financial_follow_up
-            or is_financial_query
-            or is_general_financial_knowledge
-        ) and (
+        if (
             SupportIntentDetector.is_support_query(query.original)
             or SupportIntentDetector.is_support_follow_up(
                 query.original, previous_answer
             )
         ):
             return await self.support_agent.answer(
-               usuario_id=usuario_id,
-               question=query.original,
-               provider=provider,
-               previous_answer=previous_answer,
-        )
+                usuario_id=usuario_id,
+                question=query.original,
+                provider=provider,
+                previous_answer=previous_answer,
+            )
 
         policy = self.policies.evaluate(usuario_id=usuario_id, query=query)
         if not policy.allowed:
@@ -119,27 +75,6 @@ class FinSightAgentService:
                 policy.intent,
                 query,
             )
-
-        # Las preguntas educativas sobre conceptos financieros no son incidentes
-        # técnicos. Se responden con el LLM sin cargar datos personales.
-        if is_general_financial_knowledge:
-            messages = PromptBuilder.build(
-                original_question=query.original,
-                processed_question=query.corrected,
-                corrections=query.corrections,
-                context={},
-                intent="financial_education",
-            )
-            response = await self.llm.generate(messages=messages, provider=provider)
-            response.metadata.update(
-                {
-                    "intent": "financial_education",
-                    "route": "llm_without_context",
-                    "used_financial_context": False,
-                    "corrections_count": len(query.corrections),
-                }
-            )
-            return response
 
         if previous_answer and self._is_follow_up(query.corrected):
             messages = PromptBuilder.build_follow_up(
@@ -164,41 +99,6 @@ class FinSightAgentService:
         print("CORRECCIONES:", query.corrections)
         print("INTENT DETECTADO:", intent_result.intent)
         print("MODO DETECTADO:", intent_result.mode)
-
-        # Consultas transaccionales específicas: totales por período, máximos,
-        # categorías, comparaciones, insights, predicciones y acciones. Se
-        # resuelven antes del intent genérico para no devolver siempre promedios.
-        try:
-            transactions = fetch_user_transactions(usuario_id)
-            try:
-                analysis_for_query = fetch_live_analysis(usuario_id)
-            except (BackendDataError, ValueError):
-                analysis_for_query = None
-            try:
-                profile = fetch_user_profile(usuario_id)
-                user_name = str(profile.get("nombre") or "").strip() or None
-            except (BackendDataError, ValueError):
-                user_name = None
-            transaction_answer = TransactionQueryEngine.answer(
-                query.corrected,
-                transactions,
-                user_name=user_name,
-                analysis=analysis_for_query,
-                previous_answer=previous_answer,
-                today=local_today,
-            )
-            if transaction_answer is not None:
-                response = self._internal_response(
-                    transaction_answer.content,
-                    intent_result.intent,
-                    query,
-                    used_financial_context=True,
-                )
-                response.metadata["transaction_action"] = transaction_answer.action
-                return response
-        except (BackendDataError, ValueError):
-            # Conserva el flujo anterior y el respaldo CSV si Spring no responde.
-            pass
 
         # Se resuelve antes del router porque RECENT_EXPENSES necesita acceder
         # a las transacciones y el router original todavía no conoce este intent.
@@ -277,88 +177,6 @@ class FinSightAgentService:
             }
         )
         return response
-
-    @staticmethod
-    def _is_general_financial_knowledge_query(question: str) -> bool:
-        """Detecta definiciones financieras que deben ir al LLM, no a soporte."""
-        normalized = QueryNormalizer.normalize(question)
-        if not normalized:
-            return False
-
-        definition_patterns = (
-            r"^(?:que|cual)\s+(?:es|son|significa|significan)\b",
-            r"^(?:como funciona|como funcionan|como se usa|como se usan)\b",
-            r"^(?:para que sirve|para que sirven|como se calcula|como se calculan)\b",
-            r"^(?:en que consiste|en que consisten)\b",
-            r"^(?:explicame|explica|definime|defini|dame una definicion de)\b",
-        )
-        if not any(re.search(pattern, normalized) for pattern in definition_patterns):
-            return False
-
-        financial_concepts = (
-            "pib",
-            "producto interno bruto",
-            "pbi",
-            "producto bruto interno",
-            "inflacion",
-            "deflacion",
-            "ipc",
-            "indice de precios al consumidor",
-            "tasa de interes",
-            "interes simple",
-            "interes compuesto",
-            "credito",
-            "tarjeta de credito",
-            "prestamo",
-            "hipoteca",
-            "presupuesto",
-            "ahorro",
-            "inversion",
-            "accion",
-            "acciones",
-            "bono",
-            "bonos",
-            "etf",
-            "fondo de inversion",
-            "fondo comun",
-            "riesgo financiero",
-            "diversificacion",
-            "deuda",
-            "score crediticio",
-            "tipo de cambio",
-            "recesion",
-            "liquidez",
-            "rentabilidad",
-            "patrimonio",
-            "capital",
-            "impuesto",
-            "iva",
-            "ganancias",
-            "mercado financiero",
-            "mercado de capitales",
-            "dividendo",
-            "dividendos",
-            "interes",
-            "moneda",
-            "tipo de interes",
-            "tasa nominal",
-            "tasa efectiva",
-            "costo financiero total",
-            "cft",
-            "plazo fijo",
-            "cuenta corriente",
-            "caja de ahorro",
-        )
-        return any(concept in normalized for concept in financial_concepts)
-
-    @staticmethod
-    def _today_for_time_zone(time_zone: str | None) -> date:
-        """Devuelve la fecha local del navegador; usa UTC si la zona es inválida."""
-        try:
-            zone = ZoneInfo(time_zone or "UTC")
-        except (ZoneInfoNotFoundError, ValueError, TypeError):
-            zone = ZoneInfo("UTC")
-        return datetime.now(zone).date()
 
     @staticmethod
     def _get_analysis(usuario_id: str) -> dict:

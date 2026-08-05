@@ -6,8 +6,6 @@ import AppSidebar from "./AppSidebar";
 import FloatingChatWidget from "../components/common/FloatingChatWidget";
 import OnboardingTour from "../components/onboarding/OnboardingTour";
 import { useScrollToHash } from "../hooks/useScrollToHash";
-import TeamCredit from "../components/team/TeamCredit";
-import SupportSuccessModal from "../components/common/SupportSuccessModal";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
@@ -32,9 +30,7 @@ const LayoutContent: React.FC = () => {
           <Outlet />
         </div>
         <div className="flex flex-col items-center gap-2 px-4 pb-6 text-sm text-center text-gray-500 dark:text-gray-400">
-          <p>
-            &copy; {new Date().getFullYear()} - <TeamCredit />
-          </p>
+          <p>&copy; {new Date().getFullYear()} - TwentyNineDevs</p>
           <div className="flex items-center gap-3">
             <Link to="/terminos" className="hover:text-gray-700 dark:hover:text-gray-300">
               Términos y Condiciones
@@ -54,7 +50,6 @@ const LayoutContent: React.FC = () => {
         </div>
       </div>
       {!ocultarChatFlotante && <FloatingChatWidget />}
-      <SupportSuccessModal />
       <OnboardingTour />
     </div>
   );

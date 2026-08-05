@@ -1,9 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
 import PageMeta from '../../components/common/PageMeta';
-import { actualizarMeta, agregarAhorroMeta, cancelarMeta, crearMeta, obtenerMetas, obtenerTransacciones } from '../../services/api';
+import { actualizarMeta, agregarAhorroMeta, cancelarMeta, crearMeta, obtenerMetas } from '../../services/api';
 import type { Goal, GoalCategory, GoalInput } from '../../types/finance';
-import { confirmarAccion, mostrarExito, mostrarInfo, solicitarMonto } from '../../utils/alerts';
+import { confirmarAccion, mostrarExito, solicitarMonto } from '../../utils/alerts';
 import { useAuth } from '../../context/AuthContext';
 
 const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' });
@@ -11,7 +10,6 @@ const emptyForm: GoalInput = { nombre: '', descripcion: '', categoria: 'AHORRO',
 
 export default function Metas() {
   const { usuarioId } = useAuth();
-  const navigate = useNavigate();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [form, setForm] = useState<GoalInput>(emptyForm);
   const [editing, setEditing] = useState<string | null>(null);
@@ -31,22 +29,7 @@ export default function Metas() {
     setEditing(null);
     setForm(emptyForm);
     void load();
-
-    (async () => {
-      try {
-        const transacciones = await obtenerTransacciones(usuarioId);
-        if (transacciones.length === 0) {
-          await mostrarInfo(
-            'Todavía no tienes datos financieros',
-            'Carga tus movimientos antes de crear metas. Te llevamos al resumen financiero.',
-          );
-          navigate('/');
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    })();
-  }, [usuarioId, navigate]);
+  }, [usuarioId]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();

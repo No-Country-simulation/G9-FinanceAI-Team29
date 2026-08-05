@@ -72,7 +72,7 @@ export function buildFinancialNotifications({
 }: NotificationData): FinancialNotification[] {
   const notifications: FinancialNotification[] = [];
 
-  if (perfil && perfil.ingresoMensual > 0) {
+  if (perfil) {
     const debt = perfil.nivelEndeudamiento;
 
     if (debt > 50) {
