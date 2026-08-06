@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
+import { useGamification } from '../../context/GamificationContext';
 import { confirmarCierreSesion } from '../../utils/alerts';
 
 /** Mensajes chistosos para quien le hace clic rápido al correo de admin. */
@@ -19,6 +20,7 @@ const RAPID_CLICK_THRESHOLD = 5;
  */
 export default function AccountSwitcher() {
   const { email, isAdmin, usuarioId, setUsuarioId, cuentas, signOut } = useAuth();
+  const { desbloquearLogro } = useGamification();
   const navigate = useNavigate();
   const [adminBadgeKey, setAdminBadgeKey] = useState(0);
   const [showAdminBadge, setShowAdminBadge] = useState(false);
@@ -45,6 +47,7 @@ export default function AccountSwitcher() {
       setAdminBadgeMessage(
         ADMIN_EASTER_EGGS[Math.floor(Math.random() * ADMIN_EASTER_EGGS.length)],
       );
+      desbloquearLogro('admin_click_frenzy');
     } else {
       setIsEasterEgg(false);
       setAdminBadgeMessage('✨ ¡Admin! 👑');

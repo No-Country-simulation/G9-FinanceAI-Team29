@@ -1,0 +1,19 @@
+<svg className="size-6"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M7.5 6.75H16.5C19.2614 6.75 21.5 8.98858 21.5 11.75V15.25C21.5 16.9069 20.1569 18.25 18.5 18.25C17.7107 18.25 16.9536 17.9376 16.3944 17.3799L14.8033 15.7969C14.242 15.2371 13.4808 14.9231 12.6875 14.9231H11.3125C10.5192 14.9231 9.75797 15.2371 9.19672 15.7969L7.60557 17.3799C7.04642 17.9376 6.28933 18.25 5.5 18.25C3.84315 18.25 2.5 16.9069 2.5 15.25V11.75C2.5 8.98858 4.73858 6.75 7.5 6.75Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M7.5 10V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M6 11.5H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="16.5" cy="10.5" r="0.9" fill="currentColor" />
+      <circle cx="18.5" cy="12.5" r="0.9" fill="currentColor" />
+    </svg>

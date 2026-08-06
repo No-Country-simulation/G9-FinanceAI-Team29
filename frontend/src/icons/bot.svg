@@ -1,0 +1,24 @@
+<svg className="size-6"
+     width="24"
+     height="24"
+     viewBox="0 0 24 24"
+     fill="none"
+     xmlns="http://www.w3.org/2000/svg"
+>
+  <!-- Antenna -->
+  <circle cx="12" cy="3.5" r="1.5" stroke="currentColor" strokeWidth="1.5" />
+  <path d="M12 5v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+
+  <!-- Ears -->
+  <path d="M5 11a2.5 2.5 0 0 0 0 5M19 11a2.5 2.5 0 0 1 0 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+
+  <!-- Head -->
+  <rect x="5" y="8" width="14" height="11" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
+  
+  <!-- Eyes -->
+  <circle cx="9.5" cy="13" r="1.5" stroke="currentColor" strokeWidth="1.5" />
+  <circle cx="14.5" cy="13" r="1.5" stroke="currentColor" strokeWidth="1.5" />
+
+  <!-- Mouth -->
+  <path d="M10 16.5h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+</svg>

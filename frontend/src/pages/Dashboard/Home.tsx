@@ -15,7 +15,7 @@ import RecentTransactions from "../../components/finance/RecentTransactions";
 import RecommendationsList from "../../components/finance/RecommendationsList";
 import {
   PieChartIcon,
-  BoltIcon,
+  BotIcon,
   TaskIcon,
   ListIcon,
   FileIcon,
@@ -298,7 +298,7 @@ if (authLoading) {
                   {(
                     [
                       [PieChartIcon, 'Dashboard financiero', 'Ingresos, gastos y cómo evolucionan mes a mes.'],
-                      [BoltIcon, 'Análisis con IA', 'Patrones en tus gastos y recomendaciones a tu medida.'],
+                      [BotIcon, 'Análisis con IA', 'Patrones en tus gastos y recomendaciones a tu medida.'],
                       [TaskIcon, 'Perfil financiero', 'Tu nivel de ahorro y endeudamiento, en un vistazo.'],
                       [ListIcon, 'Categorías automáticas', 'Cada movimiento clasificado para saber dónde se va la plata.'],
                     ] as [ComponentType<{ className?: string }>, string, string][]

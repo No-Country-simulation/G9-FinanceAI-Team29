@@ -21,6 +21,7 @@ interface NotificationData {
   resumen?: ResumenTransacciones;
   transacciones?: Transaccion[];
   metas?: Goal[];
+  nivel?: { level: number; titulo: string; subioRecientemente: boolean };
 }
 
 const money = new Intl.NumberFormat('es-CL', {
@@ -69,8 +70,22 @@ export function buildFinancialNotifications({
   resumen,
   transacciones = [],
   metas = [],
+  nivel,
 }: NotificationData): FinancialNotification[] {
   const notifications: FinancialNotification[] = [];
+
+  if (nivel?.subioRecientemente) {
+    notifications.push({
+      id: `nivel-${nivel.level}`,
+      icono: '🏆',
+      iconBg: 'bg-brand-50 text-brand-600 dark:bg-brand-500/10',
+      titulo: `¡Subiste a nivel ${nivel.level}!`,
+      detalle: `Ahora eres ${nivel.titulo}. Sigue así.`,
+      tipo: 'Juegos',
+      tiempo: 'Reciente',
+      prioridad: 65,
+    });
+  }
 
   if (perfil && perfil.ingresoMensual > 0) {
     const debt = perfil.nivelEndeudamiento;

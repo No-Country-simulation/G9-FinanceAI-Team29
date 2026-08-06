@@ -9,6 +9,7 @@ import OnboardingTour from "../components/onboarding/OnboardingTour";
 import { useScrollToHash } from "../hooks/useScrollToHash";
 import TeamCredit from "../components/team/TeamCredit";
 import SupportSuccessModal from "../components/common/SupportSuccessModal";
+import AchievementToastHost from "../components/gamificacion/AchievementToastHost";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
@@ -57,6 +58,7 @@ const LayoutContent: React.FC = () => {
       {!ocultarChatFlotante && <FloatingChatWidget />}
       <SupportSuccessModal />
       <OnboardingTour />
+      <AchievementToastHost />
     </div>
   );
 };

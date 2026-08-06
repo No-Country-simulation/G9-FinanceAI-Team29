@@ -179,3 +179,37 @@ export function playDismiss(): void {
   tone(ctx, 587.33, now, 0.14, "sine", 0.06);
   tone(ctx, 392, now + 0.06, 0.18, "sine", 0.05);
 }
+
+/** Nota tipo "campana": fundamental + un par de armónicos suaves, para un timbre más brillante que un tono puro. */
+function bellTone(
+  ctx: AudioContext,
+  freq: number,
+  startTime: number,
+  duration: number,
+  peakGain = 0.08
+) {
+  tone(ctx, freq, startTime, duration, "sine", peakGain);
+  tone(ctx, freq * 2.005, startTime, duration * 0.7, "sine", peakGain * 0.28);
+  tone(ctx, freq * 3.011, startTime, duration * 0.45, "triangle", peakGain * 0.12);
+}
+
+/**
+ * Arpegio ascendente tipo "logro desbloqueado" (estilo Xbox 360): una cascada
+ * de campanitas que sube de tono y termina con un brillo agudo sostenido.
+ */
+export function playAchievementUnlock(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const notas = [523.25, 659.25, 783.99, 1046.5, 1318.51]; // C5 - E5 - G5 - C6 - E6
+
+  notas.forEach((freq, i) => {
+    const start = now + i * 0.075;
+    const duracion = i === notas.length - 1 ? 0.6 : 0.22;
+    const ganancia = i === notas.length - 1 ? 0.11 : 0.09;
+    bellTone(ctx, freq, start, duracion, ganancia);
+  });
+
+  const brilloStart = now + (notas.length - 1) * 0.075 + 0.03;
+  bellTone(ctx, notas[notas.length - 1] * 2, brilloStart, 0.5, 0.035);
+}

@@ -5,6 +5,7 @@ import { actualizarMeta, agregarAhorroMeta, cancelarMeta, crearMeta, obtenerMeta
 import type { Goal, GoalCategory, GoalInput } from '../../types/finance';
 import { confirmarAccion, mostrarExito, mostrarInfo, solicitarMonto } from '../../utils/alerts';
 import { useAuth } from '../../context/AuthContext';
+import { useGamification } from '../../context/GamificationContext';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { formatMoney } from '../../utils/export/format';
 
@@ -12,6 +13,7 @@ const emptyForm: GoalInput = { nombre: '', descripcion: '', categoria: 'AHORRO',
 
 export default function Metas() {
   const { usuarioId } = useAuth();
+  const { registrarEvento } = useGamification();
   const { isTourActive } = useOnboarding();
   const navigate = useNavigate();
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -56,6 +58,7 @@ export default function Metas() {
     try {
       setSaving(true); setError('');
       if (editing) await actualizarMeta(editing, form, usuarioId); else await crearMeta(form, usuarioId);
+      if (!editing) registrarEvento('meta_creada');
       setForm(emptyForm); setEditing(null); await load();
     } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo guardar la meta'); }
     finally { setSaving(false); }
@@ -77,6 +80,7 @@ export default function Metas() {
 
     try {
       await agregarAhorroMeta(goal.id, amount, usuarioId);
+      registrarEvento('ahorro_meta');
       await load();
       await mostrarExito('Ahorro agregado', `Se sumaron ${formatMoney(amount)} a tu meta.`);
     } catch (e) {

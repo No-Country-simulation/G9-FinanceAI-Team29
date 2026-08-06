@@ -15,11 +15,13 @@ import Analisis from "./pages/Finance/Analisis";
 import Recomendaciones from "./pages/Finance/Recomendaciones";
 import AsistenteIA from "./pages/Ai/AsistenteIA";
 import Metas from "./pages/Finance/Metas";
+import Juegos from "./pages/Gamificacion/Juegos";
 import ImportarCsv from "./pages/Finance/ImportarCsv";
 import Terminos from "./pages/Legal/Terminos";
 import PoliticaPrivacidad from "./pages/Legal/PoliticaPrivacidad";
 import { AuthProvider } from "./context/AuthContext";
 import { PerfilDataProvider } from "./context/PerfilDataContext";
+import { GamificationProvider } from "./context/GamificationContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { usePageVisibilityTitle } from "./hooks/usePageVisibilityTitle";
 import { ConsoleBanner } from "./components/common/ConsoleBanner";
@@ -36,6 +38,7 @@ export default function App() {
         <ConsoleBanner />
         <AuthProvider>
         <PerfilDataProvider>
+        <GamificationProvider>
         <ScrollToTop />
         <Routes>
           {/* Dashboard Layout (rutas privadas) */}
@@ -49,6 +52,7 @@ export default function App() {
             <Route path="/recomendaciones" element={<Recomendaciones />} />
             <Route path="/metas" element={<Metas />} />
             <Route path="/asistente-ia" element={<AsistenteIA />} />
+            <Route path="/juegos" element={<Juegos />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
@@ -70,6 +74,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
         <TabTitleManager />
+        </GamificationProvider>
         </PerfilDataProvider>
         </AuthProvider>
       </Router>

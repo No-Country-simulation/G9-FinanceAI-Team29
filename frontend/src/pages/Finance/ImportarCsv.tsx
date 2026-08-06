@@ -2,9 +2,11 @@ import { ChangeEvent, useState } from 'react';
 import PageMeta from '../../components/common/PageMeta';
 import { importarCsv, ImportacionCsvResponse } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useGamification } from '../../context/GamificationContext';
 
 export default function ImportarCsv() {
   const { usuarioId } = useAuth();
+  const { registrarEvento } = useGamification();
   const [archivo, setArchivo] = useState<File | null>(null);
   const [cargando, setCargando] = useState(false);
   const [resultado, setResultado] =
@@ -59,6 +61,7 @@ export default function ImportarCsv() {
       }
 
       setResultado(data);
+      registrarEvento('csv_importado');
     } catch (err) {
       const mensaje =
         err instanceof Error

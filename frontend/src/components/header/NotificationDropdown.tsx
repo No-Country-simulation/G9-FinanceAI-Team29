@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useGamification } from '../../context/GamificationContext';
 import {
   obtenerMetas,
   obtenerResumen,
@@ -32,6 +33,7 @@ function readStoredIds(usuarioId: string): string[] {
 
 export default function NotificationDropdown() {
   const { usuarioId } = useAuth();
+  const { health, subioNivelRecientemente } = useGamification();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<FinancialNotification[]>([]);
   const [readIds, setReadIds] = useState<string[]>(() => readStoredIds(usuarioId));
@@ -73,10 +75,11 @@ export default function NotificationDropdown() {
             ? transactionsResult.value
             : undefined,
         metas: goalsResult.status === 'fulfilled' ? goalsResult.value : undefined,
+        nivel: { level: health.level, titulo: health.titulo, subioRecientemente: subioNivelRecientemente },
       }),
     );
     setLoading(false);
-  }, [usuarioId]);
+  }, [usuarioId, health.level, health.titulo, subioNivelRecientemente]);
 
   useEffect(() => {
     setReadIds(readStoredIds(usuarioId));

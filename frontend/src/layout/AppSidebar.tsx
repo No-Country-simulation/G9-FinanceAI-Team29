@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import {
-  BoltIcon,
+  BotIcon,
   CalenderIcon,
   ChevronDownIcon,
   FileIcon,
   GridIcon,
   HorizontaLDots,
+  GamepadIcon,
   ListIcon,
   PieChartIcon,
   UserCircleIcon,
@@ -53,9 +54,14 @@ export const navItems: NavItem[] = [
     path: "/metas",
   },
   {
-    icon: <BoltIcon />,
+    icon: <BotIcon />,
     name: "Asistente IA",
     path: "/asistente-ia",
+  },
+  {
+    icon: <GamepadIcon />,
+    name: "Juegos",
+    path: "/juegos",
   },
 ];
 

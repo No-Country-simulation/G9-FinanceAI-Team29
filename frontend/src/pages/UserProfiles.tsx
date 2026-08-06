@@ -12,6 +12,8 @@ import { usePerfilData } from '../context/PerfilDataContext';
 import { actualizarPerfil, darDeBajaCuenta } from '../services/api';
 import { supabase } from '../services/supabase';
 import UserAvatar from '../components/common/UserAvatar';
+import LevelCard from '../components/gamificacion/LevelCard';
+import { useGamification } from '../context/GamificationContext';
 import { AVATAR_OPTIONS } from '../utils/avatarOptions';
 import { exportToPdf } from '../utils/export/exportPdf';
 import { formatMoney, formatPercent } from '../utils/export/format';
@@ -190,6 +192,7 @@ function PerfilSkeleton() {
 export default function UserProfiles() {
   const { usuarioId, email, avatarIcon, signOut, refreshSession } = useAuth();
   const { perfil, transacciones, resumen, loading, actualizarPerfilLocal } = usePerfilData();
+  const { health, puntos, rangoPuntos } = useGamification();
   const { isOpen, openModal, closeModal } = useModal();
   const [guardando, setGuardando] = useState(false);
   const [nombre, setNombre] = useState('');
@@ -558,6 +561,9 @@ export default function UserProfiles() {
             <DatoCampo etiqueta="Correo electrónico" valor={perfil?.email ?? email ?? '—'} />
           </div>
         </div>
+
+        {/* Nivel financiero y puntos de actividad */}
+        <LevelCard health={health} puntos={puntos} rangoPuntos={rangoPuntos} />
 
         {/* Resumen financiero */}
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">

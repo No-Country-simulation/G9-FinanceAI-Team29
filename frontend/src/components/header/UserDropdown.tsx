@@ -3,6 +3,7 @@ import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
+import { useGamification } from "../../context/GamificationContext";
 import { obtenerPerfilCompleto } from "../../services/api";
 import { confirmarCierreSesion } from "../../utils/alerts";
 import UserAvatar from "../common/UserAvatar";
@@ -12,6 +13,7 @@ export default function UserDropdown() {
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const { signOut, usuarioId, email } = useAuth();
+  const { health } = useGamification();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -98,6 +100,9 @@ export default function UserDropdown() {
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
             {email ?? "—"}
+          </span>
+          <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-theme-xs font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+            🏆 Nivel {health.level} · {health.titulo}
           </span>
         </div>
 

@@ -6,6 +6,8 @@ import { PlusIcon, ChatIcon, BoltIcon, TrashBinIcon, CloseIcon } from "../../ico
 import { mostrarError } from "../../utils/alerts";
 import { preguntarAgente } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import { useGamification } from "../../context/GamificationContext";
+import { detectarLogroEnRespuesta } from "../../utils/achievements";
 import { speakText, stopSpeaking, isSpeechSupported } from "../../utils/speech";
 import { playSendSound, playReceiveSound, playErrorSound, startTypingSound, stopTypingSound } from "../../utils/sound";
 import { renderMensajeAsistente } from "../../utils/renderMensajeAsistente";
@@ -163,6 +165,7 @@ function obtenerMensajePensando(prompt: string): string {
 
 export default function AsistenteIA() {
   const { usuarioId, email, session } = useAuth();
+  const { registrarEvento, desbloquearLogro } = useGamification();
   const location = useLocation();
   const navigate = useNavigate();
   const estadoNavegacion = location.state as { messages?: Message[]; autoPrompt?: string } | null;
@@ -282,6 +285,7 @@ export default function AsistenteIA() {
       setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playReceiveSound();
       if (vozActiva) speakText("You just got Rickrolled. Classic.");
+      desbloquearLogro("rickroll");
       return;
     }
 
@@ -302,6 +306,9 @@ export default function AsistenteIA() {
       if (/¿Puedo ayudarte con algo más\?/i.test(answer)) {
         setPasoPendiente("support-help");
       }
+      registrarEvento("mensaje_asistente");
+      const logroDetectado = detectarLogroEnRespuesta(answer);
+      if (logroDetectado) desbloquearLogro(logroDetectado);
       setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playReceiveSound();
       if (vozActiva) {
