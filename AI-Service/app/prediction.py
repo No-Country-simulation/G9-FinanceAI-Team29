@@ -45,7 +45,7 @@ def _get_model():
 def cargar_metadata() -> dict:
     if not RUTA_METADATA.exists():
         return {
-            "version": "10.0.0",
+            "version": "7.1.0",
         }
 
     try:
