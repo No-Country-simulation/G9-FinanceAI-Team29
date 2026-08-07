@@ -7,6 +7,7 @@ import {
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
+import { mostrarSesionExpirada } from '../utils/alerts';
 
 /**
  * Mapeo de cada cuenta demo (Supabase Auth) al usuario de datos (USRxxxx)
@@ -340,11 +341,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const timeoutMs = minutos * 60 * 1000;
     let timer: number;
 
+    console.log('[inactividad] raw env =', import.meta.env.VITE_INACTIVITY_MINUTES, 'minutos =', minutos, 'timeoutMs =', timeoutMs);
+
     const reiniciar = () => {
       window.clearTimeout(timer);
 
       timer = window.setTimeout(() => {
-        void signOut();
+        void signOut().then(() => mostrarSesionExpirada());
       }, timeoutMs);
     };
 

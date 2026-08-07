@@ -49,7 +49,7 @@ export async function solicitarMonto(
     title: titulo,
     text: texto,
     input: 'number',
-    inputPlaceholder: 'Ingresá el monto en USD',
+    inputPlaceholder: 'Ingresa el monto en USD',
     inputAttributes: {
       min: '0.01',
       step: '0.01',
@@ -100,6 +100,15 @@ export async function confirmarAccion(
   });
 
   return result.isConfirmed;
+}
+
+export function mostrarSesionExpirada() {
+  return themedSwal().fire({
+    icon: 'info',
+    title: 'Sesión cerrada por inactividad',
+    text: 'Por tu seguridad, cerramos la sesión al no detectar actividad. Inicia sesión de nuevo para continuar.',
+    confirmButtonText: 'Entendido',
+  });
 }
 
 export async function confirmarCierreSesion(): Promise<boolean> {
