@@ -517,6 +517,159 @@ export async function actualizarPerfil(
   }
 }
 
+// --- Gamificación (retos, trivia, logros) persistidos en Supabase ---
+
+export interface RetoProgresoDTO {
+  retoId: string;
+  semanaIso: string;
+  completado: boolean;
+  progreso: string | null;
+  actualizadoAt: string;
+}
+
+export interface LogroDTO {
+  logroId: string;
+  desbloqueadoAt: string;
+}
+
+export interface TriviaRespuestaDTO {
+  preguntaId: string;
+  correcta: boolean;
+}
+
+export async function guardarRetoProgreso(
+  usuarioId: string,
+  retoId: string,
+  semanaIso: string,
+  completado: boolean,
+  progreso: string | null,
+): Promise<RetoProgresoDTO> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/retos/${encodeURIComponent(retoId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ semanaIso, completado, progreso }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function obtenerLogrosDesbloqueados(usuarioId: string): Promise<LogroDTO[]> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/logros`);
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function desbloquearLogroRemoto(usuarioId: string, logroId: string): Promise<LogroDTO> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/logros/${encodeURIComponent(logroId)}`,
+    { method: 'POST' },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function registrarResultadosTrivia(
+  usuarioId: string,
+  respuestas: TriviaRespuestaDTO[],
+): Promise<void> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/trivia`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ respuestas }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+}
+
+export interface TriviaEstadisticasDTO {
+  bestScore: number;
+  correctStreak: number;
+  lastPlayedDate: string | null;
+  canPlayToday: boolean;
+}
+
+export async function obtenerEstadisticasTrivia(usuarioId: string): Promise<TriviaEstadisticasDTO> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/trivia/estadisticas`,
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export interface EstadoGamificacionDTO {
+  weekKey: string;
+  challengesBaseline: string | null;
+  streak: number;
+  bestStreak: number;
+  lastActiveDate: string | null;
+  dailyStreak: number;
+  bestDailyStreak: number;
+  bestLevelSeen: number;
+  ultimaSubidaNivel: string | null;
+  puntos: number;
+}
+
+export async function obtenerEstadoGamificacion(usuarioId: string): Promise<EstadoGamificacionDTO | null> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/estado`);
+
+  if (response.status === 204) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function guardarEstadoGamificacion(
+  usuarioId: string,
+  estado: EstadoGamificacionDTO,
+): Promise<EstadoGamificacionDTO> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/estado`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(estado),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
 export async function darDeBajaCuenta(usuarioId: string): Promise<void> {
   const id = exigirUsuarioId(usuarioId);
   const response = await apiFetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}`, {

@@ -213,3 +213,107 @@ export function playAchievementUnlock(): void {
   const brilloStart = now + (notas.length - 1) * 0.075 + 0.03;
   bellTone(ctx, notas[notas.length - 1] * 2, brilloStart, 0.5, 0.035);
 }
+
+/** Tono corto y descendente al desaparecer el toast de "logro desbloqueado" — distinto de la fanfarria de entrada. */
+export function playAchievementDismiss(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  tone(ctx, 659.25, now, 0.1, "sine", 0.05);
+  tone(ctx, 440, now + 0.05, 0.16, "sine", 0.04);
+}
+
+// ---------------------------------------------------------------------------
+// Sonidos de la Trivia financiera (ruleta de categorías)
+// ---------------------------------------------------------------------------
+
+/** Golpe corto y percusivo, como el "clic" de una rueda de premios girando. */
+function clickPercusivo(ctx: AudioContext, startTime: number, freq: number, peakGain = 0.05) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "square";
+  osc.frequency.setValueAtTime(freq, startTime);
+  gain.gain.setValueAtTime(peakGain, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.035);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(startTime);
+  osc.stop(startTime + 0.04);
+}
+
+/** Fanfarria breve y animada al presionar "Jugar trivia de hoy". */
+export function playTriviaStart(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  tone(ctx, 523.25, now, 0.12, "triangle", 0.07);
+  tone(ctx, 659.25, now + 0.07, 0.12, "triangle", 0.07);
+  tone(ctx, 987.77, now + 0.14, 0.22, "triangle", 0.08);
+}
+
+/** Un solo "clic" de la ruleta girando; se llama en cada tick del sorteo. */
+export function playWheelTick(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  clickPercusivo(ctx, ctx.currentTime, 900 + Math.random() * 200, 0.045);
+}
+
+/** Frenado de la ruleta al aterrizar en la categoría elegida. */
+export function playWheelStop(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  clickPercusivo(ctx, now, 500, 0.06);
+  tone(ctx, 349.23, now + 0.02, 0.22, "triangle", 0.07);
+  tone(ctx, 261.63, now + 0.09, 0.28, "sine", 0.06);
+}
+
+/** Ding positivo al elegir la respuesta correcta. */
+export function playTriviaCorrect(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  tone(ctx, 587.33, now, 0.1, "sine", 0.07);
+  tone(ctx, 880, now + 0.06, 0.2, "sine", 0.08);
+}
+
+/** Zumbido corto y grave al elegir una respuesta incorrecta. */
+export function playTriviaWrong(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  tone(ctx, 233.08, now, 0.16, "sawtooth", 0.05);
+  tone(ctx, 196, now + 0.1, 0.22, "sawtooth", 0.05);
+}
+
+/** Fanfarria triunfal al terminar la trivia con puntaje perfecto. */
+export function playTriviaFinishPerfecto(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const notas = [523.25, 659.25, 783.99, 1046.5, 1318.51];
+  notas.forEach((freq, i) => {
+    const start = now + i * 0.08;
+    const duracion = i === notas.length - 1 ? 0.55 : 0.22;
+    const ganancia = i === notas.length - 1 ? 0.1 : 0.08;
+    bellTone(ctx, freq, start, duracion, ganancia);
+  });
+}
+
+/** Acorde cálido y satisfecho al terminar con buen puntaje. */
+export function playTriviaFinishBien(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  tone(ctx, 523.25, now, 0.18, "sine", 0.07);
+  tone(ctx, 659.25, now + 0.05, 0.2, "sine", 0.07);
+  tone(ctx, 783.99, now + 0.1, 0.3, "sine", 0.06);
+}
+
+/** Tono suave y alentador al terminar con puntaje bajo, sin sonar negativo. */
+export function playTriviaFinishPractica(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  tone(ctx, 440, now, 0.18, "sine", 0.06);
+  tone(ctx, 493.88, now + 0.12, 0.26, "sine", 0.06);
+}
