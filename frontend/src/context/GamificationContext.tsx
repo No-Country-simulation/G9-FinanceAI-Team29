@@ -5,11 +5,22 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { useAuth } from './AuthContext';
 import { usePerfilData } from './PerfilDataContext';
-import { obtenerMetas } from '../services/api';
+import {
+  obtenerMetas,
+  obtenerLogrosDesbloqueados,
+  desbloquearLogroRemoto,
+  guardarRetoProgreso,
+  registrarResultadosTrivia,
+  obtenerEstadoGamificacion,
+  guardarEstadoGamificacion,
+  obtenerEstadisticasTrivia,
+  type EstadoGamificacionDTO,
+} from '../services/api';
 import type { Goal } from '../types/finance';
 import { ACHIEVEMENTS_CATALOG, buscarLogro, type AchievementId } from '../data/achievements';
 import {
@@ -28,6 +39,7 @@ import {
   pickWeeklyChallenges,
   type ChallengeBaseline,
 } from '../utils/gamification';
+import type { TriviaRespuesta } from '../components/gamificacion/TriviaQuiz';
 
 const CHALLENGES_PER_WEEK = 3;
 const CHALLENGE_COMPLETION_THRESHOLD = 2;
@@ -53,24 +65,27 @@ const LOGRO_DE_HITO: Partial<Record<EventoGamificacion, AchievementId>> = {
   csv_importado: 'primer_csv',
 };
 
-interface StoredChallenge {
-  id: ChallengeKind;
-  baseline: ChallengeBaseline;
-}
-
 interface Celebracion {
   id: string;
   tipo: 'logro' | 'nivel';
   emoji: string;
+  emojiImg?: string;
   titulo: string;
   detalle: string;
 }
 
+// Todo el estado de gamificación vive en Supabase (tablas gamificacion_estado,
+// retos_progreso, trivia_resultados y logros_desbloqueados). Este objeto es solo
+// una copia en memoria para renderizar; no se persiste en localStorage.
 interface GamificationState {
   weekKey: string;
-  challenges: StoredChallenge[];
+  challengeIds: ChallengeKind[];
+  challengesBaseline: ChallengeBaseline;
   streak: number;
   bestStreak: number;
+  lastActiveDate: string | null;
+  dailyStreak: number;
+  bestDailyStreak: number;
   bestLevelSeen: number;
   ultimaSubidaNivel: string | null;
   puntos: number;
@@ -84,35 +99,22 @@ interface GamificationState {
 
 const VENTANA_NOTIFICACION_NIVEL_MS = 24 * 60 * 60 * 1000;
 
-function defaultState(weekKey: string): GamificationState {
-  return {
-    weekKey,
-    challenges: [],
-    streak: 0,
-    bestStreak: 0,
-    bestLevelSeen: 0,
-    ultimaSubidaNivel: null,
-    puntos: 0,
-    logrosDesbloqueados: [],
-    trivia: { lastPlayedDate: null, bestScore: 0, correctStreak: 0 },
+function persistEstado(usuarioId: string, state: GamificationState) {
+  const dto: EstadoGamificacionDTO = {
+    weekKey: state.weekKey,
+    challengesBaseline: JSON.stringify(state.challengesBaseline ?? {}),
+    streak: state.streak,
+    bestStreak: state.bestStreak,
+    lastActiveDate: state.lastActiveDate,
+    dailyStreak: state.dailyStreak,
+    bestDailyStreak: state.bestDailyStreak,
+    bestLevelSeen: state.bestLevelSeen,
+    ultimaSubidaNivel: state.ultimaSubidaNivel,
+    puntos: state.puntos,
   };
-}
-
-const storageKey = (usuarioId: string) => `finsight:gamification:${usuarioId}`;
-
-function readState(usuarioId: string): GamificationState | null {
-  try {
-    const raw = localStorage.getItem(storageKey(usuarioId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<GamificationState>;
-    return { ...defaultState(parsed.weekKey ?? getIsoWeekKey(new Date())), ...parsed };
-  } catch {
-    return null;
-  }
-}
-
-function writeState(usuarioId: string, state: GamificationState) {
-  localStorage.setItem(storageKey(usuarioId), JSON.stringify(state));
+  guardarEstadoGamificacion(usuarioId, dto).catch((error) =>
+    console.error('No se pudo sincronizar el progreso con Supabase:', error),
+  );
 }
 
 function buildBaseline(goals: Goal[]): ChallengeBaseline {
@@ -127,11 +129,30 @@ function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Convención: las marcas de tiempo que persistimos en Supabase (LocalDateTime, sin
+// zona horaria) se generan y leen siempre en UTC "naive", agregando/quitando la 'Z'
+// a mano para no romper el parseo de LocalDateTime en el backend.
+function nowNaiveIso(): string {
+  return new Date().toISOString().replace('Z', '');
+}
+
+function parseNaiveIso(value: string): number {
+  return new Date(`${value}Z`).getTime();
+}
+
+function esDiaConsecutivo(anteriorKey: string, actualKey: string): boolean {
+  const anterior = new Date(`${anteriorKey}T00:00:00`).getTime();
+  const actual = new Date(`${actualKey}T00:00:00`).getTime();
+  return Math.round((actual - anterior) / 86_400_000) === 1;
+}
+
 interface GamificationContextValue {
   loading: boolean;
   challenges: ReturnType<typeof buildChallengeEvals>;
   streak: number;
   bestStreak: number;
+  dailyStreak: number;
+  bestDailyStreak: number;
   health: ReturnType<typeof computeHealthScore>;
   puntos: number;
   rangoPuntos: string;
@@ -146,7 +167,7 @@ interface GamificationContextValue {
     bestScore: number;
     correctStreak: number;
     buildRound: () => TriviaQuestion[];
-    registrarResultado: (aciertos: number, total: number) => void;
+    registrarResultado: (aciertos: number, total: number, respuestas: TriviaRespuesta[]) => void;
   };
 }
 
@@ -157,11 +178,11 @@ function buildChallengeEvals(
   perfil: Parameters<typeof evaluateChallenge>[4],
 ) {
   if (!state) return [];
-  return state.challenges
-    .map((c) => {
-      const template = CHALLENGE_CATALOG.find((t) => t.id === c.id);
+  return state.challengeIds
+    .map((id) => {
+      const template = CHALLENGE_CATALOG.find((t) => t.id === id);
       if (!template) return null;
-      const resultado = evaluateChallenge(template, state.weekKey, transacciones, goals, perfil, c.baseline);
+      const resultado = evaluateChallenge(template, state.weekKey, transacciones, goals, perfil, state.challengesBaseline);
       return { template, ...resultado };
     })
     .filter((c): c is NonNullable<typeof c> => c !== null);
@@ -181,23 +202,41 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     setColaCelebraciones((cola) => [...cola, celebracion]);
   }, []);
 
+  // El updater de setState debe ser puro (React puede invocarlo más de una vez,
+  // sobre todo en StrictMode); por eso NO se llama a la API acá adentro — solo se
+  // actualiza el estado en memoria. La sincronización con Supabase vive en el
+  // efecto de abajo, con un ref que garantiza "una sola vez por logro nuevo".
   const desbloquearLogro = useCallback((id: AchievementId) => {
     if (!usuarioId) return;
     setState((actual) => {
       if (!actual || actual.logrosDesbloqueados.includes(id)) return actual;
-      const def = buscarLogro(id);
-      const actualizado: GamificationState = {
+      return {
         ...actual,
         logrosDesbloqueados: [...actual.logrosDesbloqueados, id],
         puntos: actual.puntos + PUNTOS_POR_LOGRO,
       };
-      writeState(usuarioId, actualizado);
-      if (def) {
-        encolarCelebracion({ id: `logro-${id}-${Date.now()}`, tipo: 'logro', emoji: def.emoji, titulo: def.titulo, detalle: def.descripcion });
-      }
-      return actualizado;
     });
-  }, [usuarioId, encolarCelebracion]);
+  }, [usuarioId]);
+
+  const logrosSincronizadosRef = useRef<Set<AchievementId>>(new Set());
+
+  useEffect(() => {
+    if (!usuarioId || !state) return;
+    const nuevos = state.logrosDesbloqueados.filter((id) => !logrosSincronizadosRef.current.has(id));
+    if (nuevos.length === 0) return;
+
+    nuevos.forEach((id) => {
+      logrosSincronizadosRef.current.add(id);
+      desbloquearLogroRemoto(usuarioId, id).catch((error) =>
+        console.error('No se pudo sincronizar el logro con Supabase:', error),
+      );
+      const def = buscarLogro(id);
+      if (def) {
+        encolarCelebracion({ id: `logro-${id}-${Date.now()}`, tipo: 'logro', emoji: def.emoji, emojiImg: def.imagenUrl, titulo: def.titulo, detalle: def.descripcion });
+      }
+    });
+    persistEstado(usuarioId, state);
+  }, [usuarioId, state, encolarCelebracion]);
 
   useEffect(() => {
     if (!usuarioId) {
@@ -216,60 +255,153 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     return () => { cancelado = true; };
   }, [usuarioId]);
 
-  // Carga el estado persistido y rota los retos si cambió la semana ISO.
+  // Carga TODO el progreso desde Supabase (estado agregado, logros y estadísticas de
+  // trivia) y rota los retos si cambió la semana ISO. No hay lectura ni escritura de
+  // localStorage en ningún punto: entrar desde otro dispositivo trae el mismo progreso.
   useEffect(() => {
     if (!usuarioId || goalsLoading) return;
+    let cancelado = false;
 
-    const weekKey = getIsoWeekKey(new Date());
-    const stored = readState(usuarioId) ?? defaultState(weekKey);
+    (async () => {
+      const weekKey = getIsoWeekKey(new Date());
+      let estadoRemoto: EstadoGamificacionDTO | null = null;
+      let logrosRemotos: AchievementId[] = [];
+      let triviaRemota = { lastPlayedDate: null as string | null, bestScore: 0, correctStreak: 0 };
 
-    if (stored.weekKey === weekKey && stored.challenges.length > 0) {
-      setState(stored);
-      return;
-    }
-
-    const cerrandoSemanaAnterior = stored.weekKey !== weekKey && stored.challenges.length > 0;
-    let streak = stored.streak;
-    let bestStreak = stored.bestStreak;
-
-    if (cerrandoSemanaAnterior) {
-      const completados = stored.challenges.filter((c) => {
-        const template = CHALLENGE_CATALOG.find((t) => t.id === c.id);
-        if (!template) return false;
-        return evaluateChallenge(template, stored.weekKey, transacciones, goals, perfil, c.baseline).completado;
-      }).length;
-
-      if (completados >= CHALLENGE_COMPLETION_THRESHOLD) {
-        streak += 1;
-        bestStreak = Math.max(bestStreak, streak);
-      } else {
-        streak = 0;
+      try {
+        const [estado, logros, trivia] = await Promise.all([
+          obtenerEstadoGamificacion(usuarioId),
+          obtenerLogrosDesbloqueados(usuarioId),
+          obtenerEstadisticasTrivia(usuarioId),
+        ]);
+        estadoRemoto = estado;
+        logrosRemotos = logros.map((l) => l.logroId as AchievementId);
+        triviaRemota = { lastPlayedDate: trivia.lastPlayedDate, bestScore: trivia.bestScore, correctStreak: trivia.correctStreak };
+      } catch (error) {
+        console.error('No se pudo cargar el progreso de gamificación desde Supabase:', error);
       }
-    }
 
-    const nuevosRetos = pickWeeklyChallenges(usuarioId, weekKey, CHALLENGE_CATALOG, CHALLENGES_PER_WEEK);
-    const baseline = buildBaseline(goals);
-    const nuevoEstado: GamificationState = {
-      ...stored,
-      weekKey,
-      challenges: nuevosRetos.map((t) => ({ id: t.id, baseline })),
-      streak,
-      bestStreak,
-    };
+      if (cancelado) return;
 
-    setState(nuevoEstado);
-    writeState(usuarioId, nuevoEstado);
+      // Los logros que ya venían desbloqueados en Supabase no son "nuevos": se marcan
+      // como ya sincronizados para que el efecto de sync no los reenvíe ni repita el
+      // toast de celebración en cada carga de la página.
+      logrosRemotos.forEach((id) => logrosSincronizadosRef.current.add(id));
 
-    if (streak >= 2 && streak !== stored.streak) {
-      desbloquearLogro('racha_dos_semanas');
-    }
+      const stored = estadoRemoto
+        ? {
+            weekKey: estadoRemoto.weekKey,
+            challengesBaseline: (estadoRemoto.challengesBaseline ? JSON.parse(estadoRemoto.challengesBaseline) : {}) as ChallengeBaseline,
+            streak: estadoRemoto.streak,
+            bestStreak: estadoRemoto.bestStreak,
+            lastActiveDate: estadoRemoto.lastActiveDate,
+            dailyStreak: estadoRemoto.dailyStreak,
+            bestDailyStreak: estadoRemoto.bestDailyStreak,
+            bestLevelSeen: estadoRemoto.bestLevelSeen,
+            ultimaSubidaNivel: estadoRemoto.ultimaSubidaNivel,
+            puntos: estadoRemoto.puntos,
+          }
+        : {
+            weekKey,
+            challengesBaseline: {} as ChallengeBaseline,
+            streak: 0,
+            bestStreak: 0,
+            lastActiveDate: null as string | null,
+            dailyStreak: 0,
+            bestDailyStreak: 0,
+            bestLevelSeen: 0,
+            ultimaSubidaNivel: null as string | null,
+            puntos: 0,
+          };
+
+      if (stored.weekKey === weekKey && estadoRemoto) {
+        const challengeIds = pickWeeklyChallenges(usuarioId, weekKey, CHALLENGE_CATALOG, CHALLENGES_PER_WEEK).map((t) => t.id);
+        setState({ ...stored, challengeIds, logrosDesbloqueados: logrosRemotos, trivia: triviaRemota });
+        return;
+      }
+
+      let streak = stored.streak;
+      let bestStreak = stored.bestStreak;
+
+      if (estadoRemoto) {
+        const templatesSemanaAnterior = pickWeeklyChallenges(usuarioId, stored.weekKey, CHALLENGE_CATALOG, CHALLENGES_PER_WEEK);
+        const completados = templatesSemanaAnterior.filter(
+          (template) => evaluateChallenge(template, stored.weekKey, transacciones, goals, perfil, stored.challengesBaseline).completado,
+        ).length;
+
+        if (completados >= CHALLENGE_COMPLETION_THRESHOLD) {
+          streak += 1;
+          bestStreak = Math.max(bestStreak, streak);
+        } else {
+          streak = 0;
+        }
+      }
+
+      const nuevosRetos = pickWeeklyChallenges(usuarioId, weekKey, CHALLENGE_CATALOG, CHALLENGES_PER_WEEK);
+      const baseline = buildBaseline(goals);
+      const nuevoEstado: GamificationState = {
+        weekKey,
+        challengeIds: nuevosRetos.map((t) => t.id),
+        challengesBaseline: baseline,
+        streak,
+        bestStreak,
+        lastActiveDate: stored.lastActiveDate,
+        dailyStreak: stored.dailyStreak,
+        bestDailyStreak: stored.bestDailyStreak,
+        bestLevelSeen: stored.bestLevelSeen,
+        ultimaSubidaNivel: stored.ultimaSubidaNivel,
+        puntos: stored.puntos,
+        logrosDesbloqueados: logrosRemotos,
+        trivia: triviaRemota,
+      };
+
+      setState(nuevoEstado);
+      persistEstado(usuarioId, nuevoEstado);
+
+      if (streak >= 2 && streak !== stored.streak) {
+        desbloquearLogro('racha_dos_semanas');
+      }
+    })();
+
+    return () => { cancelado = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuarioId, goalsLoading]);
+
+  // Suma la racha diaria (días consecutivos con actividad en la app), independiente de la racha semanal de retos.
+  useEffect(() => {
+    if (!usuarioId || !state) return;
+    const today = todayKey();
+    if (state.lastActiveDate === today) return;
+
+    const dailyStreak = state.lastActiveDate && esDiaConsecutivo(state.lastActiveDate, today)
+      ? state.dailyStreak + 1
+      : 1;
+    const bestDailyStreak = Math.max(state.bestDailyStreak, dailyStreak);
+
+    const actualizado: GamificationState = { ...state, lastActiveDate: today, dailyStreak, bestDailyStreak };
+    setState(actualizado);
+    persistEstado(usuarioId, actualizado);
+  }, [usuarioId, state]);
 
   const challenges = useMemo(
     () => buildChallengeEvals(state, transacciones, goals, perfil),
     [state, transacciones, goals, perfil],
   );
+
+  // Persiste en Supabase el progreso de cada reto de la semana, una sola vez
+  // por combinación (semana, reto, estado de completado) para no spamear la API.
+  const retosSincronizadosRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!usuarioId || !state || challenges.length === 0) return;
+    for (const { template, completado, progreso } of challenges) {
+      const clave = `${state.weekKey}:${template.id}:${completado}`;
+      if (retosSincronizadosRef.current.has(clave)) continue;
+      retosSincronizadosRef.current.add(clave);
+      guardarRetoProgreso(usuarioId, template.id, state.weekKey, completado, JSON.stringify(progreso ?? {})).catch(
+        (error) => console.error('No se pudo sincronizar el reto con Supabase:', error),
+      );
+    }
+  }, [usuarioId, state, challenges]);
 
   const health = useMemo(() => computeHealthScore(perfil, goals), [perfil, goals]);
 
@@ -281,7 +413,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
         ...actual,
         puntos: actual.puntos + PUNTOS_POR_EVENTO[tipo],
       };
-      writeState(usuarioId, actualizado);
+      persistEstado(usuarioId, actualizado);
       return actualizado;
     });
 
@@ -292,9 +424,9 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!usuarioId || !state) return;
     if (health.level > state.bestLevelSeen) {
-      const actualizado = { ...state, bestLevelSeen: health.level, ultimaSubidaNivel: new Date().toISOString() };
+      const actualizado = { ...state, bestLevelSeen: health.level, ultimaSubidaNivel: nowNaiveIso() };
       setState(actualizado);
-      writeState(usuarioId, actualizado);
+      persistEstado(usuarioId, actualizado);
       encolarCelebracion({
         id: `nivel-${health.level}-${Date.now()}`,
         tipo: 'nivel',
@@ -326,24 +458,32 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     return [...personalizadas, ...generales.slice(0, Math.max(0, necesarias))];
   }, [resumen.porCategoria, perfil?.perfilFinanciero]);
 
-  const registrarResultadoTrivia = useCallback((aciertos: number, total: number) => {
+  const registrarResultadoTrivia = useCallback((aciertos: number, total: number, respuestas: TriviaRespuesta[]) => {
     if (!usuarioId || !state) return;
     const huboRachaCompleta = aciertos === total;
-    const actualizado: GamificationState = {
-      ...state,
-      trivia: {
-        lastPlayedDate: todayKey(),
-        bestScore: Math.max(state.trivia.bestScore, aciertos),
-        correctStreak: huboRachaCompleta ? state.trivia.correctStreak + 1 : 0,
-      },
-    };
-    setState(actualizado);
-    writeState(usuarioId, actualizado);
+    setState((actual) => {
+      if (!actual) return actual;
+      return {
+        ...actual,
+        trivia: {
+          lastPlayedDate: todayKey(),
+          bestScore: Math.max(actual.trivia.bestScore, aciertos),
+          correctStreak: huboRachaCompleta ? actual.trivia.correctStreak + 1 : 0,
+        },
+      };
+    });
+    // Las estadísticas de trivia se derivan siempre de trivia_resultados en Supabase
+    // (no forman parte del estado agregado); el update local de arriba es solo optimista.
+    if (respuestas.length > 0) {
+      registrarResultadosTrivia(usuarioId, respuestas).catch((error) =>
+        console.error('No se pudo sincronizar la trivia con Supabase:', error),
+      );
+    }
   }, [usuarioId, state]);
 
   const subioNivelRecientemente = useMemo(() => {
     if (!state?.ultimaSubidaNivel) return false;
-    return Date.now() - new Date(state.ultimaSubidaNivel).getTime() < VENTANA_NOTIFICACION_NIVEL_MS;
+    return Date.now() - parseNaiveIso(state.ultimaSubidaNivel) < VENTANA_NOTIFICACION_NIVEL_MS;
   }, [state?.ultimaSubidaNivel]);
 
   const value = useMemo<GamificationContextValue>(() => ({
@@ -351,6 +491,8 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     challenges,
     streak: state?.streak ?? 0,
     bestStreak: state?.bestStreak ?? 0,
+    dailyStreak: state?.dailyStreak ?? 0,
+    bestDailyStreak: state?.bestDailyStreak ?? 0,
     health,
     puntos: state?.puntos ?? 0,
     rangoPuntos: computePointsRango(state?.puntos ?? 0),

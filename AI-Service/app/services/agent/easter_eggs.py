@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -144,6 +145,11 @@ class EasterEggResponder:
         "sabes algun chiste",
     }
 
+    _MONGOLIA_SOUNDS = (
+        "/images/task/tecnoMongol.mp3",
+        "/images/task/canticoMongol.mp3",
+    )
+
     @classmethod
     def match(cls, text: str) -> EasterEgg | None:
         normalized = cls._normalize(text)
@@ -285,7 +291,27 @@ class EasterEggResponder:
                 response="¿Por qué el dinero nunca duerme? Porque tiene muchos intereses. 😄",
             )
 
+        if cls._contains_word(normalized, "mongolia") or cls._contains_word(normalized, "mongol"):
+            sonido = random.choice(cls._MONGOLIA_SOUNDS)
+            bandera = (
+                "!icon[Mongolia](https://images.emojiterra.com/google/noto-emoji/"
+                "unicode-15/color/512px/1f1f2-1f1f3.png)"
+            )
+            return EasterEgg(
+                key="mongolia",
+                response=(
+                    f"DE MONGOLIA SOY! {bandera}\n\n"
+                    f"Монголчууд мандтугай, бид бүгдээрээ Монголчууд {bandera}\n\n"
+                    "![Mongolia](/images/task/mongo.png)\n\n"
+                    f"!audio[mongolia]({sonido})"
+                ),
+            )
+
         return None
+
+    @staticmethod
+    def _contains_word(text: str, word: str) -> bool:
+        return re.search(rf"(?<!\w){re.escape(word)}(?!\w)", text) is not None
 
     @staticmethod
     def _normalize(text: str) -> str:

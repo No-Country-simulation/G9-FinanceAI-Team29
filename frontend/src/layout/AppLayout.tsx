@@ -34,9 +34,9 @@ const LayoutContent: React.FC = () => {
           <Outlet />
         </div>
         <div className="flex flex-col items-center gap-2 px-4 pb-6 text-sm text-center text-gray-500 dark:text-gray-400">
-          <p>
+          <div>
             &copy; {new Date().getFullYear()} - <TeamCredit />
-          </p>
+          </div>
           <div className="flex items-center gap-3">
             <Link to="/terminos" className="hover:text-gray-700 dark:hover:text-gray-300">
               Términos y Condiciones

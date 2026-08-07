@@ -9,7 +9,7 @@ const MARCADOR_TERMINAL_DEMO = "[[finsi-terminal-demo]]";
 
 function renderConNegritas(text: string) {
   const partes = text.split(
-    /(\*\*[^*]+\*\*|!video\[[^\]]*\]\([^)]+\)|!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\))/g,
+    /(\*\*[^*]+\*\*|!video\[[^\]]*\]\([^)]+\)|!audio\[[^\]]*\]\([^)]+\)|!icon\[[^\]]*\]\([^)]+\)|!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\))/g,
   );
 
   return partes.map((parte, i) => {
@@ -17,6 +17,26 @@ function renderConNegritas(text: string) {
 
     if (matchNegrita) {
       return <strong key={i}>{matchNegrita[1]}</strong>;
+    }
+
+    const matchAudio = parte.match(/^!audio\[([^\]]*)\]\(([^)]+)\)$/);
+
+    if (matchAudio && ESQUEMAS_PERMITIDOS.test(matchAudio[2])) {
+      return <audio key={i} src={matchAudio[2]} autoPlay className="hidden" />;
+    }
+
+    const matchIcono = parte.match(/^!icon\[([^\]]*)\]\(([^)]+)\)$/);
+
+    if (matchIcono && ESQUEMAS_PERMITIDOS.test(matchIcono[2])) {
+      return (
+        <img
+          key={i}
+          src={matchIcono[2]}
+          alt={matchIcono[1]}
+          loading="lazy"
+          className="ml-1 inline-block h-[1em] w-[1em] align-middle"
+        />
+      );
     }
 
     const matchVideo = parte.match(/^!video\[([^\]]*)\]\(([^)]+)\)$/);

@@ -25,6 +25,7 @@ const MATCHERS: { id: AchievementId; substring: string }[] = [
   { id: 'hal9000', substring: 'no puedo hacer eso, dave' },
   { id: 'abrazo', substring: 'abrazo virtual' },
   { id: 'chiste', substring: 'dinero nunca duerme' },
+  { id: 'mongolia', substring: 'de mongolia soy' },
 ];
 
 export function detectarLogroEnRespuesta(answer: string): AchievementId | null {

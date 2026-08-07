@@ -18,8 +18,15 @@ import {
   MENSAJE_OTRA_CONSULTA,
   construirMensajeDespedida,
 } from "../../utils/sinDatosFlow";
+import { useModal } from "../../hooks/useModal";
+import { Modal } from "../../components/ui/modal";
+import TeamModalContent from "../../components/team/TeamModalContent";
+import TeamAuroraBackdrop from "../../components/team/TeamAuroraBackdrop";
 
-type PasoInteractivo = "sin-datos" | "otra-consulta" | "support-help" | null;
+type PasoInteractivo = "sin-datos" | "otra-consulta" | "support-help" | "team-info" | null;
+
+const REGEX_RESPUESTA_CREADOR = /twentyninedevs es el equipo de desarrolladores que cre[oó] finsightai/i;
+const MENSAJE_CON_QUE_SEGUIMOS = "¿Con qué seguimos?";
 
 interface Message {
   id: number;
@@ -191,6 +198,7 @@ export default function AsistenteIA() {
   const [historialAbierto, setHistorialAbierto] = useState(false);
   const autoPromptEnviadoRef = useRef(false);
   const mensajesScrollRef = useRef<HTMLDivElement>(null);
+  const { isOpen: equipoModalAbierto, openModal: abrirEquipoModal, closeModal: cerrarEquipoModal } = useModal();
 
   const nombreBienvenida = useMemo(() => {
     const metadata = session?.user.user_metadata;
@@ -305,6 +313,8 @@ export default function AsistenteIA() {
       ]);
       if (/¿Puedo ayudarte con algo más\?/i.test(answer)) {
         setPasoPendiente("support-help");
+      } else if (REGEX_RESPUESTA_CREADOR.test(answer)) {
+        setPasoPendiente("team-info");
       }
       registrarEvento("mensaje_asistente");
       const logroDetectado = detectarLogroEnRespuesta(answer);
@@ -356,6 +366,19 @@ export default function AsistenteIA() {
   const irAImportarDatos = () => {
     setPasoPendiente(null);
     navigate("/importar-csv");
+  };
+
+  const responderConocerEquipo = () => {
+    setPasoPendiente(null);
+    abrirEquipoModal();
+  };
+
+  const responderNoConocerEquipo = () => {
+    setPasoPendiente(null);
+    setMessages((prev) => [
+      ...prev,
+      { id: prev.length + 1, role: "assistant", text: MENSAJE_CON_QUE_SEGUIMOS },
+    ]);
   };
 
   const responderOtraConsulta = () => {
@@ -639,6 +662,29 @@ export default function AsistenteIA() {
                             </button>
                           </div>
                         )}
+                      {message.role === "assistant" &&
+                        message.id === ultimoMensajeAsistenteId &&
+                        REGEX_RESPUESTA_CREADOR.test(message.text) && (
+                          <div className="mt-3 flex w-full flex-col items-center gap-2">
+                            <p className="text-theme-sm text-gray-600 dark:text-gray-300">
+                              ¿Quieres conocer más a detalle al equipo?
+                            </p>
+                            <div className="flex items-center justify-center gap-3">
+                              <button
+                                onClick={responderConocerEquipo}
+                                className="min-w-16 rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white transition hover:bg-brand-600"
+                              >
+                                Sí
+                              </button>
+                              <button
+                                onClick={responderNoConocerEquipo}
+                                className="min-w-16 rounded-lg border border-gray-200 px-4 py-2 text-theme-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.06]"
+                              >
+                                No
+                              </button>
+                            </div>
+                          </div>
+                        )}
                     </div>
                   </div>
                 ))}
@@ -657,7 +703,7 @@ export default function AsistenteIA() {
                     </div>
                   </div>
                 )}
-                {!enviando && pasoPendiente && pasoPendiente !== "support-help" && (
+                {!enviando && pasoPendiente && pasoPendiente !== "support-help" && pasoPendiente !== "team-info" && (
                   <div className="flex justify-start gap-3 pl-11">
                     {pasoPendiente === "sin-datos" ? (
                       <>
@@ -701,6 +747,15 @@ export default function AsistenteIA() {
           </div>
         </section>
       </div>
+
+      {equipoModalAbierto && <TeamAuroraBackdrop />}
+      <Modal
+        isOpen={equipoModalAbierto}
+        onClose={cerrarEquipoModal}
+        className="m-4 max-w-[92vw] sm:max-w-[640px] lg:max-w-[880px] xl:max-w-[1040px]"
+      >
+        <TeamModalContent />
+      </Modal>
     </>
   );
 }
