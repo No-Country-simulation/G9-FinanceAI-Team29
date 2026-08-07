@@ -8,6 +8,8 @@ import com.financeai.repository.UsuarioRepository;
 import com.financeai.service.SupabaseAuthService;
 import com.financeai.service.UsuarioService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +23,8 @@ import java.util.Map;
 @RequestMapping("/api/auth") // ← Un endpoint más semántico para autenticación
 
 public class LoginController {
+
+    private static final Logger log = LoggerFactory.getLogger(LoginController.class);
 
     private final UsuarioRepository usuarioRepository;
     @Autowired
@@ -71,8 +75,11 @@ public class LoginController {
                         .body(Map.of("mensaje", "Usuario no encontrado en la base de datos local.")));
 
         } catch (RuntimeException e) {
+            // Se loguea el detalle internamente, pero al cliente se le devuelve un
+            // mensaje genérico para no filtrar información técnica (URLs, tipos de error).
+            log.warn("Fallo de autenticación en /api/auth/login", e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("mensaje", "Error de autenticación: " + e.getMessage()));
+                    .body(Map.of("mensaje", "Credenciales inválidas."));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("mensaje", "Ocurrió un error inesperado al procesar el inicio de sesión."));

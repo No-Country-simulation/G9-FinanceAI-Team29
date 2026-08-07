@@ -230,12 +230,6 @@ class FinSightAgentService:
 
         intent_result = self.intent_detector.detect_result(query.corrected)
 
-        print("PREGUNTA ORIGINAL:", query.original)
-        print("PREGUNTA CORREGIDA:", query.corrected)
-        print("CORRECCIONES:", query.corrections)
-        print("INTENT DETECTADO:", intent_result.intent)
-        print("MODO DETECTADO:", intent_result.mode)
-
         # Consultas transaccionales específicas: totales por período, máximos,
         # categorías, comparaciones, insights, predicciones y acciones. Se
         # resuelven antes del intent genérico para no devolver siempre promedios.
