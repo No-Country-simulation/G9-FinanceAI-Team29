@@ -13,6 +13,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -20,40 +21,55 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/usuarios/{usuarioId}/transacciones")
-@Tag(name = "Transacciones", description = "Listado y resumen de transacciones por usuario")
+@Tag(
+        name = "Transacciones",
+        description = "Listado y resumen de transacciones por usuario"
+)
 public class TransaccionController {
 
     private final TransaccionRepository transaccionRepository;
 
-    public TransaccionController(TransaccionRepository transaccionRepository) {
+    public TransaccionController(
+            TransaccionRepository transaccionRepository
+    ) {
         this.transaccionRepository = transaccionRepository;
     }
 
     @GetMapping
     public ResponseEntity<List<TransaccionResponseDTO>> listarTransacciones(
-            @PathVariable String usuarioId) {
+            @PathVariable String usuarioId
+    ) {
 
-        List<Transaccion> transacciones =
-                transaccionRepository.findByUsuarioId(usuarioId);
+        List<Transaccion> transacciones = new ArrayList<>(
+                transaccionRepository.findByUsuarioId(usuarioId)
+        );
 
         transacciones.sort(
                 Comparator.comparing(
                         Transaccion::getFecha,
-                        Comparator.nullsLast(Comparator.reverseOrder())
+                        Comparator.nullsLast(
+                                Comparator.reverseOrder()
+                        )
                 )
         );
 
-        List<TransaccionResponseDTO> dtos = transacciones.stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        List<TransaccionResponseDTO> dtos =
+                transacciones.stream()
+                        .map(this::toDTO)
+                        .collect(Collectors.toList());
 
         return ResponseEntity.ok(dtos);
     }
 
     /**
-     * Igual que el listado, pero paginado: trae las transacciones de a tandas.
-     * Ej: GET /api/usuarios/{id}/transacciones/pagina?page=0&size=20
-     * Por defecto: 20 por página, ordenadas por fecha descendente.
+     * Igual que el listado, pero paginado:
+     * trae las transacciones de a tandas.
+     *
+     * Ej:
+     * GET /api/usuarios/{id}/transacciones/pagina?page=0&size=20
+     *
+     * Por defecto:
+     * 20 por página, ordenadas por fecha descendente.
      */
     @GetMapping("/pagina")
     public ResponseEntity<PagedResponse<TransaccionResponseDTO>> listarPaginado(
@@ -63,48 +79,70 @@ public class TransaccionController {
                     sort = "fecha",
                     direction = Sort.Direction.DESC
             )
-            Pageable pageable) {
+            Pageable pageable
+    ) {
 
         Page<TransaccionResponseDTO> pagina =
                 transaccionRepository
-                        .findByUsuarioId(usuarioId, pageable)
+                        .findByUsuarioId(
+                                usuarioId,
+                                pageable
+                        )
                         .map(this::toDTO);
 
-        return ResponseEntity.ok(PagedResponse.from(pagina));
+        return ResponseEntity.ok(
+                PagedResponse.from(pagina)
+        );
     }
 
     @GetMapping("/resumen")
     public ResponseEntity<ResumenTransaccionesDTO> resumenTransacciones(
-            @PathVariable String usuarioId) {
+            @PathVariable String usuarioId
+    ) {
 
         List<Transaccion> transacciones =
-                transaccionRepository.findByUsuarioId(usuarioId);
+                transaccionRepository
+                        .findByUsuarioId(usuarioId);
 
-        java.math.BigDecimal totalGastos = transacciones.stream()
-                .filter(t -> "GASTO".equalsIgnoreCase(t.getTipo()))
-                .map(Transaccion::getMonto)
-                .reduce(
-                        java.math.BigDecimal.ZERO,
-                        java.math.BigDecimal::add
-                );
+        java.math.BigDecimal totalGastos =
+                transacciones.stream()
+                        .filter(
+                                t -> "GASTO".equalsIgnoreCase(
+                                        t.getTipo()
+                                )
+                        )
+                        .map(Transaccion::getMonto)
+                        .reduce(
+                                java.math.BigDecimal.ZERO,
+                                java.math.BigDecimal::add
+                        );
 
-        java.math.BigDecimal totalIngresos = transacciones.stream()
-                .filter(t -> "INGRESO".equalsIgnoreCase(t.getTipo()))
-                .map(Transaccion::getMonto)
-                .reduce(
-                        java.math.BigDecimal.ZERO,
-                        java.math.BigDecimal::add
-                );
+        java.math.BigDecimal totalIngresos =
+                transacciones.stream()
+                        .filter(
+                                t -> "INGRESO".equalsIgnoreCase(
+                                        t.getTipo()
+                                )
+                        )
+                        .map(Transaccion::getMonto)
+                        .reduce(
+                                java.math.BigDecimal.ZERO,
+                                java.math.BigDecimal::add
+                        );
 
         Map<String, java.math.BigDecimal> porCategoria =
                 transacciones.stream()
                         .filter(
-                                t -> "GASTO".equalsIgnoreCase(t.getTipo())
-                                        && t.getCategoria() != null
+                                t ->
+                                        "GASTO".equalsIgnoreCase(
+                                                t.getTipo()
+                                        )
+                                                && t.getCategoria() != null
                         )
                         .collect(
                                 Collectors.groupingBy(
-                                        t -> t.getCategoria().getNombre(),
+                                        t -> t.getCategoria()
+                                                .getNombre(),
                                         Collectors.reducing(
                                                 java.math.BigDecimal.ZERO,
                                                 Transaccion::getMonto,
@@ -123,14 +161,24 @@ public class TransaccionController {
         );
     }
 
-    private TransaccionResponseDTO toDTO(Transaccion t) {
+    private TransaccionResponseDTO toDTO(
+            Transaccion t
+    ) {
 
         TransaccionResponseDTO dto =
                 new TransaccionResponseDTO();
 
-        dto.setId(t.getId());
-        dto.setDescripcion(t.getDescripcion());
-        dto.setMonto(t.getMonto());
+        dto.setId(
+                t.getId()
+        );
+
+        dto.setDescripcion(
+                t.getDescripcion()
+        );
+
+        dto.setMonto(
+                t.getMonto()
+        );
 
         dto.setCategoria(
                 t.getCategoria() != null
@@ -138,12 +186,25 @@ public class TransaccionController {
                         : "Sin categoría"
         );
 
-        dto.setSubcategoria(t.getSubcategoria());
+        dto.setSubcategoria(
+                t.getSubcategoria()
+        );
 
-        dto.setFecha(t.getFecha());
-        dto.setTipo(t.getTipo());
-        dto.setMedioPago(t.getMedioPago());
-        dto.setRecurrente(t.getRecurrente());
+        dto.setFecha(
+                t.getFecha()
+        );
+
+        dto.setTipo(
+                t.getTipo()
+        );
+
+        dto.setMedioPago(
+                t.getMedioPago()
+        );
+
+        dto.setRecurrente(
+                t.getRecurrente()
+        );
 
         return dto;
     }
