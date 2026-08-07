@@ -249,12 +249,6 @@ def process_user_csv(content: bytes, usuario_id: str) -> ProcessedCSV:
             transaction_type = _normalize_type(row["tipo"], row_number)
             recurring = _parse_boolean(row["recurrente"], row_number)
 
-            # Para los GASTOS usamos el clasificador híbrido 8.1.0 como
-            # fuente principal. Esto permite corregir automáticamente una
-            # categoría incorrecta del CSV y además generar la subcategoría.
-            #
-            # Para INGRESOS conservamos la categoría informada en el CSV,
-            # porque el clasificador actual está entrenado para gastos.
             category = csv_category
             subcategory: str | None = None
 
@@ -280,9 +274,6 @@ def process_user_csv(content: bytes, usuario_id: str) -> ProcessedCSV:
                         subcategory = str(predicted_subcategory)
 
                 except Exception:
-                    # Fallback seguro: si por cualquier motivo falla la
-                    # predicción, la importación continúa usando la categoría
-                    # que ya venía en el CSV.
                     category = csv_category
                     subcategory = None
 

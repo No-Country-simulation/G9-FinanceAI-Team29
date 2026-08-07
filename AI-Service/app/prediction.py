@@ -259,27 +259,32 @@ REGLAS_TERMINOS: dict[str, dict[str, str]] = {
         "subcategoria": "Peajes",
     },
     "pasaje": {
-        "descripcion": "pasaje",
+        "descripcion": "pasaje de avion",
         "categoria": "Transporte",
         "subcategoria": "Viajes",
     },
     "pasaje de avion": {
-        "descripcion": "pasaje",
-        "categoria": "Transporte",
-        "subcategoria": "Viajes",
-    },
-    "vuelo": {
-        "descripcion": "pasaje",
+        "descripcion": "pasaje de avion",
         "categoria": "Transporte",
         "subcategoria": "Viajes",
     },
     "avion": {
-        "descripcion": "pasaje",
+        "descripcion": "pasaje de avion",
+        "categoria": "Transporte",
+        "subcategoria": "Viajes",
+    },
+    "vuelo": {
+        "descripcion": "pasaje de avion",
+        "categoria": "Transporte",
+        "subcategoria": "Viajes",
+    },
+    "aerolineas": {
+        "descripcion": "pasaje de avion",
         "categoria": "Transporte",
         "subcategoria": "Viajes",
     },
     "micro de larga distancia": {
-        "descripcion": "pasaje",
+        "descripcion": "pasaje de micro",
         "categoria": "Transporte",
         "subcategoria": "Viajes",
     },
@@ -604,17 +609,7 @@ REGLAS_TERMINOS: dict[str, dict[str, str]] = {
         "categoria": "Entretenimiento",
         "subcategoria": "Streaming",
     },
-    "prime": {
-        "descripcion": "streaming",
-        "categoria": "Entretenimiento",
-        "subcategoria": "Streaming",
-    },
     "paramount plus": {
-        "descripcion": "streaming",
-        "categoria": "Entretenimiento",
-        "subcategoria": "Streaming",
-    },
-    "paramount+": {
         "descripcion": "streaming",
         "categoria": "Entretenimiento",
         "subcategoria": "Streaming",
@@ -699,6 +694,11 @@ REGLAS_TERMINOS: dict[str, dict[str, str]] = {
         "categoria": "Entretenimiento",
         "subcategoria": "Turismo",
     },
+    "sheraton": {
+        "descripcion": "alojamiento",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Turismo",
+    },
     "hostel": {
         "descripcion": "alojamiento",
         "categoria": "Entretenimiento",
@@ -711,6 +711,11 @@ REGLAS_TERMINOS: dict[str, dict[str, str]] = {
     },
     "resort": {
         "descripcion": "alojamiento",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Turismo",
+    },
+    "turismo": {
+        "descripcion": "turismo",
         "categoria": "Entretenimiento",
         "subcategoria": "Turismo",
     },

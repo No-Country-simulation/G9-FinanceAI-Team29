@@ -24,11 +24,7 @@ class CSVTransactionData(BaseModel):
     moneda: str
     tipo: str
     categoria: str
-
-    # Nuevo campo. Opcional para mantener compatibilidad
-    # con movimientos antiguos o casos sin subcategoría.
     subcategoria: str | None = None
-
     medio_pago: str
     recurrente: bool
     origen: str

@@ -145,10 +145,11 @@ export default function Transacciones() {
                 { header: 'Fecha', type: 'date' },
                 { header: 'Descripción' },
                 { header: 'Categoría' },
+                { header: 'Subcategoría' },
                 { header: 'Tipo' },
                 { header: 'Monto', type: 'currency' },
               ]}
-              rows={filtradas.map((t) => [t.fecha, t.descripcion, t.categoria, t.tipo, Number(t.monto)])}
+              rows={filtradas.map((t) => [t.fecha, t.descripcion, t.categoria, t.subcategoria ?? '', t.tipo, Number(t.monto)])}
               rowColorFn={(idx) => (filtradas[idx]?.tipo === 'Ingreso' ? 'success' : 'error')}
               disabled={filtradas.length === 0}
               onExportDashboard={() => exportDashboardXlsx(transacciones, 'dashboard-financiero')}
@@ -185,9 +186,16 @@ export default function Transacciones() {
                   </div>
 
                   <div className="mt-3 flex items-center gap-2">
-                    <span className={`text-xs px-2 py-1 rounded-full ${getCategoriaColor(t.categoria)}`}>
-                      {t.categoria}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className={`text-xs px-2 py-1 rounded-full ${getCategoriaColor(t.categoria)}`}>
+                        {t.categoria}
+                      </span>
+                      {t.subcategoria && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {t.subcategoria}
+                        </span>
+                      )}
+                    </div>
                     <span
                       className={`text-xs px-2 py-1 rounded-full ${
                         t.tipo === 'Ingreso'
@@ -211,6 +219,7 @@ export default function Transacciones() {
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 dark:text-gray-400">Fecha</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 dark:text-gray-400">Descripción</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 dark:text-gray-400">Categoría</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 dark:text-gray-400">Subcategoría</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 dark:text-gray-400">Tipo</th>
                       <th className="px-6 py-4 text-right text-sm font-semibold text-gray-600 dark:text-gray-400">Monto</th>
                     </tr>
@@ -224,6 +233,9 @@ export default function Transacciones() {
                           <span className={`text-xs px-2 py-1 rounded-full ${getCategoriaColor(t.categoria)}`}>
                             {t.categoria}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                          {t.subcategoria ?? '-'}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`text-xs px-2 py-1 rounded-full ${

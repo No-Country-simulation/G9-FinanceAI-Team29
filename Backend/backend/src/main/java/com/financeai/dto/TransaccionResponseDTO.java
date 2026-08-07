@@ -8,10 +8,8 @@ public class TransaccionResponseDTO {
     private String id;
     private String descripcion;
     private BigDecimal monto;
-
     private String categoria;
     private String subcategoria;
-
     private LocalDate fecha;
     private String tipo;
     private String medioPago;
