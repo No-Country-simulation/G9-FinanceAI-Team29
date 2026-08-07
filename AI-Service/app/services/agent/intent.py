@@ -49,15 +49,15 @@ class IntentDetector:
 
     _TERMS: tuple[tuple[Intent, set[str]], ...] = (
         (Intent.GREETING, {"hola", "holi", "buen dia", "buenas", "buenas tardes", "buenas noches"}),
-        (Intent.THANKS, {"gracias", "muchas gracias", "te agradezco"}),
+        (Intent.THANKS, {"gracias", "muchas gracias", "te agradezco", "perfecto", "excelente", "ok", "okay", "listo", "dale", "genial"}),
         (Intent.FAREWELL, {"chau", "adios", "hasta luego", "nos vemos"}),
         (Intent.CAPABILITIES, {"que podes hacer", "que puedes hacer", "como me ayudas", "tus funciones"}),
         (Intent.BUDGET, {"presupuesto", "plan de gastos", "distribuir mi sueldo", "organizar mis gastos"}),
         (Intent.SUMMARY, {"resumen", "resumime", "panorama", "vista general"}),
-        (Intent.RECOMMENDATIONS, {"recomendacion", "recomendaciones", "consejo", "consejos", "que deberia mejorar", "como mejorar"}),
+        (Intent.RECOMMENDATIONS, {"recomendacion", "recomendaciones", "consejo", "consejos", "que deberia mejorar", "como mejorar", "que revisarias primero", "que deberia revisar primero", "que cambiarias de mis finanzas", "que categoria deberia revisar primero", "por que no llego a fin de mes", "no llego a fin de mes"}),
         (Intent.EXPENSES, {"gasto", "gastos", "consumo", "consumos", "egreso", "egresos", "en que gasto", "donde gasto", "donde estoy gastando", "categoria con mas gastos", "mayor gasto"}),
         (Intent.INCOME, {"ingreso", "ingresos", "sueldo", "salario", "cuanto gano", "cuanto dinero me ingreso", "cuanto dinero me entro", "me depositaron dinero", "me acreditaron dinero"}),
-        (Intent.DEBT, {"deuda", "deudas", "endeudamiento", "prestamo", "credito", "desendeudar", "desendeudarme"}),
+        (Intent.DEBT, {"deuda", "deudas", "endeudamiento", "prestamo", "credito", "desendeudar", "desendeudarme", "cuanto debo", "cuanto es mi deuda", "cuanto dinero debo"}),
         (Intent.SAVINGS, {"ahorro", "ahorros", "ahorrar", "capacidad de ahorro"}),
         (Intent.SCORE, {"financial score", "puntaje financiero", "score financiero", "puntaje"}),
         (Intent.PROFILE, {"perfil financiero", "nivel de riesgo", "riesgo financiero", "perfil"}),
@@ -116,6 +116,7 @@ class IntentDetector:
 
     _EXPENSE_REDUCTION_TERMS = {
         "como reducir mis gastos",
+        "como reduzco mis gastos",
         "como puedo reducir mis gastos",
         "como bajar mis gastos",
         "como puedo bajar mis gastos",
@@ -237,6 +238,9 @@ class IntentDetector:
         "donde se me va el dinero",
         "en que se me va el dinero",
         "en que se me esta yendo el dinero",
+        "en que se me va la plata",
+        "en que se me va el dinero",
+        "que categoria deberia revisar primero",
     }
 
     _SAVINGS_ADVICE_TERMS = {
@@ -278,6 +282,23 @@ class IntentDetector:
         "como mejorar mi capacidad de ahorro",
         "quiero mejorar mi capacidad de ahorro",
     }
+
+    _DEBT_LEVEL_TERMS = {
+        "cual es mi nivel de endeudamiento",
+        "cuanto es mi nivel de endeudamiento",
+        "que nivel de endeudamiento tengo",
+        "como esta mi nivel de endeudamiento",
+        "como esta mi endeudamiento",
+        "mi nivel de endeudamiento",
+        "porcentaje de endeudamiento",
+        "cual es mi porcentaje de endeudamiento",
+        "cuanto representa mi deuda",
+        "que porcentaje de mis ingresos va a deudas",
+        "que porcentaje de mis ingresos destino a deudas",
+        "estoy muy endeudado",
+        "estoy muy endeudada",
+    }
+
 
     _CREATOR_TERMS = {
         "quien te creo",
@@ -507,6 +528,20 @@ class IntentDetector:
                 matched_terms=expense_reduction,
             )
 
+        # Las preguntas sobre el nivel o porcentaje de endeudamiento
+        # solicitan un indicador personal directo, no asesoramiento genérico.
+        debt_level_terms = tuple(
+            term
+            for term in self._DEBT_LEVEL_TERMS
+            if self._contains_term(normalized, term)
+        )
+        if debt_level_terms:
+            return IntentResult(
+                intent=Intent.DEBT,
+                mode=QueryMode.DIRECT,
+                matched_terms=debt_level_terms,
+            )
+
         # Pedir un plan para salir de deudas requiere recomendaciones,
         # mientras que preguntar cuánto se debe conserva la intención directa.
         debt_advice = tuple(
@@ -594,6 +629,26 @@ class IntentDetector:
                 intent=Intent.RECOMMENDATIONS,
                 mode=QueryMode.ANALYTICAL,
                 matched_terms=savings_advice,
+            )
+
+        general_recommendations = (
+            "que revisarias primero",
+            "que deberia revisar primero",
+            "que deberia mejorar",
+            "que cambiarias de mis finanzas",
+            "que categoria deberia revisar primero",
+            "por que no llego a fin de mes",
+            "no llego a fin de mes",
+        )
+        matched_general_recommendations = tuple(
+            term for term in general_recommendations
+            if self._contains_term(normalized, term)
+        )
+        if matched_general_recommendations:
+            return IntentResult(
+                intent=Intent.RECOMMENDATIONS,
+                mode=QueryMode.ANALYTICAL,
+                matched_terms=matched_general_recommendations,
             )
 
         social_intents = {Intent.GREETING, Intent.THANKS, Intent.FAREWELL}

@@ -9,10 +9,13 @@ from app.services.llm.schemas import LLMMessage, LLMResponse
 class GroqProvider(LLMProvider):
     def __init__(
         self,
-        api_key: str,
+        api_keys: list[str],
         model: str,
     ) -> None:
-        self.client = AsyncGroq(api_key=api_key)
+        if not api_keys:
+            raise ValueError("No hay API Keys de Groq configuradas.")
+
+        self.api_keys = api_keys
         self.model = model
 
     async def generate(
@@ -21,25 +24,49 @@ class GroqProvider(LLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 1200,
     ) -> LLMResponse:
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": message.role,
-                    "content": message.content,
-                }
-                for message in messages
-            ],
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
+        last_error = None
 
-        usage = response.usage
+        for index, api_key in enumerate(self.api_keys, start=1):
+            try:
+                client = AsyncGroq(api_key=api_key)
 
-        return LLMResponse(
-            content=response.choices[0].message.content or "",
-            provider="groq",
-            model=self.model,
-            input_tokens=getattr(usage, "prompt_tokens", None),
-            output_tokens=getattr(usage, "completion_tokens", None),
-        )
+                response = await client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {
+                            "role": message.role,
+                            "content": message.content,
+                        }
+                        for message in messages
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+
+                usage = response.usage
+
+                return LLMResponse(
+                    content=response.choices[0].message.content or "",
+                    provider="groq",
+                    model=self.model,
+                    input_tokens=getattr(
+                        usage,
+                        "prompt_tokens",
+                        None,
+                    ),
+                    output_tokens=getattr(
+                        usage,
+                        "completion_tokens",
+                        None,
+                    ),
+                    metadata={
+                        "groq_key": index,
+                    },
+                )
+
+            except Exception as exc:
+                last_error = exc
+                print(f"Groq Key #{index} falló: {exc}")
+                continue
+
+        raise last_error

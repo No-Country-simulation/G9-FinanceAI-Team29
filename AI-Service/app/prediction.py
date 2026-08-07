@@ -173,11 +173,9 @@ def generar_advertencias(
 
     if monto >= 5000:
         advertencias.append(
-            "El monto está fuera del rango "
-            "habitual. La categoría fue "
-            "determinada sin utilizar el monto "
-            "de la transacción."
-        )
+        "Se detectó un importe atípico para esta categoría. "
+        "Se recomienda revisar el valor antes de guardar la transacción."
+    )
 
     return advertencias
 

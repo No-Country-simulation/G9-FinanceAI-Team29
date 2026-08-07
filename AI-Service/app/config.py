@@ -22,9 +22,23 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 700
 
 
-    # Groq
+        # Groq
     groq_api_key: str | None = None
+    groq_api_key_1: str | None = None
+    groq_api_key_2: str | None = None
+    groq_api_key_3: str | None = None
     groq_model: str = "llama-3.3-70b-versatile"
+
+    @property
+    def groq_api_keys(self) -> list[str]:
+        keys = [
+            self.groq_api_key,
+            self.groq_api_key_1,
+            self.groq_api_key_2,
+            self.groq_api_key_3,
+        ]
+
+        return list(dict.fromkeys(key for key in keys if key))
 
     # Gemini
     gemini_api_key: str | None = None

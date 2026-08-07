@@ -30,12 +30,12 @@ export const teamMembers: TeamMember[] = [
     location: "San Juan, Provincia de San Juan",
   },
   {
-    id: "edgardo-villalba",
-    name: "Edgardo Villalba",
+    id: "alberto-edgardo-villalba",
+    name: "Alberto Edgardo Villalba",
     role: "Full Stack Developer · AI Developer · Data Scientist",
     photo: "/team/edgardo-villalba.webp",
     quote:
-      "Full Stack Developer, IA, React, Python y FastAPI. Disfruto resolver problemas, trabajar en equipo y desarrollar productos con impacto real.",
+      "Apasionado por la inteligencia artificial y la ciencia de datos. Disfruto resolver problemas, aprender continuamente y crear productos con impacto real.",
     linkedin: "https://www.linkedin.com/in/edgardo-villalba/",
     github: "https://github.com/Linth84",
     country: "Argentina",

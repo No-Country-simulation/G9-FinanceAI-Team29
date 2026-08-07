@@ -23,10 +23,9 @@ const ADMIN_EMAILS = ['demo.admin@finsight.com'];
 
 /** Lista de cuentas que el admin puede inspeccionar. */
 export const CUENTAS_DEMO = [
-  { usuarioId: 'USR0001', etiqueta: 'Crítico · USR0001' },
-  { usuarioId: 'USR0002', etiqueta: 'Intermedio · USR0002' },
+  { usuarioId: 'USR0001', etiqueta: 'En Riesgo · USR0001' },
+  { usuarioId: 'USR0002', etiqueta: 'En Observación · USR0002' },
   { usuarioId: 'USR0009', etiqueta: 'Saludable · USR0009' },
-  { usuarioId: 'USR1001', etiqueta: 'CSV demo · USR1001' },
 ];
 
 const ADMIN_DEFAULT_USUARIO = 'USR0001';

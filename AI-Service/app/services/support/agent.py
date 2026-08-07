@@ -8,6 +8,7 @@ from app.services.llm.service import LLMService
 from app.services.support.knowledge_base import KnowledgeChunk, SupportKnowledgeBase
 from app.services.support.capabilities import CapabilityChecker
 from app.services.support.diagnosis import GuidedSupportDiagnosis
+from app.services.support.intent import SupportIntentDetector
 from app.services.support.prompt import build_support_messages
 from app.services.support.product_knowledge import ProductKnowledgeResponder
 
@@ -24,6 +25,28 @@ class SupportAgent:
         provider: str | None = None,
         previous_answer: str | None = None,
     ) -> LLMResponse:
+        normalized = SupportIntentDetector._normalize(question)
+
+        if normalized in {
+            "necesito soporte", "necesito ayuda", "tengo un problema",
+            "ayuda", "soporte",
+        }:
+            return LLMResponse(
+                content=(
+                    "¿Con qué sección necesitas ayuda? Indica: **inicio de sesión**, "
+                    "**contraseña**, **cuenta**, **CSV**, **transacciones**, "
+                    "**metas**, **Dashboard**, **Análisis**, **exportaciones** "
+                    "u **otro problema**."
+                ),
+                provider="internal",
+                model="support-general-triage",
+                metadata={
+                    "intent": "technical_support",
+                    "route": "support_general_triage",
+                    "support_email": settings.support_email,
+                },
+            )
+
         capability = CapabilityChecker.check(question)
         if capability is not None:
             return LLMResponse(
@@ -35,6 +58,22 @@ class SupportAgent:
                     "route": capability.route,
                     "capability": capability.key,
                     "capability_status": capability.status.value,
+                    "support_email": settings.support_email,
+                },
+            )
+
+        explicit_support_query = SupportIntentDetector.is_support_query(question)
+
+        product = ProductKnowledgeResponder.answer(question)
+        if product is not None:
+            return LLMResponse(
+                content=product.content,
+                provider="internal",
+                model="support-product-knowledge",
+                metadata={
+                    "intent": "technical_support",
+                    "route": product.route,
+                    "topic": product.topic,
                     "support_email": settings.support_email,
                 },
             )
@@ -55,20 +94,6 @@ class SupportAgent:
                     "route": diagnosis.route,
                     "solved": diagnosis.solved,
                     "escalate": diagnosis.escalate,
-                    "support_email": settings.support_email,
-                },
-            )
-
-        product = ProductKnowledgeResponder.answer(question)
-        if product is not None:
-            return LLMResponse(
-                content=product.content,
-                provider="internal",
-                model="support-product-knowledge",
-                metadata={
-                    "intent": "technical_support",
-                    "route": product.route,
-                    "topic": product.topic,
                     "support_email": settings.support_email,
                 },
             )

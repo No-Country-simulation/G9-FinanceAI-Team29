@@ -57,6 +57,36 @@ class FinSightAgentService:
         previous_answer: str | None = None,
         time_zone: str | None = None,
     ) -> LLMResponse:
+        security_refusal = self._security_refusal_response(question)
+        if security_refusal is not None:
+            return LLMResponse(
+                content=security_refusal,
+                provider="internal",
+                model="security-rules",
+                metadata={
+                    "intent": "security_refusal",
+                    "route": "security_account_access_refusal",
+                    "used_financial_context": False,
+                    "save_history": True,
+                    "update_context": False,
+                },
+            )
+
+        quick_social = self._quick_social_response(question)
+        if quick_social is not None:
+            return LLMResponse(
+                content=quick_social,
+                provider="internal",
+                model="conversation-rules",
+                metadata={
+                    "intent": "conversation",
+                    "route": "conversation_quick_response",
+                    "used_financial_context": False,
+                    "save_history": True,
+                    "update_context": False,
+                },
+            )
+
         easter_egg = EasterEggResponder.match(question)
         if easter_egg is not None:
             # Respuesta temprana: no pasa por intents, soporte, consultas,
@@ -99,6 +129,17 @@ class FinSightAgentService:
 
         query = self._prepare_query(question)
 
+        if self._is_goal_delete_support_follow_up(
+            query.original,
+            previous_answer,
+        ):
+            return await self.support_agent.answer(
+                usuario_id=usuario_id,
+                question=query.original,
+                provider=provider,
+                previous_answer=previous_answer,
+            )
+
         # Los mensajes originados en una tarjeta de recomendación ya incluyen
         # diagnóstico, acción y objetivo verificados. Deben continuar por el
         # flujo de asesoramiento, sin pasar por el clasificador transaccional
@@ -126,16 +167,27 @@ class FinSightAgentService:
                 previous_answer=previous_answer,
             )
 
-        # Una frase que describe un fallo debe ir al diagnóstico guiado.
-        # Product Knowledge queda reservado para preguntas informativas.
-        explicit_support_query = SupportIntentDetector.is_support_query(query.original)
+        # Separa preguntas informativas de descripciones de fallos. Una consulta
+        # como "¿dónde cambio mi contraseña?" debe responder con navegación,
+        # mientras que "no puedo cambiarla" debe iniciar diagnóstico.
+        information_query = SupportIntentDetector.is_information_query(
+            query.original
+        )
+        explicit_support_query = (
+            SupportIntentDetector.is_support_query(query.original)
+            and self._is_explicit_technical_problem(query.original)
+        )
 
         # Las consultas informativas sobre funciones reales de FinSightAI se
         # resuelven antes de los intents financieros y antes de UNKNOWN.
+        # Product Knowledge se consulta para toda entrada que no describa un
+        # problema técnico explícito. Esto permite reconocer consultas breves
+        # como "TwentyNineDevs" y variantes naturales como "cómo funciona Finsi",
+        # sin desviar reportes como "no puedo crear una meta" del diagnóstico.
         product_knowledge = (
-            None
-            if explicit_support_query
-            else ProductKnowledgeResponder.answer(query.original)
+            ProductKnowledgeResponder.answer(query.original)
+            if not explicit_support_query
+            else None
         )
         if product_knowledge is not None:
             return LLMResponse(
@@ -188,13 +240,36 @@ class FinSightAgentService:
         # El soporte se evalúa antes de las políticas financieras para que las
         # consultas sobre el uso de FinSightAI no sean tratadas como fuera de alcance.
         # El flujo financiero existente permanece intacto para el resto.
-        support_follow_up = SupportIntentDetector.is_support_follow_up(
-            query.original, previous_answer
+        support_follow_up = (
+            SupportIntentDetector.is_support_follow_up(
+                query.original,
+                previous_answer,
+            )
+            and self._can_continue_support_diagnosis(
+                query.original
+            )
         )
+        protected_financial_intents = {
+            Intent.INCOME,
+            Intent.EXPENSES,
+            Intent.DEBT,
+            Intent.SAVINGS,
+            Intent.SCORE,
+            Intent.PROFILE,
+            Intent.RECOMMENDATIONS,
+            Intent.FULL_ANALYSIS,
+            Intent.BUDGET,
+            Intent.SUMMARY,
+            Intent.FINANCIAL_EDUCATION,
+        }
+
         if explicit_support_query or (
             support_follow_up
-            and early_intent.intent != Intent.FINANCIAL_EDUCATION
-            and not (is_contextual_financial_follow_up or is_financial_query)
+            and early_intent.intent not in protected_financial_intents
+            and not (
+                is_contextual_financial_follow_up
+                or is_financial_query
+            )
         ):
             return await self.support_agent.answer(
                usuario_id=usuario_id,
@@ -303,6 +378,19 @@ class FinSightAgentService:
                 used_financial_context=True,
             )
 
+        if intent_result.intent == Intent.RECOMMENDATIONS:
+            analysis = self._get_analysis(usuario_id)
+            content = DeterministicFinancialResponder.recommendations(
+                analysis=analysis,
+                question=query.corrected,
+            )
+            return self._internal_response(
+                content,
+                intent_result.intent,
+                query,
+                used_financial_context=True,
+            )
+
         route = self.router.resolve(intent_result)
 
         if route == AgentRoute.INTERNAL:
@@ -365,6 +453,191 @@ class FinSightAgentService:
             }
         )
         return response
+
+
+    @staticmethod
+    def _is_explicit_technical_problem(question: str) -> bool:
+        normalized = QueryNormalizer.normalize(question)
+        problem_markers = (
+            "no puedo","no me deja","no funciona","no anda","no responde",
+            "no carga","no aparece","no recibo","se queda cargando",
+            "se trabo","se bloqueo","error","falla","fallo",
+            "rechazada","rechazado","incorrecta","incorrecto",
+            "invalida","invalido","bloqueada","bloqueado",
+            "vencido","vencio","desaparecio","perdi mis",
+        )
+        return any(marker in normalized for marker in problem_markers)
+
+    @staticmethod
+    def _is_goal_delete_support_follow_up(
+        question: str,
+        previous_answer: str | None,
+    ) -> bool:
+        if not previous_answer:
+            return False
+
+        normalized_question = QueryNormalizer.normalize(question)
+        normalized_previous = QueryNormalizer.normalize(previous_answer)
+
+        follow_up_terms = {
+            "sigue igual",
+            "sigue sin aparecer",
+            "no aparece",
+            "todavia no aparece",
+            "aun no aparece",
+            "no funciono",
+            "sigue sin funcionar",
+        }
+
+        previous_markers = (
+            "si despues de actualizar continua sin aparecer",
+            "escribe sigue igual para derivar el caso",
+            "la meta sigue apareciendo",
+        )
+
+        return (
+            normalized_question in follow_up_terms
+            and any(
+                marker in normalized_previous
+                for marker in previous_markers
+            )
+        )
+
+    @staticmethod
+    def _security_refusal_response(
+        question: str,
+    ) -> str | None:
+        normalized = QueryNormalizer.normalize(question)
+
+        blocked_patterns = (
+            "como hackeo una cuenta",
+            "hackear una cuenta",
+            "como robo una cuenta",
+            "robar una cuenta",
+            "como entro a una cuenta ajena",
+            "como entrar a una cuenta ajena",
+            "como accedo a una cuenta ajena",
+            "acceder a una cuenta ajena",
+            "entrar a una cuenta ajena",
+            "vulnerar una cuenta",
+        )
+
+        if any(
+            pattern in normalized
+            for pattern in blocked_patterns
+        ):
+            return (
+                "No puedo ayudar a acceder sin autorización a una "
+                "cuenta ni a vulnerar su seguridad. Si necesitas "
+                "recuperar tu propia cuenta, usa **¿Olvidaste tu "
+                "contraseña?** o contacta al equipo de soporte."
+            )
+
+        return None
+
+    @staticmethod
+    def _can_continue_support_diagnosis(
+        question: str,
+    ) -> bool:
+        normalized = QueryNormalizer.normalize(question).strip()
+
+        exact_follow_ups = {
+            "1",
+            "2",
+            "3",
+            "4",
+            "si",
+            "no",
+            "sip",
+            "nop",
+            "correcto",
+            "dale",
+            "ok",
+            "sigue igual",
+            "sigue sin funcionar",
+            "no funciona",
+            "no funciono",
+            "todavia no",
+            "aun no",
+            "aparece un error",
+            "me da error",
+            "me tira error",
+            "no aparece",
+            "no responde",
+        }
+
+        if normalized in exact_follow_ups:
+            return True
+
+        follow_up_prefixes = (
+            "el error dice",
+            "el mensaje dice",
+            "aparece el mensaje",
+            "me aparece",
+            "cuando intento",
+            "cuando presiono",
+            "cuando selecciono",
+        )
+
+        return any(
+            normalized.startswith(prefix)
+            for prefix in follow_up_prefixes
+        )
+
+    @staticmethod
+    def _quick_social_response(
+        question: str,
+    ) -> str | None:
+        raw = (question or "").strip()
+
+        # Elimina selectores de variante y modificadores de tono de piel.
+        # Así también reconoce 👍🏻, 👍🏼, ❤️ y otras variantes visuales.
+        cleaned = raw.replace("\ufe0f", "").replace("\u200d", "")
+        cleaned = "".join(
+            char
+            for char in cleaned
+            if not ("\U0001F3FB" <= char <= "\U0001F3FF")
+        )
+
+        normalized = QueryNormalizer.normalize(raw)
+
+        if normalized in {
+            "perfecto",
+            "excelente",
+            "ok",
+            "okay",
+            "oki",
+            "listo",
+            "dale",
+            "genial",
+            "muy bien",
+            "joya",
+        }:
+            return "¡Perfecto! ¿En qué más puedo ayudarte?"
+
+        if cleaned in {"👍", "👌", "✅", "👏", "🙌"}:
+            return "¡Perfecto! 😊"
+
+        if cleaned in {"😂", "🤣"}:
+            return "😂"
+
+        if cleaned in {"😄", "😀", "😃", "😁", "😅"}:
+            return "😄"
+
+        if cleaned in {"❤", "💙", "💚", "🩵"}:
+            return "❤️"
+
+        if cleaned == "👋":
+            return "¡Hola! 😊 ¿En qué puedo ayudarte?"
+
+        if normalized in {"no entendi", "no comprendi"}:
+            return (
+                "Claro. Indica qué parte deseas que explique "
+                "nuevamente o escribe la pregunta con otras "
+                "palabras."
+            )
+
+        return None
 
     @staticmethod
     def _is_recommendation_context(question: str) -> bool:
@@ -630,7 +903,7 @@ class FinSightAgentService:
     @staticmethod
     def _is_context_noise(question: str) -> bool:
         raw = (question or "").strip().casefold()
-        if raw in {"v", "ok", "oki", "okay", "dale", "mmm", "mm", "eh", "👍", "👎", "👌"}:
+        if raw in {"v", "mmm", "mm", "eh"}:
             return True
         if raw and all(char in ".,!?¿¡…-_~" for char in raw):
             return True
