@@ -126,13 +126,17 @@ class TransactionQueryEngine:
             )
 
         frame = cls._frame(transactions)
-        reference_today = cls._reference_date(frame, actual_today)
-        query_today = (
-            actual_today
-            if (actual_today.year, actual_today.month)
-            == (reference_today.year, reference_today.month)
-            else reference_today
-        )
+
+        # Finsi solo analiza movimientos ocurridos hasta la fecha actual/local.
+        # Las transacciones futuras del dataset no se consideran realizadas.
+        if not frame.empty and "fecha" in frame.columns:
+            frame = frame[
+                frame["fecha"].isna()
+                | frame["fecha"].dt.date.le(actual_today)
+            ].copy()
+
+        reference_today = actual_today
+        query_today = actual_today
         expenses = frame[frame["_kind"].eq("expense")].copy() if not frame.empty else frame
         incomes = frame[frame["_kind"].eq("income")].copy() if not frame.empty else frame
 
@@ -509,6 +513,16 @@ class TransactionQueryEngine:
         if not previous_answer:
             return None
 
+        # Una consulta explícita sobre el último gasto/compra debe resolverse
+        # por _expense_query, no heredando el total de la respuesta anterior.
+        if cls._has(
+            q,
+            "ultimo gasto",
+            "gasto mas reciente",
+            "ultima compra",
+        ):
+            return None
+
         previous = QueryNormalizer.normalize(previous_answer)
         context = cls._context_data(previous_answer)
         requested = cls._extract_requested_month(q, reference_today)
@@ -559,7 +573,7 @@ class TransactionQueryEngine:
             )
 
         if cls._has(previous, "dia que mas gastaste", "día que más gastaste"):
-            selected = cls._month_frame(expenses, year, month, today)
+            selected = cls._month_frame(expenses, year, month, reference_today)
             if selected.empty:
                 return cls._result(
                     cls._no_expenses_for_period(expenses, f"en {period_name}"),
@@ -571,7 +585,7 @@ class TransactionQueryEngine:
             )
 
         if cls._has(previous, "mayor gasto", "gasto mas grande", "compra mas cara"):
-            selected = cls._month_frame(expenses, year, month, today)
+            selected = cls._month_frame(expenses, year, month, reference_today)
             if selected.empty:
                 return cls._result(
                     cls._no_expenses_for_period(expenses, f"en {period_name}"),
@@ -704,6 +718,105 @@ class TransactionQueryEngine:
         if expenses.empty or not cls._has(q, "gasto", "gastos", "gaste", "compra", "compras", "consumo", "egreso", "categoria", "medio de pago", "compre", "compré"):
             return None
 
+        # Comparación directa entre dos meses explícitos.
+        # Ej.: "¿Gasté más en julio o en agosto?"
+        month_names = {
+            "enero": 1,
+            "febrero": 2,
+            "marzo": 3,
+            "abril": 4,
+            "mayo": 5,
+            "junio": 6,
+            "julio": 7,
+            "agosto": 8,
+            "septiembre": 9,
+            "setiembre": 9,
+            "octubre": 10,
+            "noviembre": 11,
+            "diciembre": 12,
+        }
+        mentioned_months = re.findall(
+            r"\b(" + "|".join(month_names) + r")\b",
+            q,
+        )
+
+        if (
+            len(mentioned_months) >= 2
+            and cls._has(
+                q,
+                "gaste mas",
+                "gasto mas",
+                "compare",
+                "comparar",
+                "comparacion",
+                "vs",
+            )
+        ):
+            first_name = mentioned_months[0]
+            second_name = mentioned_months[1]
+            first_month = month_names[first_name]
+            second_month = month_names[second_name]
+
+            explicit_years = [
+                int(value)
+                for value in re.findall(r"\b(20\d{2})\b", q)
+            ]
+
+            if len(explicit_years) >= 2:
+                first_year = explicit_years[0]
+                second_year = explicit_years[1]
+            elif len(explicit_years) == 1:
+                first_year = explicit_years[0]
+                second_year = explicit_years[0]
+            else:
+                first_year = today.year
+                second_year = today.year
+
+            first = cls._month_frame(
+                expenses,
+                first_year,
+                first_month,
+                today,
+            )
+            second = cls._month_frame(
+                expenses,
+                second_year,
+                second_month,
+                today,
+            )
+
+            first_total = float(first["monto"].sum())
+            second_total = float(second["monto"].sum())
+
+            first_label = cls._spanish_month(
+                first_year,
+                first_month,
+            )
+            second_label = cls._spanish_month(
+                second_year,
+                second_month,
+            )
+
+            if first_total > second_total:
+                conclusion = f"Gastaste más en {first_label}."
+            elif second_total > first_total:
+                conclusion = f"Gastaste más en {second_label}."
+            else:
+                conclusion = (
+                    "Gastaste lo mismo en ambos meses."
+                )
+
+            return cls._result(
+                (
+                    f"En {first_label} gastaste "
+                    f"{cls._money(first_total)} y en "
+                    f"{second_label} gastaste "
+                    f"{cls._money(second_total)}. "
+                    f"{conclusion}"
+                ),
+                "expenses_two_months_comparison",
+            )
+
         requested_year = cls._extract_requested_year(q)
         if requested_year is not None and cls._has(
             q,
@@ -727,7 +840,14 @@ class TransactionQueryEngine:
             )
 
         requested_month = cls._extract_requested_month(q, today)
-        if requested_month and cls._has(
+        asks_latest_expense = cls._has(
+            q,
+            "gasto mas reciente",
+            "ultima compra",
+            "ultimo gasto",
+        )
+
+        if requested_month and not asks_latest_expense and cls._has(
             q,
             "cuanto fue mi gasto",
             "cuanto fue el gasto",
@@ -844,12 +964,36 @@ class TransactionQueryEngine:
             return cls._result(content, "expenses_min_transaction")
 
         if cls._has(q, "gasto mas reciente", "ultima compra", "ultimo gasto"):
-            return cls._result(cls._latest_transaction(expenses, "gasto"), "expenses_latest")
+            selected = expenses
+
+            requested_month = cls._extract_requested_month(q, today)
+            if requested_month is not None:
+                year, month = requested_month
+                selected = cls._month_frame(
+                    expenses,
+                    year,
+                    month,
+                    today,
+                )
+
+            return cls._result(
+                cls._latest_transaction(selected, "gasto"),
+                "expenses_latest",
+            )
 
         if cls._has(q, "segunda categoria", "segunda categoría") and cls._has(q, "mas gastos", "gasto mas"):
             return cls._result(cls._category_position(expenses, 2), "expenses_second_category")
 
-        if cls._has(q, "categoria con mas", "en que categoria gasto mas", "en que categoria gaste mas", "donde gasto mas", "en que gasto mas"):
+        if cls._has(
+            q,
+            "categoria con mas",
+            "en que categoria gasto mas",
+            "en que categoria gaste mas",
+            "donde gasto mas",
+            "donde gaste mas",
+            "en que gasto mas",
+            "en que gaste mas",
+        ):
             selected, period_label = cls._selected_expenses_for_period(expenses, q, today)
             if selected.empty:
                 return cls._result(cls._no_expenses_for_period(expenses, period_label), "expenses_top_category_empty")

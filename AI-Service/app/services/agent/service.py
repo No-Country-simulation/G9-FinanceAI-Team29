@@ -217,6 +217,9 @@ class FinSightAgentService:
             query.corrected,
             previous_answer,
         )
+        is_recent_expenses_query = self._is_recent_expenses_query(
+            query.corrected
+        )
 
         # Las intenciones conversacionales globales tienen prioridad sobre el
         # soporte. Esto evita que preguntas como "¿qué puedes hacer?" sean
@@ -287,6 +290,24 @@ class FinSightAgentService:
                 query,
             )
 
+        # Los pedidos explícitos de gastos recientes no deben caer en el
+        # follow-up genérico ni depender del intent detector.
+        if is_recent_expenses_query:
+            limit = self._extract_recent_expenses_limit(query.corrected)
+            content = self._recent_expenses_response(
+                usuario_id=usuario_id,
+                limit=limit,
+                today=local_today,
+            )
+            response = self._internal_response(
+                content,
+                Intent.RECENT_EXPENSES,
+                query,
+                used_financial_context=True,
+            )
+            response.metadata["route"] = "recent_expenses_direct"
+            return response
+
         if previous_answer and self._is_follow_up(query.corrected):
             messages = PromptBuilder.build_follow_up(
                 question=query.original,
@@ -349,6 +370,7 @@ class FinSightAgentService:
                 user_name=user_name,
                 analysis=analysis_for_query,
                 previous_answer=transaction_previous_answer,
+                today=local_today,
             )
             if transaction_answer is not None:
                 response = self._internal_response(
@@ -370,6 +392,7 @@ class FinSightAgentService:
             content = self._recent_expenses_response(
                 usuario_id=usuario_id,
                 limit=limit,
+                today=local_today,
             )
             return self._internal_response(
                 content,
@@ -687,6 +710,27 @@ class FinSightAgentService:
         return result
 
     @staticmethod
+    def _is_recent_expenses_query(question: str) -> bool:
+        """Detecta pedidos explícitos de una lista de gastos recientes.
+
+        Importante: no captura "último gasto" en singular, porque esa consulta
+        pertenece al motor transaccional y puede incluir un período como agosto.
+        """
+        normalized = QueryNormalizer.normalize(question)
+
+        return bool(
+            re.search(
+                r"\b(?:mostrame|muestrame|mostrar|ver)\s+(?:mis\s+)?"
+                r"ultimos(?:\s+\d{1,2})?\s+gastos\b",
+                normalized,
+            )
+            or re.search(
+                r"\b(?:mis\s+)?ultimos(?:\s+\d{1,2})?\s+gastos\b",
+                normalized,
+            )
+        )
+
+    @staticmethod
     def _today_for_time_zone(time_zone: str | None) -> date:
         """Devuelve la fecha local del navegador; usa UTC si la zona es inválida."""
         try:
@@ -708,6 +752,7 @@ class FinSightAgentService:
         cls,
         usuario_id: str,
         limit: int,
+        today: date,
     ) -> str:
         """Devuelve los gastos más recientes del usuario, ordenados por fecha."""
         try:
@@ -741,11 +786,21 @@ class FinSightAgentService:
                 user_transactions["fecha"],
                 errors="coerce",
             )
+
+            # No mostrar movimientos fechados después de hoy.
+            user_transactions = user_transactions[
+                user_transactions["_fecha_orden"].isna()
+                | user_transactions["_fecha_orden"].dt.date.le(today)
+            ].copy()
+
             user_transactions = user_transactions.sort_values(
                 by="_fecha_orden",
                 ascending=False,
                 na_position="last",
             )
+
+        if user_transactions.empty:
+            return "No encontré gastos registrados hasta hoy para tu cuenta."
 
         recent = user_transactions.head(limit)
         actual_count = len(recent)
@@ -874,12 +929,20 @@ class FinSightAgentService:
             r"\ben\s+que\s+gaste\b",
             r"\btotal\s+de\s+gastos\b",
             r"\bgastos?\s+(?:de|del|en|este|esta)\b",
+            r"\bultimo\s+gasto\b",
+            r"\bultima\s+compra\b",
+            r"\bgasto\s+mas\s+reciente\b",
+            r"\bgaste\s+mas\b",
+            r"\bgasto\s+mas\s+en\b",
+            r"\bcompar(?:ar|e|acion).*\bgastos?\b",
         )
         income_patterns = (
             r"\bcuanto\s+(?:ingrese|cobre|gane)\b",
             r"\bque\s+(?:ingrese|cobre)\b",
             r"\btotal\s+de\s+ingresos\b",
             r"\bingresos?\s+(?:de|del|en|este|esta)\b",
+            r"\bultimo\s+ingreso\b",
+            r"\bingreso\s+mas\s+reciente\b",
         )
 
         return any(
