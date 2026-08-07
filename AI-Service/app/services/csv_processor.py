@@ -9,6 +9,8 @@ import uuid
 
 import pandas as pd
 
+from app.prediction import predecir_categoria
+
 
 REQUIRED_COLUMNS = {
     "fecha",
@@ -226,14 +228,14 @@ def process_user_csv(content: bytes, usuario_id: str) -> ProcessedCSV:
         row_number = int(index) + 2
         try:
             description = _normalize_text(row["descripcion"])
-            category = _normalize_text(row["categoria"])
+            csv_category = _normalize_text(row["categoria"])
             payment_method = _normalize_text(row["medio_pago"])
 
             if not description:
                 raise CSVValidationError(
                     [f"Fila {row_number}: falta la descripción."]
                 )
-            if not category:
+            if not csv_category:
                 raise CSVValidationError(
                     [f"Fila {row_number}: falta la categoría."]
                 )
@@ -247,6 +249,43 @@ def process_user_csv(content: bytes, usuario_id: str) -> ProcessedCSV:
             transaction_type = _normalize_type(row["tipo"], row_number)
             recurring = _parse_boolean(row["recurrente"], row_number)
 
+            # Para los GASTOS usamos el clasificador híbrido 8.1.0 como
+            # fuente principal. Esto permite corregir automáticamente una
+            # categoría incorrecta del CSV y además generar la subcategoría.
+            #
+            # Para INGRESOS conservamos la categoría informada en el CSV,
+            # porque el clasificador actual está entrenado para gastos.
+            category = csv_category
+            subcategory: str | None = None
+
+            if transaction_type == "GASTO":
+                try:
+                    prediction = predecir_categoria(
+                        descripcion=description,
+                        monto=amount,
+                        fecha=transaction_date.isoformat(),
+                        medio_pago=payment_method,
+                        recurrente="Sí" if recurring else "No",
+                    )
+
+                    predicted_category = prediction.get("categoria_predicha")
+                    predicted_subcategory = prediction.get(
+                        "subcategoria_predicha"
+                    )
+
+                    if predicted_category:
+                        category = str(predicted_category)
+
+                    if predicted_subcategory:
+                        subcategory = str(predicted_subcategory)
+
+                except Exception:
+                    # Fallback seguro: si por cualquier motivo falla la
+                    # predicción, la importación continúa usando la categoría
+                    # que ya venía en el CSV.
+                    category = csv_category
+                    subcategory = None
+
             transactions.append(
                 {
                     "transaction_id": f"TXN-{uuid.uuid4().hex.upper()}",
@@ -257,6 +296,7 @@ def process_user_csv(content: bytes, usuario_id: str) -> ProcessedCSV:
                     "moneda": "USD",
                     "tipo": transaction_type,
                     "categoria": category,
+                    "subcategoria": subcategory,
                     "medio_pago": payment_method,
                     "recurrente": recurring,
                     "origen": "CSV",

@@ -23,9 +23,11 @@ public class AnalisisController {
     }
 
     @PostMapping("/analisis-financiero")
-    @Operation(summary = "Analiza el comportamiento financiero del usuario",
+    @Operation(
+        summary = "Analiza el comportamiento financiero del usuario",
         description = "Recibe ingresos, endeudamiento, frecuencia de ahorro y transacciones; "
-            + "devuelve perfil financiero, resumen de gastos por categoría y recomendaciones.")
+                + "devuelve perfil financiero, resumen de gastos por categoría y recomendaciones."
+    )
     public ResponseEntity<AnalisisResponse> analizarFinanzas(
             @Valid @RequestBody AnalisisRequest request,
             @RequestParam(defaultValue = "USR0001") String usuarioId) {
@@ -35,13 +37,20 @@ public class AnalisisController {
     }
 
     @GetMapping("/clasificar")
-    @Operation(summary = "Clasifica una transacción según su descripción",
-        description = "Usa el modelo de ML si está disponible; si no, cae en las reglas internas.")
-    public ResponseEntity<Map<String, String>> clasificar(@RequestParam String descripcion) {
-        String categoria = analisisService.clasificarDescripcion(descripcion);
+    @Operation(
+        summary = "Clasifica una transacción según su descripción",
+        description = "Usa el modelo de ML si está disponible; si no, cae en las reglas internas."
+    )
+    public ResponseEntity<Map<String, String>> clasificar(
+            @RequestParam String descripcion) {
+
+        Map<String, String> resultado =
+                analisisService.clasificarDescripcion(descripcion);
+
         return ResponseEntity.ok(Map.of(
-            "descripcion", descripcion,
-            "categoria", categoria
+                "descripcion", descripcion,
+                "categoria", resultado.get("categoria"),
+                "subcategoria", resultado.get("subcategoria")
         ));
     }
 }

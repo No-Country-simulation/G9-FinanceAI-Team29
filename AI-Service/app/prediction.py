@@ -258,6 +258,31 @@ REGLAS_TERMINOS: dict[str, dict[str, str]] = {
         "categoria": "Transporte",
         "subcategoria": "Peajes",
     },
+    "pasaje": {
+        "descripcion": "pasaje",
+        "categoria": "Transporte",
+        "subcategoria": "Viajes",
+    },
+    "pasaje de avion": {
+        "descripcion": "pasaje",
+        "categoria": "Transporte",
+        "subcategoria": "Viajes",
+    },
+    "vuelo": {
+        "descripcion": "pasaje",
+        "categoria": "Transporte",
+        "subcategoria": "Viajes",
+    },
+    "avion": {
+        "descripcion": "pasaje",
+        "categoria": "Transporte",
+        "subcategoria": "Viajes",
+    },
+    "micro de larga distancia": {
+        "descripcion": "pasaje",
+        "categoria": "Transporte",
+        "subcategoria": "Viajes",
+    },
     "mantenimiento del vehiculo": {
         "descripcion": "mantenimiento del vehiculo",
         "categoria": "Transporte",
@@ -574,6 +599,41 @@ REGLAS_TERMINOS: dict[str, dict[str, str]] = {
         "categoria": "Entretenimiento",
         "subcategoria": "Streaming",
     },
+    "amazon prime": {
+        "descripcion": "streaming",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Streaming",
+    },
+    "prime": {
+        "descripcion": "streaming",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Streaming",
+    },
+    "paramount plus": {
+        "descripcion": "streaming",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Streaming",
+    },
+    "paramount+": {
+        "descripcion": "streaming",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Streaming",
+    },
+    "apple tv": {
+        "descripcion": "streaming",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Streaming",
+    },
+    "apple tv plus": {
+        "descripcion": "streaming",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Streaming",
+    },
+    "crunchyroll": {
+        "descripcion": "streaming",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Streaming",
+    },
     "streaming": {
         "descripcion": "streaming",
         "categoria": "Entretenimiento",
@@ -633,6 +693,51 @@ REGLAS_TERMINOS: dict[str, dict[str, str]] = {
         "descripcion": "festival",
         "categoria": "Entretenimiento",
         "subcategoria": "Eventos y cultura",
+    },
+    "hotel": {
+        "descripcion": "alojamiento",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Turismo",
+    },
+    "hostel": {
+        "descripcion": "alojamiento",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Turismo",
+    },
+    "airbnb": {
+        "descripcion": "alojamiento",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Turismo",
+    },
+    "resort": {
+        "descripcion": "alojamiento",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Turismo",
+    },
+    "tour": {
+        "descripcion": "tour",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Turismo",
+    },
+    "excursion": {
+        "descripcion": "tour",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Turismo",
+    },
+    "paseo turistico": {
+        "descripcion": "tour",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Turismo",
+    },
+    "atraccion turistica": {
+        "descripcion": "tour",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Turismo",
+    },
+    "parque tematico": {
+        "descripcion": "tour",
+        "categoria": "Entretenimiento",
+        "subcategoria": "Turismo",
     },
     "museo": {
         "descripcion": "museo",
