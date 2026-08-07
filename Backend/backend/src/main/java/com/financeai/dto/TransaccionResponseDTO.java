@@ -4,10 +4,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class TransaccionResponseDTO {
+
     private String id;
     private String descripcion;
     private BigDecimal monto;
     private String categoria;
+    private String subcategoria;
     private LocalDate fecha;
     private String tipo;
     private String medioPago;
@@ -15,27 +17,75 @@ public class TransaccionResponseDTO {
 
     public TransaccionResponseDTO() {}
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    public String getId() {
+        return id;
+    }
 
-    public String getDescripcion() { return descripcion; }
-    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+    public void setId(String id) {
+        this.id = id;
+    }
 
-    public BigDecimal getMonto() { return monto; }
-    public void setMonto(BigDecimal monto) { this.monto = monto; }
+    public String getDescripcion() {
+        return descripcion;
+    }
 
-    public String getCategoria() { return categoria; }
-    public void setCategoria(String categoria) { this.categoria = categoria; }
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
 
-    public LocalDate getFecha() { return fecha; }
-    public void setFecha(LocalDate fecha) { this.fecha = fecha; }
+    public BigDecimal getMonto() {
+        return monto;
+    }
 
-    public String getTipo() { return tipo; }
-    public void setTipo(String tipo) { this.tipo = tipo; }
+    public void setMonto(BigDecimal monto) {
+        this.monto = monto;
+    }
 
-    public String getMedioPago() { return medioPago; }
-    public void setMedioPago(String medioPago) { this.medioPago = medioPago; }
+    public String getCategoria() {
+        return categoria;
+    }
 
-    public Boolean getRecurrente() { return recurrente; }
-    public void setRecurrente(Boolean recurrente) { this.recurrente = recurrente; }
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+    }
+
+    public String getSubcategoria() {
+        return subcategoria;
+    }
+
+    public void setSubcategoria(String subcategoria) {
+        this.subcategoria = subcategoria;
+    }
+
+    public LocalDate getFecha() {
+        return fecha;
+    }
+
+    public void setFecha(LocalDate fecha) {
+        this.fecha = fecha;
+    }
+
+    public String getTipo() {
+        return tipo;
+    }
+
+    public void setTipo(String tipo) {
+        this.tipo = tipo;
+    }
+
+    public String getMedioPago() {
+        return medioPago;
+    }
+
+    public void setMedioPago(String medioPago) {
+        this.medioPago = medioPago;
+    }
+
+    public Boolean getRecurrente() {
+        return recurrente;
+    }
+
+    public void setRecurrente(Boolean recurrente) {
+        this.recurrente = recurrente;
+    }
 }

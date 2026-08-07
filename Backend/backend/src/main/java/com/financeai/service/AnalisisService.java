@@ -170,20 +170,61 @@ log.info(
      * Clasifica una sola descripción (el endpoint GET /clasificar).
      * Primero prueba el ML y, si no está o falla, usa las reglas.
      */
-    public String clasificarDescripcion(String descripcion) {
+    public Map<String, String> clasificarDescripcion(String descripcion) {
         if (descripcion == null || descripcion.isBlank()) {
-            return "Otros";
+            return Map.of(
+                "categoria", "Otros",
+                "subcategoria", ""
+            );
         }
+
         if (mlService.estaDisponible()) {
-            MlTransaccion tx = new MlTransaccion(
-                LocalDate.now().toString(), descripcion, BigDecimal.ZERO,
-                null, "desconocido", "no");
-            String categoriaMl = categoriaSiConfiable(tx);
-            if (categoriaMl != null) {
-                return categoriaMl;
+            try {
+                MlTransaccion tx = new MlTransaccion(
+                    LocalDate.now().toString(),
+                    descripcion,
+                    BigDecimal.ONE,
+                    null,
+                    "desconocido",
+                    "no"
+                );
+
+                MlPredictResponse r = mlService.predecirCategoria(tx);
+
+                if (r.getConfianza() != null
+                        && r.getConfianza().doubleValue()
+                        >= umbralConfianzaClasificacion) {
+
+                    return Map.of(
+                        "categoria", r.getCategoriaPredicha(),
+                        "subcategoria",
+                        r.getSubcategoriaPredicha() != null
+                            ? r.getSubcategoriaPredicha()
+                            : ""
+                    );
+                }
+
+                log.debug(
+                    "ML poco seguro ({}) para '{}', se usa regla.",
+                    r.getConfianza(),
+                    descripcion
+                );
+            } catch (Exception e) {
+                log.warn(
+                    "Falló /predict/category para '{}', se usa regla: {}",
+                    descripcion,
+                    e.getMessage()
+                );
             }
         }
-        return clasificacionService.clasificarTransaccion(descripcion);
+
+        String categoria =
+            clasificacionService.clasificarTransaccion(descripcion);
+
+        return Map.of(
+            "categoria", categoria,
+            "subcategoria", ""
+        );
     }
 
     /**

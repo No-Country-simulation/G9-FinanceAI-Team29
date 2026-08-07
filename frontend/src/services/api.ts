@@ -681,3 +681,36 @@ export async function darDeBajaCuenta(usuarioId: string): Promise<void> {
     throw new Error(detalle || 'No se pudo dar de baja la cuenta.');
   }
 }
+
+export interface ReclasificacionResponse {
+  usuarioId: string;
+  transaccionesTotales: number;
+  gastosProcesados: number;
+  actualizadas: number;
+  omitidas: number;
+  errores: number;
+}
+
+export async function reclasificarTransacciones(
+  usuarioId: string,
+): Promise<ReclasificacionResponse> {
+  const id = exigirUsuarioId(usuarioId);
+
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/reclasificar`,
+    {
+      method: 'POST',
+    },
+  );
+
+  if (!response.ok) {
+    const detalle = await response.text();
+
+    throw new Error(
+      detalle ||
+        `No se pudieron reclasificar las transacciones (${response.status}).`,
+    );
+  }
+
+  return response.json();
+}
