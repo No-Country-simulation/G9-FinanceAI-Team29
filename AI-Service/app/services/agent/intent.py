@@ -54,8 +54,8 @@ class IntentDetector:
         (Intent.CAPABILITIES, {"que podes hacer", "que puedes hacer", "como me ayudas", "tus funciones"}),
         (Intent.BUDGET, {"presupuesto", "plan de gastos", "distribuir mi sueldo", "organizar mis gastos"}),
         (Intent.SUMMARY, {"resumen", "resumime", "panorama", "vista general"}),
-        (Intent.RECOMMENDATIONS, {"recomendacion", "recomendaciones", "consejo", "consejos", "que deberia mejorar", "como mejorar", "que revisarias primero", "que deberia revisar primero", "que cambiarias de mis finanzas", "que categoria deberia revisar primero", "por que no llego a fin de mes", "no llego a fin de mes"}),
-        (Intent.EXPENSES, {"gasto", "gastos", "consumo", "consumos", "egreso", "egresos", "en que gasto", "donde gasto", "donde estoy gastando", "categoria con mas gastos", "mayor gasto"}),
+        (Intent.RECOMMENDATIONS, {"recomendacion", "recomendaciones", "consejo", "consejos", "que deberia mejorar", "como mejorar", "que revisarias primero", "que deberia revisar primero", "que cambiarias de mis finanzas", "que categoria deberia revisar primero", "por que no llego a fin de mes", "no llego a fin de mes", "tres cosas concretas", "mejorar mis finanzas este mes", "que puedo hacer este mes para mejorar mis finanzas"}),
+        (Intent.EXPENSES, {"gasto", "gastos", "consumo", "consumos", "egreso", "egresos", "en que gasto", "donde gasto", "donde estoy gastando", "categoria con mas gastos", "subcategoria", "subcategorias", "mayor gasto"}),
         (Intent.INCOME, {"ingreso", "ingresos", "sueldo", "salario", "cuanto gano", "cuanto dinero me ingreso", "cuanto dinero me entro", "me depositaron dinero", "me acreditaron dinero"}),
         (Intent.DEBT, {"deuda", "deudas", "endeudamiento", "prestamo", "credito", "desendeudar", "desendeudarme", "cuanto debo", "cuanto es mi deuda", "cuanto dinero debo"}),
         (Intent.SAVINGS, {"ahorro", "ahorros", "ahorrar", "capacidad de ahorro"}),
@@ -239,7 +239,10 @@ class IntentDetector:
         "en que se me va el dinero",
         "en que se me esta yendo el dinero",
         "en que se me va la plata",
+        "en que se me esta yendo la plata",
         "en que se me va el dinero",
+        "en que se me esta yendo toda la plata",
+        "en que se me esta yendo todo el dinero",
         "que categoria deberia revisar primero",
     }
 
@@ -344,6 +347,9 @@ class IntentDetector:
         "categoria con mas gastos",
         "en que categoria gasto mas",
         "categoria donde mas gasto",
+        "cual es la categoria en la que mas gasto",
+        "cual es la categoria donde mas gasto",
+        "que categoria es en la que mas gasto",
     }
 
     _HIGHEST_EXPENSE_MONTH_TERMS = {
@@ -497,6 +503,22 @@ class IntentDetector:
                 matched_terms=("perfil financiero",),
             )
 
+        # Las consultas que hablan explícitamente de metas deben conservar
+        # GOALS aunque también incluyan palabras como ahorro o recomendaciones.
+        if self._contains_any(
+            normalized,
+            {
+                "mi meta", "mis metas", "meta mas cercana", "metas de ahorro",
+                "objetivo financiero", "objetivos financieros",
+                "alcanzar mi meta", "cumplir mi meta",
+            },
+        ):
+            return IntentResult(
+                intent=Intent.GOALS,
+                mode=QueryMode.ANALYTICAL,
+                matched_terms=("meta",),
+            )
+
         if self._is_financial_education(normalized):
             return IntentResult(Intent.FINANCIAL_EDUCATION)
 
@@ -639,6 +661,9 @@ class IntentDetector:
             "que categoria deberia revisar primero",
             "por que no llego a fin de mes",
             "no llego a fin de mes",
+            "tres cosas concretas",
+            "mejorar mis finanzas este mes",
+            "que puedo hacer este mes para mejorar mis finanzas",
         )
         matched_general_recommendations = tuple(
             term for term in general_recommendations

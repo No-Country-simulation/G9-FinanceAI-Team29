@@ -6,6 +6,7 @@ from typing import Any
 
 from app import profile as profile_data
 from app.profile import analizar_usuario
+from app.prediction import diagnosticar_descripcion
 from app.services.agent.calculator import FinancialCalculator
 from app.services.agent.context_builder import FinancialContextBuilder
 from app.services.agent.deterministic_responder import DeterministicFinancialResponder
@@ -129,6 +130,22 @@ class FinSightAgentService:
 
         query = self._prepare_query(question)
 
+        # Consultas hipotéticas de clasificación (p. ej. "¿en qué categoría y
+        # subcategoría debería estar un pasaje de avión?") se resuelven con el
+        # mismo clasificador determinístico usado por las transacciones reales.
+        classification_response = self._transaction_classification_response(query.original)
+        if classification_response is not None:
+            return LLMResponse(
+                content=classification_response,
+                provider="internal",
+                model="transaction-classifier",
+                metadata={
+                    "intent": "transaction_classification",
+                    "route": "transaction_classification_direct",
+                    "used_financial_context": False,
+                },
+            )
+
         if self._is_goal_delete_support_follow_up(
             query.original,
             previous_answer,
@@ -233,6 +250,7 @@ class FinSightAgentService:
             Intent.CAPABILITIES,
             Intent.CREATOR_INFO,
             Intent.NON_FINANCIAL_CALCULATION,
+            Intent.OUT_OF_SCOPE,
         }:
             return self._internal_response(
                 self._simple_response(early_intent.intent),
@@ -306,6 +324,23 @@ class FinSightAgentService:
                 used_financial_context=True,
             )
             response.metadata["route"] = "recent_expenses_direct"
+            return response
+
+        # Las consultas sobre metas deben usar siempre las metas reales del backend.
+        # Se resuelven antes del follow-up genérico para evitar que el LLM responda
+        # con consejos hipotéticos cuando FinSightAI ya tiene esos datos.
+        if self._is_direct_goal_query(query.corrected):
+            content = self._direct_goal_response(
+                usuario_id=usuario_id,
+                question=query.corrected,
+            )
+            response = self._internal_response(
+                content,
+                Intent.GOALS,
+                query,
+                used_financial_context=True,
+            )
+            response.metadata["route"] = "goals_direct"
             return response
 
         if previous_answer and self._is_follow_up(query.corrected):
@@ -471,6 +506,41 @@ class FinSightAgentService:
         )
         return response
 
+
+    @staticmethod
+    def _transaction_classification_response(question: str) -> str | None:
+        normalized = QueryNormalizer.normalize(question)
+        asks_classification = (
+            ("categoria" in normalized or "subcategoria" in normalized)
+            and any(
+                marker in normalized
+                for marker in (
+                    "deberia estar", "deberia ir", "corresponde",
+                    "como lo clasificarias", "como clasificarias",
+                    "en que categoria",
+                )
+            )
+            and any(
+                marker in normalized
+                for marker in (
+                    "compre", "pague", "gaste", "pasaje", "compra",
+                    "transaccion", "movimiento",
+                )
+            )
+        )
+        if not asks_classification:
+            return None
+
+        diagnostic = diagnosticar_descripcion(question)
+        categoria = diagnostic.get("categoria")
+        subcategoria = diagnostic.get("subcategoria")
+        if not categoria or not subcategoria:
+            return None
+
+        return (
+            f"La clasificaría como **{categoria} → {subcategoria}**. "
+            "Esa clasificación se basa en la descripción de la transacción."
+        )
 
     @staticmethod
     def _is_explicit_technical_problem(question: str) -> bool:
@@ -655,6 +725,226 @@ class FinSightAgentService:
             )
 
         return None
+
+    @staticmethod
+    def _is_direct_goal_query(question: str) -> bool:
+        """Detecta preguntas que requieren consultar las metas reales del usuario."""
+        normalized = QueryNormalizer.normalize(question)
+
+        goal_terms = (
+            "meta", "metas", "objetivo de ahorro", "objetivos de ahorro",
+            "objetivo financiero", "objetivos financieros",
+        )
+        if any(term in normalized for term in goal_terms):
+            return True
+
+        # Variantes naturales que pueden no contener literalmente "meta".
+        patterns = (
+            r"\bcomo vienen mis objetivos\b",
+            r"\bcuanto me falta para (?:llegar|alcanzar|completar)\b",
+            r"\ben cual estoy mas avanzado\b",
+            r"\bcual tengo mas cerca\b",
+        )
+        return any(re.search(pattern, normalized) for pattern in patterns)
+
+    def _direct_goal_response(
+        self,
+        usuario_id: str,
+        question: str,
+    ) -> str:
+        """Responde sobre metas usando exclusivamente datos persistidos en Spring."""
+        try:
+            goals = self.goal_repository.list_by_user(usuario_id)
+        except (ValueError, BackendDataError):
+            return (
+                "No pude consultar tus metas en este momento. "
+                "Intenta nuevamente cuando el servicio esté disponible."
+            )
+
+        if not goals:
+            return (
+                "Todavía no tienes metas financieras registradas. "
+                "Puedes crear una meta desde la sección de Metas de FinSightAI."
+            )
+
+        normalized = QueryNormalizer.normalize(question)
+        active = [
+            goal for goal in goals
+            if str(goal.get("estado", "")).upper() == "ACTIVA"
+        ]
+        completed = [
+            goal for goal in goals
+            if str(goal.get("estado", "")).upper() == "COMPLETADA"
+        ]
+        relevant = active or completed or goals
+
+        def number(goal: dict[str, Any], key: str) -> float:
+            try:
+                return float(goal.get(key) or 0)
+            except (TypeError, ValueError):
+                return 0.0
+
+        def progress(goal: dict[str, Any]) -> float:
+            target = number(goal, "monto_objetivo")
+            reserved = number(goal, "monto_reservado")
+            return min((reserved / target * 100), 100.0) if target > 0 else 0.0
+
+        def remaining(goal: dict[str, Any]) -> float:
+            return max(
+                number(goal, "monto_objetivo") - number(goal, "monto_reservado"),
+                0.0,
+            )
+
+        def name(goal: dict[str, Any]) -> str:
+            return str(goal.get("nombre") or "Meta").strip()
+
+        # Meta más cercana: primero por fecha objetivo; si no hay fechas,
+        # por menor monto restante.
+        def target_date(goal: dict[str, Any]) -> date | None:
+            raw = goal.get("fecha_objetivo")
+            if not raw:
+                return None
+            try:
+                return date.fromisoformat(str(raw)[:10])
+            except ValueError:
+                return None
+
+        dated_active = [goal for goal in active if target_date(goal) is not None]
+        if dated_active:
+            nearest = min(dated_active, key=lambda goal: target_date(goal))
+        elif active:
+            nearest = min(active, key=remaining)
+        else:
+            nearest = max(relevant, key=progress)
+
+        # "¿Cuánto me falta...?" debe responder el faltante, aunque también
+        # contenga la frase "meta más cercana".
+        if any(
+            marker in normalized
+            for marker in (
+                "cuanto me falta", "cuanto falta", "monto restante",
+            )
+        ):
+            selected = nearest
+            for goal in relevant:
+                goal_name = QueryNormalizer.normalize(name(goal))
+                if goal_name and goal_name in normalized:
+                    selected = goal
+                    break
+            return (
+                f"Para **{name(selected)}** te faltan "
+                f"{self._format_money(remaining(selected))}. "
+                f"Llevas {progress(selected):.1f}% de la meta "
+                f"({self._format_money(number(selected, 'monto_reservado'))} de "
+                f"{self._format_money(number(selected, 'monto_objetivo'))})."
+            )
+
+        # Preguntas sobre cómo acelerar la meta más cercana.
+        if any(
+            marker in normalized
+            for marker in (
+                "que deberia cambiar", "que puedo cambiar", "alcanzar antes",
+                "llegar antes", "cumplir antes", "como alcanzo antes",
+            )
+        ):
+            if not active:
+                return "No tienes metas activas pendientes en este momento."
+
+            monthly = nearest.get("reserva_mensual_sugerida")
+            result = (
+                f"Tu meta más cercana es **{name(nearest)}**. "
+                f"Llevas {progress(nearest):.1f}% y te faltan "
+                f"{self._format_money(remaining(nearest))}."
+            )
+            try:
+                monthly_value = float(monthly) if monthly is not None else None
+            except (TypeError, ValueError):
+                monthly_value = None
+
+            # Usa el análisis financiero real para convertir la respuesta en una
+            # recomendación concreta, sin inventar capacidad de ahorro.
+            current_saving = None
+            try:
+                analysis = fetch_live_analysis(usuario_id)
+                metrics = analysis.get("metricas", {})
+                current_saving = float(metrics.get("ahorro_mensual_estimado") or 0)
+            except (BackendDataError, ValueError, TypeError):
+                current_saving = None
+
+            if monthly_value and monthly_value > 0:
+                result += (
+                    f" Para llegar en la fecha prevista necesitas reservar "
+                    f"aproximadamente {self._format_money(monthly_value)} por mes."
+                )
+                if current_saving is not None:
+                    if current_saving >= monthly_value:
+                        result += (
+                            f" Tu capacidad de ahorro mensual estimada es "
+                            f"{self._format_money(current_saving)}, así que podrías cubrir "
+                            f"esa reserva si priorizas esta meta."
+                        )
+                    else:
+                        gap = monthly_value - current_saving
+                        result += (
+                            f" Tu capacidad de ahorro mensual estimada es "
+                            f"{self._format_money(current_saving)}, por lo que te faltarían "
+                            f"aproximadamente {self._format_money(gap)} por mes. "
+                            f"Para acelerar la meta tendrías que liberar ese monto reduciendo "
+                            f"gastos o aumentando ingresos."
+                        )
+            else:
+                result += (
+                    " Como no hay una reserva mensual calculada, puedes acelerarla "
+                    "destinando parte de tu ahorro disponible a esta meta."
+                )
+            return result
+
+        if any(
+            marker in normalized
+            for marker in (
+                "mas avanzado", "mayor avance", "mas progreso",
+            )
+        ):
+            best = max(relevant, key=progress)
+            return (
+                f"La meta en la que más avanzaste es **{name(best)}**, "
+                f"con {progress(best):.1f}% completado "
+                f"({self._format_money(number(best, 'monto_reservado'))} de "
+                f"{self._format_money(number(best, 'monto_objetivo'))})."
+            )
+
+        # Resumen general de metas.
+        lines = [
+            f"Tienes {len(active)} meta{'s' if len(active) != 1 else ''} activa"
+            f"{'s' if len(active) != 1 else ''}"
+            + (
+                f" y {len(completed)} completada"
+                f"{'s' if len(completed) != 1 else ''}."
+                if completed
+                else "."
+            )
+        ]
+
+        for goal in active[:5]:
+            line = (
+                f"• **{name(goal)}**: {progress(goal):.1f}% completado — "
+                f"{self._format_money(number(goal, 'monto_reservado'))} de "
+                f"{self._format_money(number(goal, 'monto_objetivo'))}; "
+                f"faltan {self._format_money(remaining(goal))}"
+            )
+            goal_date = target_date(goal)
+            if goal_date:
+                line += f" — objetivo {goal_date.strftime('%d/%m/%Y')}"
+            line += "."
+            lines.append(line)
+
+        if active:
+            lines.append(
+                f"Tu meta más cercana es **{name(nearest)}**, "
+                f"con {progress(nearest):.1f}% de avance."
+            )
+
+        return "\n".join(lines)
 
     @staticmethod
     def _is_recommendation_context(question: str) -> bool:
@@ -982,6 +1272,8 @@ class FinSightAgentService:
             "resumilo",
             "resumimelo",
             "por que",
+            "que te parece",
+            "y que te parece",
         )
         return any(term in normalized for term in follow_up_terms)
 
