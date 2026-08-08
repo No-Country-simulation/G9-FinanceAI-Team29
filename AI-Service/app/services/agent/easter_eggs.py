@@ -165,8 +165,9 @@ class EasterEggResponder:
         if normalized == "hello there":
             return EasterEgg(
                 key="hello_there",
-                response="General Kenobi.",
-            )
+                response=("General Kenobi.\n\n" "!audio[general-kenobi](/images/task/General-Kenobi.mp3)"
+        ),
+    )
 
         if normalized in cls._KONAMI_TRIGGERS:
             return EasterEgg(
@@ -179,13 +180,14 @@ class EasterEggResponder:
             )
 
         if "star wars" in normalized or normalized in {
-            "que la fuerza te acompane",
-            "may the force be with you",
-        }:
-            return EasterEgg(
-                key="star_wars",
-                response="\"Do or do not. There is no try.\"\n\n— Yoda",
-            )
+    "que la fuerza te acompane",
+    "may the force be with you",
+}:
+          return EasterEgg(
+              key="star_wars",
+              response=("\"Do or do not. There is no try.\"\n\n""— Yoda\n\n""!audio[yoda](/images/task/yoda.mp3)"
+        ),
+    )
 
         if normalized in cls._ALBION_TRIGGERS or "albion online" in normalized or "mmorpg" in normalized:
             return EasterEgg(

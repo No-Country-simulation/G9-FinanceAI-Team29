@@ -46,7 +46,7 @@ const MAX_CHATS_GUARDADOS = 20;
 const MASCOTA_SRC = "/images/mascot/finsight-bird-v2.png";
 
 const CONTEXTO_FINANCIERO_INTERNO =
-  /<!--\s*finsi-financial-context\s+metric=(?:income|expense|unknown)\s+granularity=(?:year|month|rank|other)\s+year=(?:\d{4}|none)\s+month=(?:\d{1,2}|none)\s+position=(?:\d+|none)\s*-->/gi;
+  /<!--\s\*finsi-financial-context\s+metric=(?:income|expense|unknown)\s+granularity=(?:year|month|rank|other)\s+year=(?:\d{4}|none)\s+month=(?:\d{1,2}|none)\s+position=(?:\d+|none)\s\*-->/gi;
 
 function limpiarMetadataInterna(texto: string): string {
   return texto
@@ -59,10 +59,24 @@ function limpiarMetadataInterna(texto: string): string {
 // muestra el rickroll sin pasar por el backend. Mismo texto que el easter egg
 // "rickroll" de AI-Service/app/services/agent/easter_eggs.py.
 const RESPUESTA_RICKROLL_REPETIDA =
-  "😏 You just got Rickrolled. Classic.\n\n!video[Rickroll](https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1)";
+  "😏 You just got Rickrolled. Classic.\n\n!video[Rickroll](https://www\.youtube.com/embed/dQw4w9WgXcQ?autoplay=1)";
 
 function normalizarPreguntaParaComparar(texto: string): string {
   return texto.trim().toLowerCase();
+}
+
+type EasterEggVisual = "kenobi" | "yoda" | null;
+
+function detectarEasterEggVisual(texto: string): EasterEggVisual {
+  if (texto.includes("!audio[general-kenobi]") || /\bGeneral Kenobi\./i.test(texto)) {
+    return "kenobi";
+  }
+
+  if (texto.includes("!audio[yoda]") || /Do or do not\. There is no try\./i.test(texto)) {
+    return "yoda";
+  }
+
+  return null;
 }
 
 function AvatarFinsi({ pensando = false }: { pensando?: boolean }) {
@@ -101,7 +115,7 @@ function guardarChatsGuardados(usuarioId: string, chats: ChatGuardado[]) {
 
 function PersonaHablandoIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www\.w3.org/2000/svg">
       <circle cx="9" cy="8" r="3" fill="currentColor" />
       <path
         d="M4 19c0-2.76 2.24-5 5-5s5 2.24 5 5"
@@ -130,7 +144,7 @@ function PersonaHablandoIcon({ className }: { className?: string }) {
 
 function OjoMasIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www\.w3.org/2000/svg">
       <path
         d="M2.5 11.5S6 5.5 11.5 5.5 20.5 11.5 20.5 11.5 17 17.5 11.5 17.5 2.5 11.5 2.5 11.5Z"
         stroke="currentColor"
@@ -493,6 +507,41 @@ export default function AsistenteIA() {
 
   return (
     <>
+      <style>{`
+        @keyframes finsiKenobiGlow {
+          0% { transform: scale(.985); box-shadow: 0 0 0 rgba(59,130,246,0); }
+          35% { transform: scale(1.012); box-shadow: 0 0 18px rgba(59,130,246,.52), 0 0 38px rgba(56,189,248,.24); }
+          100% { transform: scale(1); box-shadow: 0 0 0 rgba(59,130,246,0); }
+        }
+        @keyframes finsiSaberSweep {
+          0% { transform: translateX(-40%) skewX(-20deg); opacity: 0; }
+          15% { opacity: 1; }
+          70% { opacity: .95; }
+          100% { transform: translateX(440%) skewX(-20deg); opacity: 0; }
+        }
+        @keyframes finsiYodaGlow {
+          0% { transform: translateY(4px) scale(.985); box-shadow: 0 0 0 rgba(34,197,94,0); }
+          35% { transform: translateY(0) scale(1.01); box-shadow: 0 0 20px rgba(34,197,94,.45), 0 0 40px rgba(52,211,153,.20); }
+          100% { transform: translateY(0) scale(1); box-shadow: 0 0 0 rgba(34,197,94,0); }
+        }
+        @keyframes finsiYodaParticle {
+          0% { transform: translateY(0) scale(.7); opacity: 0; }
+          20% { opacity: .9; }
+          100% { transform: translateY(-34px) scale(1.2); opacity: 0; }
+        }
+        .finsi-easter-kenobi { animation: finsiKenobiGlow 1.35s ease-out; }
+        .finsi-saber-sweep { animation: finsiSaberSweep 1.1s ease-out; }
+        .finsi-easter-yoda { animation: finsiYodaGlow 1.55s ease-out; }
+        .finsi-yoda-particle { animation: finsiYodaParticle 1.45s ease-out forwards; }
+        .finsi-yoda-particle-2 { animation-delay: 90ms; }
+        .finsi-yoda-particle-3 { animation-delay: 160ms; }
+        .finsi-yoda-particle-4 { animation-delay: 230ms; }
+        .finsi-yoda-particle-5 { animation-delay: 310ms; }
+        @media (prefers-reduced-motion: reduce) {
+          .finsi-easter-kenobi, .finsi-saber-sweep, .finsi-easter-yoda, .finsi-yoda-particle { animation: none !important; }
+        }
+      `}</style>
+
       <PageMeta title="FinanceAI | Asistente IA" description="Asistente de inteligencia artificial para tus finanzas" />
       <div className="flex h-[calc(100dvh-90px)] gap-6 pb-2 sm:h-[calc(100vh-150px)] sm:pb-0">
         {/* Historial — escritorio */}
@@ -627,22 +676,51 @@ export default function AsistenteIA() {
               </div>
             ) : (
               <div className="mx-auto max-w-3xl space-y-6 py-2">
-                {messages.map((message) => (
+                {messages.map((message) => {
+                  const easterVisual =
+                    message.role === "assistant"
+                      ? detectarEasterEggVisual(message.text)
+                      : null;
+
+                  return (
                   <div key={message.id} className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                     {message.role === "assistant" && (
                       <AvatarFinsi />
                     )}
                     <div className={`flex max-w-[80%] flex-col ${message.role === "user" ? "items-end" : "items-stretch"}`}>
                       <div
-                        className={`rounded-2xl px-4 py-3 text-theme-sm ${
+                        className={`relative overflow-hidden rounded-2xl px-4 py-3 text-theme-sm ${
                           message.role === "user"
                             ? "whitespace-pre-line bg-brand-500 text-white"
-                            : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                            : easterVisual === "kenobi"
+                              ? "finsi-easter-kenobi bg-sky-50 text-gray-800 ring-1 ring-sky-300/80 dark:bg-sky-950/35 dark:text-sky-50 dark:ring-sky-500/50"
+                              : easterVisual === "yoda"
+                                ? "finsi-easter-yoda bg-emerald-50 text-gray-800 ring-1 ring-emerald-300/80 dark:bg-emerald-950/30 dark:text-emerald-50 dark:ring-emerald-500/50"
+                                : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200"
                         }`}
                       >
-                        {message.role === "assistant"
-                          ? renderMensajeAsistente(limpiarMetadataInterna(message.text))
-                          : message.text}
+                        {easterVisual === "kenobi" && (
+                          <>
+                            <span aria-hidden="true" className="finsi-saber-sweep pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-sky-300/80 to-white/90 blur-[2px] motion-reduce:hidden" />
+                            <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-sky-300/40" />
+                          </>
+                        )}
+
+                        {easterVisual === "yoda" && (
+                          <span aria-hidden="true" className="pointer-events-none absolute inset-0 motion-reduce:hidden">
+                            <span className="finsi-yoda-particle absolute left-[12%] top-[70%] size-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,0.9)]" />
+                            <span className="finsi-yoda-particle finsi-yoda-particle-2 absolute left-[28%] top-[78%] size-1 rounded-full bg-green-300 shadow-[0_0_8px_rgba(134,239,172,0.9)]" />
+                            <span className="finsi-yoda-particle finsi-yoda-particle-3 absolute left-[54%] top-[72%] size-1.5 rounded-full bg-emerald-200 shadow-[0_0_9px_rgba(167,243,208,0.9)]" />
+                            <span className="finsi-yoda-particle finsi-yoda-particle-4 absolute left-[74%] top-[80%] size-1 rounded-full bg-lime-300 shadow-[0_0_8px_rgba(190,242,100,0.8)]" />
+                            <span className="finsi-yoda-particle finsi-yoda-particle-5 absolute left-[88%] top-[66%] size-1.5 rounded-full bg-green-200 shadow-[0_0_10px_rgba(187,247,208,0.85)]" />
+                          </span>
+                        )}
+
+                        <div className="relative z-10">
+                          {message.role === "assistant"
+                            ? renderMensajeAsistente(limpiarMetadataInterna(message.text))
+                            : message.text}
+                        </div>
                       </div>
                       {message.role === "assistant" &&
                         message.id === ultimoMensajeAsistenteId &&
@@ -687,7 +765,8 @@ export default function AsistenteIA() {
                         )}
                     </div>
                   </div>
-                ))}
+                );
+                })}
                 {enviando && (
                   <div className="flex justify-start gap-3">
                     <AvatarFinsi pensando />
