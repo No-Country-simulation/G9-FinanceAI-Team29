@@ -58,9 +58,9 @@ class ProfessionalBoundariesResponder:
                 "con un profesional matriculado.\n\n"
                 "Puedo ayudarte a interpretar la información registrada en "
                 "FinSightAI, analizar ingresos, gastos, capacidad de ahorro y "
-                "nivel de endeudamiento, y explicarte los indicadores y "
-                "recomendaciones de la aplicación para que llegues mejor "
-                "preparado a esa consulta."
+                "nivel de endeudamiento, y también explicarte conceptos de educación "
+                "financiera, tipos de inversión y riesgos generales para que llegues "
+                "mejor preparado a esa consulta."
             ),
         ),
         ProfessionalBoundaryRule(
@@ -82,13 +82,17 @@ class ProfessionalBoundariesResponder:
                 "recomiendame una inversion",
             ),
             content=(
-                "No puedo recomendar una inversión, acción o criptomoneda "
-                "específica ni reemplazar a un asesor financiero profesional. "
-                "Toda inversión implica riesgos y debe evaluarse según tus "
-                "objetivos, plazo y tolerancia al riesgo.\n\n"
-                "FinSightAI sí puede ayudarte a revisar tus ingresos, gastos, "
-                "ahorro y endeudamiento para comprender mejor tu situación "
-                "antes de consultar con un profesional."
+                "Puedo explicarte de forma educativa las alternativas de inversión y sus riesgos, "
+                "pero no decirte qué activo específico comprar ni decidir por vos cómo invertir tu dinero.\n\n"
+                "En términos generales existen opciones con distintos niveles de riesgo y liquidez, "
+                "como cuentas remuneradas, depósitos a plazo, fondos de inversión, instrumentos de mercado "
+                "monetario, bonos soberanos o corporativos, otros títulos de deuda, acciones, ETFs y "
+                "criptoactivos. Algunos instrumentos cambian de nombre o disponibilidad según el país; "
+                "por ejemplo, los CEDEARs son específicos de Argentina. La elección depende "
+                "de factores como tu objetivo, horizonte temporal, necesidad de liquidez y tolerancia al riesgo.\n\n"
+                "Si estás por invertir una suma concreta o necesitás una recomendación personalizada, "
+                "conviene consultar con un asesor financiero profesional. Para cuestiones impositivas, "
+                "también es recomendable hablar con un contador."
             ),
         ),
         ProfessionalBoundaryRule(

@@ -246,6 +246,32 @@ class IntentDetector:
         "que categoria deberia revisar primero",
     }
 
+    _INVESTMENT_GUIDANCE_TERMS = {
+        "me conviene comprar bitcoin",
+        "deberia comprar bitcoin",
+        "compro bitcoin",
+        "me conviene invertir en bitcoin",
+        "deberia invertir en bitcoin",
+        "en que criptomoneda invierto",
+        "que criptomoneda compro",
+        "que acciones compro",
+        "en que acciones invierto",
+        "donde invierto mis ahorros",
+        "en que invierto mis ahorros",
+        "que hago con mis ahorros",
+        "que podria hacer con mis ahorros",
+        "que puedo hacer con mis ahorros",
+        "como invierto mis ahorros",
+        "donde puedo invertir mis ahorros",
+        "en que puedo invertir mis ahorros",
+        "que inversion me conviene",
+        "que inversiones me convienen",
+        "recomendame una inversion",
+        "recomiendame una inversion",
+        "decime en que invertir",
+        "dime en que invertir",
+    }
+
     _SAVINGS_ADVICE_TERMS = {
         "como ahorrar",
         "como puedo ahorrar",
@@ -382,7 +408,7 @@ class IntentDetector:
 
     _FINANCIAL_DOMAIN_TERMS = {
         "finanzas", "financiero", "financiera", "dinero", "presupuesto", "ingreso",
-        "gasto", "deuda", "ahorro", "credito", "prestamo", "inversion", "impuesto",
+        "gasto", "deuda", "ahorro", "ahorros", "ahorrado", "ahorrados", "credito", "prestamo", "inversion", "inversiones", "invertir", "impuesto",
         "salario", "sueldo", "cuota", "interes", "descuento", "precio", "costo",
         "economia", "situacion", "perfil", "riesgo", "resumen", "puntaje", "meta",
         "objetivo",
@@ -390,16 +416,43 @@ class IntentDetector:
         "pbi", "pib", "producto bruto interno", "producto interno bruto",
         "recesion", "estanflacion", "tipo de cambio", "devaluacion",
         "accion", "acciones", "bono", "bonos",
-        "cedear", "cedears", "etf",
-        "plazo fijo", "fondo comun", "fondo comun de inversion",
-        "diversificacion",
+        "etf", "etfs",
+        "fondo de inversion", "fondos de inversion",
+        "fondo comun", "fondos comunes", "fondo comun de inversion", "fondos comunes de inversion",
+        "deposito a plazo", "depositos a plazo", "plazo fijo", "plazos fijos",
+        "cuenta remunerada", "cuentas remuneradas",
+        "mercado monetario", "mercado de capitales",
+        "renta fija", "renta variable",
+        "obligacion negociable", "obligaciones negociables",
+        "titulo de deuda", "titulos de deuda",
+        "cedear", "cedears",
+        "criptomoneda", "criptomonedas", "cripto", "criptoactivo", "criptoactivos",
+        "bitcoin", "ethereum", "stablecoin", "stablecoins",
+        "blockchain", "wallet", "wallets", "billetera digital", "billeteras digitales",
+        "exchange", "exchanges", "custodia", "volatilidad",
+        "diversificacion", "diversificar",
+        "rentabilidad", "rendimiento",
         "tna", "tea", "cft",
         "interes simple", "interes compuesto",
-        "activo", "pasivo", "patrimonio", "liquidez",
+        "activo", "activos", "pasivo", "pasivos", "patrimonio", "liquidez",
         "flujo de caja", "fondo de emergencia",
         "tarjeta de credito", "tarjeta de debito",
         "cbu", "cvu", "alias",
         "iva", "ganancias", "bienes personales",
+        "fraude", "estafa", "estafas", "scam", "ponzi", "piramide",
+        "rentabilidad garantizada", "rendimiento garantizado", "ganancia garantizada",
+        "ganancias garantizadas", "retorno garantizado", "sin riesgo",
+        "dinero facil", "duplicar mi dinero", "duplicar el dinero",
+        "riesgo de contraparte", "comisiones", "comision",
+        "reserva", "reservas", "respaldo", "respaldo 1 a 1", "respaldo uno a uno",
+        "garantia", "garantias",
+        "diversificado", "diversificada", "diversificados", "diversificadas",
+        "diversificacion", "concentracion", "concentrado", "concentrada",
+        "clase de activo", "clases de activos",
+        "industria", "sector", "horizonte temporal",
+        "autocustodia", "auto custodia", "custodia propia",
+        "meme coin", "meme coins", "memecoin", "memecoins",
+        "tasa alta", "tasas altas",
     }
 
     _OUT_OF_SCOPE_TERMS = {
@@ -440,7 +493,10 @@ class IntentDetector:
         if has_math or has_financial_calculation:
             if has_money and (has_financial_calculation or "%" in text):
                 return IntentResult(Intent.FINANCIAL_CALCULATION)
-            if has_math:
+            if (
+                has_math
+                and not self._contains_any(normalized, self._FINANCIAL_DOMAIN_TERMS)
+            ):
                 return IntentResult(Intent.NON_FINANCIAL_CALCULATION)
 
         # Una consulta que combina varios ejes financieros pide una visión
@@ -519,7 +575,50 @@ class IntentDetector:
                 matched_terms=("meta",),
             )
 
-        if self._is_financial_education(normalized):
+        investment_guidance = tuple(
+            term
+            for term in self._INVESTMENT_GUIDANCE_TERMS
+            if self._contains_term(normalized, term)
+        )
+        asks_what_to_do_with_savings = (
+            self._contains_any(
+                normalized,
+                {"ahorro", "ahorros", "ahorrado", "ahorrados"},
+            )
+            and self._contains_any(
+                normalized,
+                {
+                    "que puedo hacer",
+                    "que podria hacer",
+                    "que hago",
+                    "donde invierto",
+                    "en que invierto",
+                    "donde puedo invertir",
+                    "en que puedo invertir",
+                    "como invertir",
+                    "como invierto",
+                },
+            )
+        )
+
+        if investment_guidance or asks_what_to_do_with_savings:
+            return IntentResult(
+                intent=Intent.FINANCIAL_EDUCATION,
+                mode=QueryMode.ANALYTICAL,
+                matched_terms=investment_guidance or ("investment_guidance",),
+            )
+
+        if self._is_investment_risk_education(normalized):
+            return IntentResult(
+                intent=Intent.FINANCIAL_EDUCATION,
+                mode=QueryMode.ANALYTICAL,
+                matched_terms=("investment_risk_education",),
+            )
+
+        if (
+            self._is_financial_education(normalized)
+            or self._is_conceptual_financial_question(normalized)
+        ):
             return IntentResult(Intent.FINANCIAL_EDUCATION)
 
         # "Cómo aumentar ingresos" solicita orientación; no debe confundirse
@@ -699,23 +798,186 @@ class IntentDetector:
         # recibe una guía para reformularla.
         return IntentResult(Intent.UNKNOWN)
 
+    @classmethod
+    def _is_conceptual_financial_question(cls, normalized: str) -> bool:
+        """Distingue una pregunta conceptual financiera de una consulta
+        explícita sobre los datos personales registrados del usuario.
+        """
+        has_financial_topic = cls._contains_any(
+            normalized,
+            cls._FINANCIAL_DOMAIN_TERMS,
+        )
+        if not has_financial_topic:
+            return False
+
+        # Si el usuario pide explícitamente un dato suyo, debe prevalecer el
+        # intent personal correspondiente (deuda, ahorro, presupuesto, etc.).
+        personal_data_patterns = (
+            r"\b(?:mi|mis)\s+(?:deuda|deudas|saldo|saldos|ingreso|ingresos|"
+            r"gasto|gastos|ahorro|ahorros|presupuesto|presupuestos|meta|metas|"
+            r"patrimonio|perfil)\b",
+            r"\bcuanto\s+(?:debo|gasto|gaste|ahorro|ahorre|ingreso|ingrese)\b",
+            r"\bcual\s+es\s+mi\s+(?:deuda|saldo|nivel|ratio|ahorro|presupuesto|patrimonio)\b",
+            r"\bmostrame\s+(?:mi|mis)\b",
+        )
+        explicitly_personal = any(
+            re.search(pattern, normalized)
+            for pattern in personal_data_patterns
+        )
+
+        # Una pregunta puede usar "mi" de forma hipotética ("si necesito mi
+        # dinero en 4 meses") sin pedir un dato almacenado. Solo bloqueamos
+        # cuando pide explícitamente información financiera personal.
+        if explicitly_personal:
+            return False
+
+        conceptual_patterns = (
+            r"^(?:que|como|cual|cuales|por que|puede|pueden|es|son|un|una|"
+            r"todos|todas|si|cuando|donde)\b",
+            r"\b(?:diferencia|comparar|comparo|riesgo|riesgos|liquidez|"
+            r"rentabilidad|rendimiento|volatilidad|diversificacion|concentracion|"
+            r"custodia|autocustodia|respaldo|reservas|comisiones|interes|tasa)\b",
+            r"\b(?:puede|pueden|deberia|deberia|tendria|conviene|significa|"
+            r"funciona|funcionan|jugar en contra|priorizar)\b",
+        )
+        return any(
+            re.search(pattern, normalized)
+            for pattern in conceptual_patterns
+        )
+
+    @classmethod
+    def _is_investment_risk_education(cls, normalized: str) -> bool:
+        """Reconoce preguntas educativas sobre riesgo, fraude y promesas de inversión."""
+        investment_context = cls._contains_any(
+            normalized,
+            {
+                "inversion", "inversiones", "invertir", "activo", "activos",
+                "accion", "acciones", "bono", "bonos", "etf", "etfs",
+                "fondo", "fondos", "criptomoneda", "criptomonedas", "cripto",
+                "bitcoin", "ethereum", "stablecoin", "stablecoins",
+                "rendimiento", "rentabilidad", "retorno", "ganancia", "ganancias",
+            },
+        )
+        red_flag_context = cls._contains_any(
+            normalized,
+            {
+                "garantizado", "garantizada", "garantizados", "garantizadas",
+                "sin riesgo", "dinero facil", "duplicar mi dinero",
+                "duplicar el dinero", "estafa", "fraude", "scam", "ponzi",
+                "piramide", "demasiado bueno", "confiable", "seguro", "segura",
+            },
+        )
+        asks_evaluation = cls._contains_any(
+            normalized,
+            {
+                "que deberia pensar", "que debo pensar", "que opinas",
+                "que te parece", "es confiable", "es seguro", "es segura",
+                "es una estafa", "como detectar", "como identifico",
+                "como identificar", "que señales", "que senales",
+                "que revisar", "que deberia revisar",
+            },
+        )
+        extraordinary_percentage = bool(
+            re.search(
+                r"\b\d+(?:[.,]\d+)?\s*%\s*(?:mensual|semanal|diario|por mes|al mes)\b",
+                normalized,
+            )
+        )
+        return investment_context and (
+            red_flag_context or asks_evaluation or extraordinary_percentage
+        )
+
     def _is_financial_education(self, normalized: str) -> bool:
+        """Reconoce preguntas educativas financieras por intención semántica,
+        no solo por frases exactas.
+        """
         starters = {
             "que es",
+            "que son",
             "que significa",
+            "que significan",
             "explicame",
+            "explica",
             "como funciona",
+            "como funcionan",
             "para que sirve",
+            "para que sirven",
             "cual es la diferencia",
+            "cuales son las diferencias",
+            "que diferencia hay",
+            "que diferencias hay",
+            "diferencia entre",
+            "diferencias entre",
+            "que riesgos tiene",
+            "que riesgo tiene",
+            "que riesgos hay",
+            "que cambia si",
+            "que pasa si",
+            "que deberia revisar",
+            "que tendria que revisar",
+            "que preguntas deberia",
+            "como se",
+            "como saber",
+            "es lo mismo que",
+            "siempre es",
+            "siempre esta",
+            "siempre estan",
+            "que opciones generales",
+            "que opciones de inversion",
+            "que tipos de inversion",
+            "como comparo",
+            "como comparar",
         }
-        is_definition_question = self._contains_any(normalized, starters)
+
+        has_financial_topic = self._contains_any(
+            normalized,
+            self._FINANCIAL_DOMAIN_TERMS,
+        )
+
+        if not has_financial_topic:
+            return False
+
+        if self._contains_any(normalized, starters):
+            return True
+
+        # Preguntas generales de propiedad/comportamiento:
+        # "¿Todas las stablecoins tienen reservas?"
+        # "¿Todos los bonos gubernamentales son seguros?"
+        # "¿Un ETF puede concentrarse en una sola industria?"
+        property_patterns = (
+            r"\b(?:todos|todas)\b.+\b(?:son|tienen|pueden|estan)\b",
+            r"\b(?:un|una)\b.+\bpuede\b",
+            r"\b(?:un|una)\b.+\b(?:es|esta)\b.+\?",
+            r"\b(?:puede|pueden)\b.+\b(?:inversion|activo|fondo|bono|etf|stablecoin|criptomoneda)\b",
+        )
+        if any(re.search(pattern, normalized) for pattern in property_patterns):
+            return True
+
+        # Comparaciones o evaluación de alternativas sin pedir una orden concreta.
+        comparison_patterns = (
+            r"\bcomo\s+(?:comparo|comparar)\b",
+            r"\bque\s+(?:conviene|importa|cambia)\b.+\b(?:riesgo|liquidez|rentabilidad|rendimiento|plazo)\b",
+            r"\b(?:entre|versus|vs)\b",
+        )
+        if any(re.search(pattern, normalized) for pattern in comparison_patterns):
+            return True
+
+        # Consultas generales sobre seguridad, composición o funcionamiento.
+        general_property_patterns = (
+            r"\b(?:tiene|tienen)\s+(?:reservas|respaldo|garantia|garantias|riesgo|riesgos)\b",
+            r"\b(?:es|son)\s+(?:seguro|segura|seguros|seguras|liquido|liquida|liquidos|liquidas)\b",
+            r"\b(?:esta|estan)\s+(?:diversificado|diversificada|diversificados|diversificadas)\b",
+            r"\bpuede\s+(?:concentrarse|perder|caer|subir|bajar|variar)\b",
+        )
+        if any(re.search(pattern, normalized) for pattern in general_property_patterns):
+            return True
+
         is_general_which_question = (
             self._contains_term(normalized, "cual es")
             and re.search(r"\bcual es (?:mi|mis)\b", normalized) is None
         )
-        return (
-            is_definition_question or is_general_which_question
-        ) and self._contains_any(normalized, self._FINANCIAL_DOMAIN_TERMS)
+
+        return is_general_which_question
 
     @classmethod
     def has_monetary_amount(cls, question: str) -> bool:

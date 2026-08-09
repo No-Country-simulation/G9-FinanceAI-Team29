@@ -195,15 +195,19 @@ class FinSightAgentService:
             and self._is_explicit_technical_problem(query.original)
         )
 
-        # Las consultas informativas sobre funciones reales de FinSightAI se
-        # resuelven antes de los intents financieros y antes de UNKNOWN.
-        # Product Knowledge se consulta para toda entrada que no describa un
-        # problema técnico explícito. Esto permite reconocer consultas breves
-        # como "TwentyNineDevs" y variantes naturales como "cómo funciona Finsi",
-        # sin desviar reportes como "no puedo crear una meta" del diagnóstico.
+        # Detecta primero la intención para impedir que Product Knowledge
+        # intercepte consultas válidas de educación financiera.
+        early_intent = self.intent_detector.detect_result(query.corrected)
+
+        # Product Knowledge sigue resolviendo consultas informativas sobre
+        # FinSightAI y TwentyNineDevs, excepto cuando la intención ya fue
+        # reconocida como educación financiera.
         product_knowledge = (
             ProductKnowledgeResponder.answer(query.original)
-            if not explicit_support_query
+            if (
+                not explicit_support_query
+                and early_intent.intent != Intent.FINANCIAL_EDUCATION
+            )
             else None
         )
         if product_knowledge is not None:
@@ -242,7 +246,6 @@ class FinSightAgentService:
         # soporte. Esto evita que preguntas como "¿qué puedes hacer?" sean
         # interpretadas como continuación de un diagnóstico técnico solo porque
         # la respuesta anterior mencionó que el asistente puede ayudar.
-        early_intent = self.intent_detector.detect_result(query.corrected)
         if early_intent.intent in {
             Intent.GREETING,
             Intent.THANKS,
@@ -343,7 +346,11 @@ class FinSightAgentService:
             response.metadata["route"] = "goals_direct"
             return response
 
-        if previous_answer and self._is_follow_up(query.corrected):
+        if (
+            previous_answer
+            and early_intent.intent == Intent.UNKNOWN
+            and self._is_follow_up(query.corrected)
+        ):
             messages = PromptBuilder.build_follow_up(
                 question=query.original,
                 previous_answer=previous_answer,
