@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -44,6 +45,19 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            // Headers de seguridad (F-013): CSP, HSTS y X-Frame-Options.
+            // El CSP permite 'unsafe-inline' para que el Swagger UI siga funcionando.
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.sameOrigin())
+                .httpStrictTransportSecurity(hsts -> hsts
+                        .includeSubDomains(true)
+                        .maxAgeInSeconds(31536000))
+                .referrerPolicy(referrer -> referrer
+                        .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
+                .contentSecurityPolicy(csp -> csp.policyDirectives(
+                        "default-src 'self'; img-src 'self' data: https:; "
+                        + "script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+                        + "connect-src 'self'; frame-ancestors 'self'")))
             // FASE 4: estricto. Público solo lo mínimo; el resto requiere auth
             // (JWT de usuario o X-Service-Token). El chequeo de DUEÑO lo hace
             // OwnershipInterceptor sobre /api/usuarios/{usuarioId}/**.
