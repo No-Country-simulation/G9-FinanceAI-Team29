@@ -79,6 +79,41 @@ function detectarEasterEggVisual(texto: string): EasterEggVisual {
   return null;
 }
 
+function EasterEggVideo({ tipo }: { tipo: Exclude<EasterEggVisual, null> }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const src =
+    tipo === "kenobi"
+      ? "/images/task/finsi-kenobi.mp4"
+      : "/images/task/finsi-yoda.mp4";
+
+  const mantenerUltimoFrame = () => {
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    video.currentTime = Math.max(0, video.duration - 0.04);
+    video.pause();
+  };
+
+  return (
+    <div
+      className={`relative -mx-4 -mt-3 mb-3 overflow-hidden border-b bg-[#101828] ${
+        tipo === "kenobi" ? "border-sky-300/60" : "border-emerald-300/60"
+      }`}
+    >
+      <video
+        ref={videoRef}
+        src={src}
+        autoPlay
+        muted={tipo === "yoda"}
+        playsInline
+        preload="auto"
+        onEnded={mantenerUltimoFrame}
+        className="block max-h-80 w-full bg-[#101828] object-contain"
+      />
+    </div>
+  );
+}
+
 function AvatarFinsi({ pensando = false }: { pensando?: boolean }) {
   return (
     <div
@@ -254,7 +289,31 @@ export default function AsistenteIA() {
   }, []);
 
   useEffect(() => {
-    mensajesScrollRef.current?.scrollTo({ top: mensajesScrollRef.current.scrollHeight, behavior: "smooth" });
+    const scrollAlFinal = (behavior: ScrollBehavior = "smooth") => {
+      const contenedor = mensajesScrollRef.current;
+      if (!contenedor) return;
+
+      contenedor.scrollTo({
+        top: contenedor.scrollHeight,
+        behavior,
+      });
+    };
+
+    // Scroll inicial al aparecer el mensaje.
+    requestAnimationFrame(() => scrollAlFinal("smooth"));
+
+    // Algunos mensajes (especialmente los easter eggs con video) aumentan
+    // su altura después del primer render. Repetimos el ajuste unas veces
+    // para mantener visible la respuesta completa sin intervención manual.
+    const timers = [
+      window.setTimeout(() => scrollAlFinal("smooth"), 120),
+      window.setTimeout(() => scrollAlFinal("smooth"), 450),
+      window.setTimeout(() => scrollAlFinal("smooth"), 1000),
+    ];
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
   }, [messages, enviando, pasoPendiente]);
 
   useEffect(() => {
@@ -513,12 +572,6 @@ export default function AsistenteIA() {
           35% { transform: scale(1.012); box-shadow: 0 0 18px rgba(59,130,246,.52), 0 0 38px rgba(56,189,248,.24); }
           100% { transform: scale(1); box-shadow: 0 0 0 rgba(59,130,246,0); }
         }
-        @keyframes finsiSaberSweep {
-          0% { transform: translateX(-40%) skewX(-20deg); opacity: 0; }
-          15% { opacity: 1; }
-          70% { opacity: .95; }
-          100% { transform: translateX(440%) skewX(-20deg); opacity: 0; }
-        }
         @keyframes finsiYodaGlow {
           0% { transform: translateY(4px) scale(.985); box-shadow: 0 0 0 rgba(34,197,94,0); }
           35% { transform: translateY(0) scale(1.01); box-shadow: 0 0 20px rgba(34,197,94,.45), 0 0 40px rgba(52,211,153,.20); }
@@ -530,7 +583,6 @@ export default function AsistenteIA() {
           100% { transform: translateY(-34px) scale(1.2); opacity: 0; }
         }
         .finsi-easter-kenobi { animation: finsiKenobiGlow 1.35s ease-out; }
-        .finsi-saber-sweep { animation: finsiSaberSweep 1.1s ease-out; }
         .finsi-easter-yoda { animation: finsiYodaGlow 1.55s ease-out; }
         .finsi-yoda-particle { animation: finsiYodaParticle 1.45s ease-out forwards; }
         .finsi-yoda-particle-2 { animation-delay: 90ms; }
@@ -538,7 +590,7 @@ export default function AsistenteIA() {
         .finsi-yoda-particle-4 { animation-delay: 230ms; }
         .finsi-yoda-particle-5 { animation-delay: 310ms; }
         @media (prefers-reduced-motion: reduce) {
-          .finsi-easter-kenobi, .finsi-saber-sweep, .finsi-easter-yoda, .finsi-yoda-particle { animation: none !important; }
+          .finsi-easter-kenobi, .finsi-easter-yoda, .finsi-yoda-particle { animation: none !important; }
         }
       `}</style>
 
@@ -693,15 +745,18 @@ export default function AsistenteIA() {
                           message.role === "user"
                             ? "whitespace-pre-line bg-brand-500 text-white"
                             : easterVisual === "kenobi"
-                              ? "finsi-easter-kenobi bg-sky-50 text-gray-800 ring-1 ring-sky-300/80 dark:bg-sky-950/35 dark:text-sky-50 dark:ring-sky-500/50"
+                              ? "finsi-easter-kenobi bg-[#101828] text-sky-100 ring-1 ring-sky-400/50"
                               : easterVisual === "yoda"
                                 ? "finsi-easter-yoda bg-emerald-50 text-gray-800 ring-1 ring-emerald-300/80 dark:bg-emerald-950/30 dark:text-emerald-50 dark:ring-emerald-500/50"
                                 : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200"
                         }`}
                       >
+                        {message.role === "assistant" && easterVisual && (
+                          <EasterEggVideo tipo={easterVisual} />
+                        )}
+
                         {easterVisual === "kenobi" && (
                           <>
-                            <span aria-hidden="true" className="finsi-saber-sweep pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-sky-300/80 to-white/90 blur-[2px] motion-reduce:hidden" />
                             <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-sky-300/40" />
                           </>
                         )}
