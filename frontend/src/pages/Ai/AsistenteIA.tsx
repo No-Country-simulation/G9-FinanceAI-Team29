@@ -79,20 +79,26 @@ function detectarEasterEggVisual(texto: string): EasterEggVisual {
   return null;
 }
 
-function EasterEggVideo({ tipo }: { tipo: Exclude<EasterEggVisual, null> }) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
+function EasterEggVisual({ tipo }: { tipo: Exclude<EasterEggVisual, null> }) {
   const src =
     tipo === "kenobi"
-      ? "/images/task/finsi-kenobi.mp4"
-      : "/images/task/finsi-yoda.mp4";
+      ? "/images/task/finsi-kenobi.webp"
+      : "/images/task/finsi-yoda.webp";
 
-  const mantenerUltimoFrame = () => {
-    const video = videoRef.current;
-    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
-    video.currentTime = Math.max(0, video.duration - 0.04);
-    video.pause();
-  };
+  useEffect(() => {
+    if (tipo !== "kenobi") return;
+
+    // El diálogo "General Kenobi" sigue viniendo del !audio del backend.
+    // Este audio adicional reproduce únicamente el sonido del sable.
+    const saberAudio = new Audio("/images/task/finsi-kenobi.mp3");
+    saberAudio.volume = 1;
+    saberAudio.play().catch(() => {});
+
+    return () => {
+      saberAudio.pause();
+      saberAudio.currentTime = 0;
+    };
+  }, [tipo]);
 
   return (
     <div
@@ -100,14 +106,11 @@ function EasterEggVideo({ tipo }: { tipo: Exclude<EasterEggVisual, null> }) {
         tipo === "kenobi" ? "border-sky-300/60" : "border-emerald-300/60"
       }`}
     >
-      <video
-        ref={videoRef}
+      <img
         src={src}
-        autoPlay
-        muted={tipo === "yoda"}
-        playsInline
-        preload="auto"
-        onEnded={mantenerUltimoFrame}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
         className="block max-h-80 w-full bg-[#101828] object-contain"
       />
     </div>
@@ -752,7 +755,7 @@ export default function AsistenteIA() {
                         }`}
                       >
                         {message.role === "assistant" && easterVisual && (
-                          <EasterEggVideo tipo={easterVisual} />
+                          <EasterEggVisual tipo={easterVisual} />
                         )}
 
                         {easterVisual === "kenobi" && (
