@@ -3,6 +3,7 @@ package com.financeai.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transacciones")
@@ -44,6 +45,14 @@ public class Transaccion {
     @Column(name = "origen", length = 50)
     private String origen;
 
+    // Auditoría: cuándo se creó y se modificó por última vez la transacción.
+    // Columnas nullable para no romper las filas existentes con ddl-auto: update.
+    @Column(name = "fecha_creacion", updatable = false)
+    private LocalDateTime fechaCreacion;
+
+    @Column(name = "fecha_actualizacion")
+    private LocalDateTime fechaActualizacion;
+
     public Transaccion() {}
 
     public String getId() { return id; }
@@ -78,4 +87,19 @@ public class Transaccion {
 
     public String getOrigen() { return origen; }
     public void setOrigen(String origen) { this.origen = origen; }
+
+    public LocalDateTime getFechaCreacion() { return fechaCreacion; }
+    public LocalDateTime getFechaActualizacion() { return fechaActualizacion; }
+
+    @PrePersist
+    void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        fechaCreacion = now;
+        fechaActualizacion = now;
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        fechaActualizacion = LocalDateTime.now();
+    }
 }

@@ -65,6 +65,10 @@ public class Usuario {
     @Column(name = "fecha_eliminacion")
     private LocalDateTime fechaEliminacion;
 
+    // updatedAt: se actualiza en cada modificación (ver normalizarEstado()).
+    @Column(name = "fecha_actualizacion")
+    private LocalDateTime fechaActualizacion;
+
     public Usuario() {
     }
 
@@ -243,6 +247,9 @@ public class Usuario {
         if (ultimaActividad == null && estado != EstadoUsuario.ELIMINADO) {
             ultimaActividad = LocalDateTime.now();
         }
+        fechaActualizacion = LocalDateTime.now();
     }
+
+    public LocalDateTime getFechaActualizacion() { return fechaActualizacion; }
 }
 

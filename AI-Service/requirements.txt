@@ -1,19 +1,19 @@
-fastapi
-uvicorn[standard]
-pydantic
-pydantic-settings
-python-dotenv
-python-multipart
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+pydantic==2.13.4
+pydantic-settings==2.14.2
+python-dotenv==1.2.2
+python-multipart==0.0.32
 
-groq>=0.31.0
-google-genai>=1.30.0
+groq==1.6.0
+google-genai==2.16.0
 
-faiss-cpu
-numpy
+faiss-cpu==1.15.0
+numpy==2.5.1
 pandas==2.2.3
 scikit-learn==1.6.1
 joblib==1.4.2
 
-pytest
-httpx
-pytest-asyncio
+pytest==9.1.1
+httpx==0.28.1
+pytest-asyncio==1.4.0
