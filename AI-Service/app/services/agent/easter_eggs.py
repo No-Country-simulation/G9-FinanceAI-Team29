@@ -301,7 +301,7 @@ class EasterEggResponder:
                 response=(
                     f"DE MONGOLIA SOY! {bandera}\n\n"
                     f"Монголчууд мандтугай, бид бүгдээрээ Монголчууд {bandera}\n\n"
-                    "![Mongolia](/images/task/mongo.png)\n\n"
+                    "![Mongolia](/images/task/mongol.webp)\n\n"
                     f"!audio[mongolia]({sonido})"
                 ),
             )

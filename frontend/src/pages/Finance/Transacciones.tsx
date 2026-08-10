@@ -44,6 +44,7 @@ function TransaccionesSkeleton() {
       <div className="hidden animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] sm:block">
         <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-800">
           <div className="flex gap-10">
+            <SkeletonBlock className="h-4 w-4" />
             <SkeletonBlock className="h-3 w-16" />
             <SkeletonBlock className="h-3 w-24" />
             <SkeletonBlock className="h-3 w-20" />
@@ -53,6 +54,7 @@ function TransaccionesSkeleton() {
         </div>
         {[0, 1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="flex items-center gap-10 border-b border-gray-100 px-6 py-4 last:border-b-0 dark:border-gray-800/50">
+            <SkeletonBlock className="h-4 w-4" />
             <SkeletonBlock className="h-4 w-16" />
             <SkeletonBlock className="h-4 w-40" />
             <SkeletonBlock className="h-5 w-20 rounded-full" />
@@ -75,6 +77,7 @@ export default function Transacciones() {
   const [filtroSigno, setFiltroSigno] = useState<string[]>([]);
   const [ordenFecha, setOrdenFecha] = useState<'asc' | 'desc'>('desc');
   const [paginaActual, setPaginaActual] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const POR_PAGINA = 20;
 
   const { usuarioId } = useAuth();
@@ -144,8 +147,12 @@ export default function Transacciones() {
     : [];
   const signoDeshabilitado = filtro === 'Todos' ? [] : [filtro === 'Ingreso' ? 'Negativos' : 'Positivos'];
 
-  const totalIngresos = filtradas.filter(t => t.tipo === 'Ingreso').reduce((acc, t) => acc + Number(t.monto), 0);
-  const totalGastos = filtradas.filter(t => t.tipo === 'Gasto').reduce((acc, t) => acc + Number(t.monto), 0);
+  const transaccionesParaExportar = selectedIds.size > 0 
+    ? filtradas.filter(t => selectedIds.has(t.id)) 
+    : filtradas;
+
+  const totalIngresos = transaccionesParaExportar.filter(t => t.tipo === 'Ingreso').reduce((acc, t) => acc + Number(t.monto), 0);
+  const totalGastos = transaccionesParaExportar.filter(t => t.tipo === 'Gasto').reduce((acc, t) => acc + Number(t.monto), 0);
 
   // Paginación en pantalla: mostramos de a POR_PAGINA. Totales/exportar siguen usando `filtradas` (todas).
   const totalPaginas = Math.max(1, Math.ceil(filtradas.length / POR_PAGINA));
@@ -154,6 +161,7 @@ export default function Transacciones() {
   // Al cambiar cualquier filtro, volvemos a la primera página.
   useEffect(() => {
     setPaginaActual(1);
+    setSelectedIds(new Set());
   }, [filtro, filtroCategorias, filtroSubcategorias, filtroDescripcion, filtroSigno, ordenFecha]);
 
   // Si el filtro de categoría deja afuera subcategorías ya seleccionadas, las descartamos.
@@ -176,8 +184,8 @@ export default function Transacciones() {
 
   return (
     <>
-      <PageMeta title="FinanceAI | Transacciones" description="Historial de transacciones financieras" />
-      <div className="space-y-6">
+      <PageMeta title="Transacciones | FinSightAI" description="Historial de transacciones financieras" />
+      <div className="space-y-6" data-tour="page-transactions">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">Transacciones</h1>
 
@@ -217,10 +225,19 @@ export default function Transacciones() {
               </button>
             )}
 
+            {selectedIds.size > 0 && (
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="rounded-lg px-3 py-2 text-sm font-medium text-brand-500 hover:underline"
+              >
+                Desmarcar ({selectedIds.size})
+              </button>
+            )}
+
             <ExportMenu
               filename="transacciones"
               title="Transacciones"
-              subtitle={`Filtro: ${filtro}  ·  ${filtradas.length} movimientos`}
+              subtitle={`Filtro: ${filtro}  ·  ${transaccionesParaExportar.length} movimientos${selectedIds.size > 0 ? ' (Personalizado)' : ''}`}
               kpis={[
                 { label: 'Total Ingresos', value: formatMoney(totalIngresos), color: 'success' },
                 { label: 'Total Gastos', value: formatMoney(totalGastos), color: 'error' },
@@ -234,10 +251,10 @@ export default function Transacciones() {
                 { header: 'Tipo' },
                 { header: 'Monto', type: 'currency' },
               ]}
-              rows={filtradas.map((t) => [t.fecha, t.descripcion, t.categoria, t.subcategoria ?? '', t.tipo, Number(t.monto)])}
-              rowColorFn={(idx) => (filtradas[idx]?.tipo === 'Ingreso' ? 'success' : 'error')}
-              disabled={filtradas.length === 0}
-              onExportDashboard={() => exportDashboardXlsx(transacciones, 'dashboard-financiero')}
+              rows={transaccionesParaExportar.map((t) => [t.fecha, t.descripcion, t.categoria, t.subcategoria ?? '', t.tipo, Number(t.monto)])}
+              rowColorFn={(idx) => (transaccionesParaExportar[idx]?.tipo === 'Ingreso' ? 'success' : 'error')}
+              disabled={transaccionesParaExportar.length === 0}
+              onExportDashboard={() => exportDashboardXlsx(transaccionesParaExportar, 'dashboard-financiero')}
             />
           </div>
         </div>
@@ -251,14 +268,34 @@ export default function Transacciones() {
               {paginadas.map((t) => (
                 <div
                   key={t.id}
-                  className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]"
+                  onClick={() => {
+                    const newSet = new Set(selectedIds);
+                    if (newSet.has(t.id)) newSet.delete(t.id);
+                    else newSet.add(t.id);
+                    setSelectedIds(newSet);
+                  }}
+                  className={`rounded-2xl border p-4 cursor-pointer transition-colors ${
+                    selectedIds.has(t.id)
+                      ? 'border-brand-500 bg-brand-50/50 dark:border-brand-500/50 dark:bg-brand-500/10'
+                      : 'border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-800 dark:text-white/90">
-                        {t.descripcion}
-                      </p>
-                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t.fecha}</p>
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="mt-0.5">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(t.id)}
+                          readOnly
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-600 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-gray-800 dark:text-white/90">
+                          {t.descripcion}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t.fecha}</p>
+                      </div>
                     </div>
                     <p
                       className={`shrink-0 text-sm font-semibold ${
@@ -302,6 +339,20 @@ export default function Transacciones() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-800">
+                      <th className="px-6 py-4 w-12 text-center">
+                        <input
+                          type="checkbox"
+                          checked={filtradas.length > 0 && selectedIds.size === filtradas.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds(new Set(filtradas.map(t => t.id)));
+                            } else {
+                              setSelectedIds(new Set());
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-600 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                      </th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 dark:text-gray-400">
                         <div className="flex items-center gap-1">
                           Fecha
@@ -367,7 +418,28 @@ export default function Transacciones() {
                   </thead>
                   <tbody>
                     {paginadas.map((t) => (
-                      <tr key={t.id} className="border-b border-gray-100 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                      <tr 
+                        key={t.id} 
+                        onClick={() => {
+                          const newSet = new Set(selectedIds);
+                          if (newSet.has(t.id)) newSet.delete(t.id);
+                          else newSet.add(t.id);
+                          setSelectedIds(newSet);
+                        }}
+                        className={`border-b border-gray-100 cursor-pointer transition-colors dark:border-gray-800/50 ${
+                          selectedIds.has(t.id) 
+                            ? 'bg-brand-50/50 dark:bg-brand-500/10' 
+                            : 'hover:bg-gray-50 dark:hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        <td className="px-6 py-4 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(t.id)}
+                            readOnly
+                            className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-600 dark:border-gray-600 dark:bg-gray-800"
+                          />
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{t.fecha}</td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-800 dark:text-white/90">{t.descripcion}</td>
                         <td className="px-6 py-4">

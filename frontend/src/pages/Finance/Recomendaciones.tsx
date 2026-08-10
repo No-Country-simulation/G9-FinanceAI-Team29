@@ -6,6 +6,7 @@ import { analizarFinanzas, obtenerUsuario, obtenerTransacciones } from "../../se
 import { AnalisisResponse, RecomendacionFinanciera } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { mostrarError, mostrarInfo } from "../../utils/alerts";
+import { speakText, stopSpeaking, isSpeechSupported } from "../../utils/speech";
 import { useAuth } from "../../context/AuthContext";
 import { useOnboarding } from "../../context/OnboardingContext";
 
@@ -57,6 +58,9 @@ function RecomendacionesSkeleton() {
 export default function Recomendaciones() {
   const [resultado, setResultado] = useState<AnalisisResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [leyendoId, setLeyendoId] = useState<string | null>(null);
+
+  useEffect(() => stopSpeaking, []);
 
   const { usuarioId, loading: authLoading } = useAuth();
   const { isTourActive } = useOnboarding();
@@ -152,6 +156,24 @@ export default function Recomendaciones() {
     navigate('/asistente-ia', { state: { autoPrompt: contexto } });
   };
 
+  const textoParaLeer = (recomendacion: RecomendacionFinanciera) => [
+    recomendacion.titulo,
+    recomendacion.diagnostico,
+    `Acción sugerida: ${recomendacion.accion}`,
+    recomendacion.objetivo ? `Objetivo: ${recomendacion.objetivo}` : null,
+  ].filter(Boolean).join('. ');
+
+  const leerRecomendacion = async (recomendacion: RecomendacionFinanciera) => {
+    if (leyendoId === recomendacion.id) {
+      stopSpeaking();
+      setLeyendoId(null);
+      return;
+    }
+    setLeyendoId(recomendacion.id);
+    await speakText(textoParaLeer(recomendacion));
+    setLeyendoId((actual) => (actual === recomendacion.id ? null : actual));
+  };
+
   // Se evita escribir el porcentaje como "96.2%": el detector de intención del
   // asistente interpreta "numero%" como una operación matemática a resolver
   // y rechaza la consulta en lugar de responderla.
@@ -162,8 +184,8 @@ export default function Recomendaciones() {
 
   return (
     <>
-      <PageMeta title="FinanceAI | Recomendaciones" description="Recomendaciones financieras personalizadas" />
-      <div className="space-y-6">
+      <PageMeta title="Recomendaciones | FinSightAI" description="Recomendaciones financieras personalizadas" />
+      <div className="space-y-6" data-tour="page-recommendations">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">Recomendaciones</h1>
 
         {loading ? (
@@ -222,13 +244,24 @@ export default function Recomendaciones() {
                           <p className="mt-3 text-sm text-gray-700 dark:text-gray-300"><strong>Acción sugerida:</strong> {rec.accion}</p>
                           {rec.objetivo && <p className="mt-2 text-sm text-gray-700 dark:text-gray-300"><strong>Objetivo:</strong> {rec.objetivo}</p>}
                           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{rec.advertencia}</p>
-                          <button
-                            type="button"
-                            onClick={() => preguntarleAFinsi(rec)}
-                            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
-                          >
-                            💬 Preguntar a Finsi sobre esto
-                          </button>
+                          <div className="mt-2 flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => preguntarleAFinsi(rec)}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                            >
+                              💬 Preguntar a Finsi sobre esto
+                            </button>
+                            {isSpeechSupported() && (
+                              <button
+                                type="button"
+                                onClick={() => leerRecomendacion(rec)}
+                                className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                              >
+                                {leyendoId === rec.id ? '⏹️ Detener lectura' : '🔊 Que Finsi lo lea'}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

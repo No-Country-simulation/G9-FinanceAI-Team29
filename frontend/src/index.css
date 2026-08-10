@@ -1361,6 +1361,15 @@ span.flatpickr-weekday,
   border: none;
   color: black;
 }
+/* El Modal propio de la app usa z-index: 99999 (clase z-99999); SweetAlert2
+   por defecto usa 1060 y quedaba tapado detrás de cualquier modal abierto. */
+.swal2-container {
+  z-index: 100000 !important;
+}
+.custom-calendar .fc-day-con-meta {
+  background-color: rgba(59, 130, 246, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.35);
+}
 .fc.fc-media-screen {
   @apply min-h-screen;
 }

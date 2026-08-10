@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import PromptComposer from "../../components/ai/PromptComposer";
 import { PlusIcon, ChatIcon, BoltIcon, TrashBinIcon, CloseIcon } from "../../icons";
 import { mostrarError } from "../../utils/alerts";
-import { preguntarAgente } from "../../services/api";
+import { preguntarAgenteStream } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useGamification } from "../../context/GamificationContext";
 import { detectarLogroEnRespuesta } from "../../utils/achievements";
@@ -32,6 +33,7 @@ interface Message {
   id: number;
   role: "user" | "assistant";
   text: string;
+  isHistory?: boolean;
 }
 
 interface ChatGuardado {
@@ -44,6 +46,8 @@ interface ChatGuardado {
 const CHATS_STORAGE_KEY = (usuarioId: string) => `finsight:asistente:chats:${usuarioId}`;
 const MAX_CHATS_GUARDADOS = 20;
 const MASCOTA_SRC = "/images/mascot/finsight-bird-v2.png";
+
+const MODELOS_ASISTENTE = ["FinSightAI Advisor", "Soporte técnico"];
 
 const CONTEXTO_FINANCIERO_INTERNO =
   /<!--\s\*finsi-financial-context\s+metric=(?:income|expense|unknown)\s+granularity=(?:year|month|rank|other)\s+year=(?:\d{4}|none)\s+month=(?:\d{1,2}|none)\s+position=(?:\d+|none)\s\*-->/gi;
@@ -206,21 +210,22 @@ function GotTitleReveal({ cerrando }: { cerrando: boolean }) {
   );
 }
 
-function EasterEggVisual({ tipo }: { tipo: Exclude<EasterEggVisual, null> }) {
+function EasterEggVisual({ tipo, isHistory }: { tipo: Exclude<EasterEggVisual, null>, isHistory?: boolean }) {
   const { src, poster, durationMs, border } = EASTER_EGG_VISUAL_ASSETS[tipo];
-  const [terminado, setTerminado] = useState(false);
+  const [terminado, setTerminado] = useState(isHistory ?? false);
 
   useEffect(() => {
+    if (isHistory) return;
     // Al terminar la animación (loop=1, se congela sola en el navegador)
     // cambiamos al poster estático: el webp animado pesa varios MB, el
     // último frame como imagen fija pesa unos pocos KB.
     const idPoster = setTimeout(() => setTerminado(true), durationMs);
 
     return () => clearTimeout(idPoster);
-  }, [durationMs]);
+  }, [durationMs, isHistory]);
 
   useEffect(() => {
-    if (tipo !== "kenobi") return;
+    if (tipo !== "kenobi" || isHistory) return;
 
     // El diálogo "General Kenobi" sigue viniendo del !audio del backend.
     // Este audio adicional reproduce únicamente el sonido del sable.
@@ -232,7 +237,7 @@ function EasterEggVisual({ tipo }: { tipo: Exclude<EasterEggVisual, null> }) {
       saberAudio.pause();
       saberAudio.currentTime = 0;
     };
-  }, [tipo]);
+  }, [tipo, isHistory]);
 
   return (
     <div className={`relative -mx-4 -mt-3 mb-3 overflow-hidden border-b bg-[#101828] ${border}`}>
@@ -352,6 +357,113 @@ function obtenerMensajePensando(prompt: string): string {
   return coincidencia?.mensaje ?? "Finsi está pensando tu respuesta";
 }
 
+// ─── Matrix Pill Choice ───────────────────────────────────────────────────────
+// Muestra debajo del video del easter egg la pregunta "¿Cuál eliges?"
+// con un botón rojo (ver análisis financiero) y uno azul (resumen financiero).
+function MatrixPillChoice({ onElegir }: { onElegir: (e: "roja" | "azul") => void }) {
+  return (
+    <div className="mt-4 flex flex-col items-center gap-3 animate-[fadeInUp_0.5s_ease_both]">
+      <p className="text-center text-theme-sm font-semibold tracking-wide text-violet-200 drop-shadow-[0_0_8px_rgba(167,139,250,0.6)]">
+        ¿Cuál eliges?
+      </p>
+      <div className="flex items-center gap-4">
+        {/* Pastilla Roja — ver análisis de finanzas */}
+        <button
+          onClick={() => onElegir("roja")}
+          className="group relative overflow-hidden rounded-full px-6 py-2.5 text-theme-sm font-semibold text-white shadow-[0_0_18px_rgba(239,68,68,0.55)] transition-all duration-200 hover:scale-105 hover:shadow-[0_0_28px_rgba(239,68,68,0.8)] active:scale-95"
+          style={{ background: "linear-gradient(135deg, #dc2626 0%, #b91c1c 60%, #7f1d1d 100%)" }}
+          aria-label="Pastilla roja: ver análisis financiero"
+        >
+          <span className="pointer-events-none absolute inset-x-0 top-0 h-[45%] rounded-t-full bg-white/20" />
+          Pastilla Roja
+        </button>
+
+        {/* Pastilla Azul — ir al resumen financiero */}
+        <button
+          onClick={() => onElegir("azul")}
+          className="group relative overflow-hidden rounded-full px-6 py-2.5 text-theme-sm font-semibold text-white shadow-[0_0_18px_rgba(59,130,246,0.55)] transition-all duration-200 hover:scale-105 hover:shadow-[0_0_28px_rgba(59,130,246,0.8)] active:scale-95"
+          style={{ background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 60%, #1e3a8a 100%)" }}
+          aria-label="Pastilla azul: ir al resumen financiero"
+        >
+          <span className="pointer-events-none absolute inset-x-0 top-0 h-[45%] rounded-t-full bg-white/20" />
+          Pastilla Azul
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Matrix Pill Splash ───────────────────────────────────────────────────────
+// Animación fullscreen al elegir pastilla, al estilo del GotTitleReveal.
+function MatrixPillSplash({ tipo, cerrando }: { tipo: "roja" | "azul"; cerrando: boolean }) {
+  const esRoja = tipo === "roja";
+
+  const bgFrom   = esRoja ? "rgba(127,29,29,0.97)"  : "rgba(30,58,138,0.97)";
+  const bgTo     = esRoja ? "rgba(0,0,0,0.97)"       : "rgba(0,0,0,0.97)";
+  const glowColor = esRoja ? "rgba(239,68,68,0.55)"  : "rgba(59,130,246,0.55)";
+  const textColor = esRoja ? "#fca5a5"               : "#93c5fd";
+  const pillLabel = esRoja ? "PASTILLA ROJA"         : "PASTILLA AZUL";
+  const subLabel  = esRoja ? "Analizando tus finanzas…" : "Volviendo al inicio…";
+
+  // Partículas decorativas tipo lluvia (esRoja: código rojo / esAzul: código azul)
+  const particulas = Array.from({ length: 18 }, (_, i) => i);
+
+  const contenido = (
+    <div
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-500 ${cerrando ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+      style={{ background: `radial-gradient(ellipse at center, ${bgFrom} 0%, ${bgTo} 100%)` }}
+    >
+      {/* Partículas de lluvia tipo Matrix */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {particulas.map((i) => (
+          <span
+            key={i}
+            className="absolute top-[-8%] text-xs font-mono font-bold select-none animate-[matrixRain_linear_infinite]"
+            style={{
+              left: `${(i * 5.8) % 100}%`,
+              color: esRoja ? `rgba(239,68,68,${0.3 + (i % 4) * 0.15})` : `rgba(59,130,246,${0.3 + (i % 4) * 0.15})`,
+              animationDuration: `${1.8 + (i % 5) * 0.6}s`,
+              animationDelay: `${-(i % 7) * 0.4}s`,
+              fontSize: `${10 + (i % 3) * 2}px`,
+            }}
+          >
+            {["0", "1", "∑", "$", "¥", "€", "₿", "∞"][i % 8]}
+          </span>
+        ))}
+      </div>
+
+      {/* Resplandor central */}
+      <div
+        className="absolute h-64 w-64 rounded-full blur-[80px] opacity-40"
+        style={{ background: glowColor }}
+      />
+
+      {/* Pill icon */}
+      <div className="relative z-10 mb-6 flex h-16 w-8 flex-col overflow-hidden rounded-full border-2 border-white/30 shadow-[0_0_30px_var(--pill-glow)]"
+        style={{ "--pill-glow": glowColor } as React.CSSProperties}>
+        <div className="flex-1" style={{ background: esRoja ? "#dc2626" : "#2563eb" }} />
+        <div className="flex-1 bg-white/10" />
+      </div>
+
+      {/* Texto */}
+      <p
+        className="relative z-10 text-center font-mono text-4xl font-black tracking-[0.18em] drop-shadow-[0_0_16px_var(--pill-color)] sm:text-5xl animate-[fadeInUp_0.4s_ease_both]"
+        style={{ color: textColor, "--pill-color": textColor } as React.CSSProperties}
+      >
+        {pillLabel}
+      </p>
+      <p
+        className="relative z-10 mt-3 text-center text-sm font-mono tracking-widest opacity-70 animate-[fadeInUp_0.4s_0.15s_ease_both]"
+        style={{ color: textColor }}
+      >
+        {subLabel}
+      </p>
+    </div>
+  );
+
+  return createPortal(contenido, document.body);
+}
+
 export default function AsistenteIA() {
   const { usuarioId, email, session } = useAuth();
   const { registrarEvento, desbloquearLogro } = useGamification();
@@ -360,7 +472,9 @@ export default function AsistenteIA() {
   const estadoNavegacion = location.state as { messages?: Message[]; autoPrompt?: string } | null;
   const mensajesTraidos = estadoNavegacion?.messages;
   const autoPromptTraido = estadoNavegacion?.autoPrompt;
-  const [messages, setMessages] = useState<Message[]>(mensajesTraidos ?? []);
+  const [messages, setMessages] = useState<Message[]>(
+    (mensajesTraidos ?? []).map(m => ({ ...m, isHistory: true }))
+  );
   const [enviando, setEnviando] = useState(false);
   const [mensajePensando, setMensajePensando] = useState(
     "Finsi está analizando tus finanzas"
@@ -382,7 +496,8 @@ export default function AsistenteIA() {
   const mensajesScrollRef = useRef<HTMLDivElement>(null);
   const { isOpen: equipoModalAbierto, openModal: abrirEquipoModal, closeModal: cerrarEquipoModal } = useModal();
   const [gotSplash, setGotSplash] = useState<"visible" | "cerrando" | null>(null);
-  const gotSplashMostradoRef = useRef<string | null>(null);
+  const gotSplashMostradoRef = useRef<number | null>(null);
+  const [matrixSplash, setMatrixSplash] = useState<{ tipo: "roja" | "azul"; fase: "visible" | "cerrando" } | null>(null);
 
   useEffect(() => {
     const ultimoMensaje = messages[messages.length - 1];
@@ -390,6 +505,7 @@ export default function AsistenteIA() {
     if (
       !ultimoMensaje ||
       ultimoMensaje.role !== "assistant" ||
+      ultimoMensaje.isHistory ||
       gotSplashMostradoRef.current === ultimoMensaje.id ||
       detectarEasterEggVisual(ultimoMensaje.text) !== "got"
     ) {
@@ -501,7 +617,7 @@ export default function AsistenteIA() {
   const toggleVoz = () => setVozActiva((prev) => !prev);
   const toggleSonido = () => setSonidoActivo((prev) => !prev);
 
-  const handleSubmit = async (prompt: string) => {
+  const handleSubmit = async (prompt: string, modelo: string = MODELOS_ASISTENTE[0]) => {
     if (enviando) return;
     setPasoPendiente(null);
 
@@ -538,7 +654,13 @@ export default function AsistenteIA() {
     }
     const previousAnswer = [...messages].reverse().find((m) => m.role === "assistant")?.text;
     try {
-      const { answer } = await preguntarAgente(prompt, usuarioId, previousAnswer);
+      const { answer } = await preguntarAgenteStream(
+        prompt,
+        usuarioId,
+        previousAnswer,
+        (paso) => setMensajePensando(paso),
+        modelo,
+      );
       setMessages((prev) => [
         ...prev,
         { id: prev.length + 1, role: "assistant", text: answer },
@@ -642,7 +764,7 @@ export default function AsistenteIA() {
 
   const cargarChat = (chat: ChatGuardado) => {
     stopSpeaking();
-    setMessages(chat.messages);
+    setMessages(chat.messages.map(m => ({ ...m, isHistory: true })));
     setChatActualId(chat.id);
     setHistorialAbierto(false);
   };
@@ -723,6 +845,15 @@ export default function AsistenteIA() {
     </>
   );
 
+  // Lanza el splash de pantalla completa para la pastilla elegida y luego navega.
+  const elegirPastilla = (eleccion: "roja" | "azul") => {
+    setMatrixSplash({ tipo: eleccion, fase: "visible" });
+    const ruta = eleccion === "roja" ? "/modo-matrix" : "/";
+    const cerrar = setTimeout(() => setMatrixSplash((prev) => prev ? { ...prev, fase: "cerrando" } : null), 1600);
+    const navegar = setTimeout(() => { navigate(ruta); setMatrixSplash(null); }, 2100);
+    return () => { clearTimeout(cerrar); clearTimeout(navegar); };
+  };
+
   return (
     <>
       <style>{`
@@ -764,6 +895,16 @@ export default function AsistenteIA() {
           10% { opacity: 1; }
           100% { transform: translateY(115vh) translateX(14px); opacity: 0; }
         }
+        @keyframes matrixRain {
+          0% { transform: translateY(-10vh); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 0.8; }
+          100% { transform: translateY(110vh); opacity: 0; }
+        }
+        @keyframes fadeInUp {
+          0% { opacity: 0; transform: translateY(16px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
         .finsi-easter-kenobi { animation: finsiKenobiGlow 1.35s ease-out; }
         .finsi-easter-yoda { animation: finsiYodaGlow 1.55s ease-out; }
         .finsi-easter-matrix { animation: finsiMatrixGlow 1.35s ease-out; }
@@ -784,8 +925,9 @@ export default function AsistenteIA() {
       `}</style>
 
       {gotSplash && <GotTitleReveal cerrando={gotSplash === "cerrando"} />}
+      {matrixSplash && <MatrixPillSplash tipo={matrixSplash.tipo} cerrando={matrixSplash.fase === "cerrando"} />}
 
-      <PageMeta title="FinanceAI | Asistente IA" description="Asistente de inteligencia artificial para tus finanzas" />
+      <PageMeta title="Asistente IA | FinSightAI" description="Asistente de inteligencia artificial para tus finanzas" />
       <div className="flex h-[calc(100dvh-90px)] gap-6 pb-2 sm:h-[calc(100vh-150px)] sm:pb-0">
         {/* Historial — escritorio */}
         <aside className="hidden w-64 shrink-0 flex-col rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] xl:flex">
@@ -947,7 +1089,7 @@ export default function AsistenteIA() {
                         }`}
                       >
                         {message.role === "assistant" && easterVisual && (
-                          <EasterEggVisual tipo={easterVisual} />
+                          <EasterEggVisual tipo={easterVisual} isHistory={message.isHistory} />
                         )}
 
                         {(easterVisual === "kenobi" || easterVisual === "matrix" || easterVisual === "got") && (
@@ -979,6 +1121,12 @@ export default function AsistenteIA() {
                             : message.text}
                         </div>
                       </div>
+                      {/* Elección de pastilla Matrix */}
+                      {message.role === "assistant" &&
+                        message.id === ultimoMensajeAsistenteId &&
+                        easterVisual === "matrix" && (
+                          <MatrixPillChoice onElegir={elegirPastilla} />
+                        )}
                       {message.role === "assistant" &&
                         message.id === ultimoMensajeAsistenteId &&
                         /¿Puedo ayudarte con algo más\?/i.test(message.text) && (
@@ -1079,7 +1227,7 @@ export default function AsistenteIA() {
           </div>
 
           <div data-tour="assistant-composer" className="scroll-mb-4 mt-4">
-            <PromptComposer onSubmit={handleSubmit} />
+            <PromptComposer models={MODELOS_ASISTENTE} onSubmit={handleSubmit} />
           </div>
         </section>
       </div>

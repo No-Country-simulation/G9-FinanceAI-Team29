@@ -106,3 +106,23 @@ export interface GoalInput {
   montoObjetivo: number;
   fechaObjetivo?: string;
 }
+
+export type TipoEventoCalendario = 'Pago' | 'Ingreso' | 'Meta' | 'Recordatorio';
+
+export interface EventoCalendario {
+  id: string;
+  usuarioId: string;
+  titulo: string;
+  tipo: TipoEventoCalendario;
+  fechaInicio: string;
+  fechaFin?: string | null;
+  fechaCreacion: string;
+  fechaActualizacion: string;
+}
+
+export interface EventoCalendarioInput {
+  titulo: string;
+  tipo: TipoEventoCalendario;
+  fechaInicio: string;
+  fechaFin?: string | null;
+}

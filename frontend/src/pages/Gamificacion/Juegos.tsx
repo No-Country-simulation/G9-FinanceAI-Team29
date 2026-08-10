@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router';
 import PageMeta from '../../components/common/PageMeta';
 import ChallengeCard from '../../components/gamificacion/ChallengeCard';
 import StreakSummary from '../../components/gamificacion/StreakSummary';
@@ -26,14 +27,22 @@ const TEMAS_TRIVIA = [
   'Tu perfil financiero',
 ];
 
+// El buscador de la app puede enlazar directo a la pestaña de Retos
+// (ej. "/juegos#retos-semanales"), así que la pestaña inicial depende del hash.
+const TABS_POR_HASH: Record<string, Tab> = {
+  '#retos-semanales': 'retos',
+  '#logros': 'retos',
+};
+
 export default function Juegos() {
-  const [tab, setTab] = useState<Tab>('trivia');
+  const location = useLocation();
+  const [tab, setTab] = useState<Tab>(() => TABS_POR_HASH[location.hash] ?? 'trivia');
   const { loading, challenges, streak, bestStreak, dailyStreak, bestDailyStreak, trivia, logros } = useGamification();
 
   return (
     <>
       <PageMeta title="Juegos | FinSightAI" description="Retos semanales, trivia financiera y logros" />
-      <div className="space-y-6">
+      <div className="space-y-6" data-tour="page-games">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Juegos</h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -62,7 +71,7 @@ export default function Juegos() {
         ) : (
           <>
             {tab === 'retos' && (
-              <div className="space-y-5">
+              <div id="retos-semanales" className="scroll-mt-24 space-y-5">
                 <StreakSummary
                   dailyStreak={dailyStreak}
                   bestDailyStreak={bestDailyStreak}
@@ -86,12 +95,14 @@ export default function Juegos() {
                     ))}
                   </div>
                 )}
-                <AchievementsList catalogo={logros.catalogo} desbloqueados={logros.desbloqueados} />
+                <div id="logros" className="scroll-mt-24">
+                  <AchievementsList catalogo={logros.catalogo} desbloqueados={logros.desbloqueados} />
+                </div>
               </div>
             )}
 
             {tab === 'trivia' && (
-              <div className="grid gap-5 lg:grid-cols-5">
+              <div id="trivia-financiera" className="scroll-mt-24 grid gap-5 lg:grid-cols-5">
                 <div className="lg:col-span-3">
                   <TriviaQuiz
                     canPlayToday={trivia.canPlayToday}

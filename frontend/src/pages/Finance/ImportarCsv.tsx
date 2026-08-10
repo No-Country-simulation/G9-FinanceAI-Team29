@@ -88,7 +88,7 @@ export default function ImportarCsv() {
   return (
     <>
       <PageMeta
-        title="FinSightAI | Importar CSV"
+        title="Importar CSV | FinSightAI"
         description="Carga de movimientos financieros en dólares"
       />
 

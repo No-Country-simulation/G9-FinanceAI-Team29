@@ -10,10 +10,12 @@ import Soporte from "./pages/Soporte";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
+import Calendar from "./pages/Calendar";
 import Transacciones from "./pages/Finance/Transacciones";
 import Analisis from "./pages/Finance/Analisis";
 import Recomendaciones from "./pages/Finance/Recomendaciones";
 import AsistenteIA from "./pages/Ai/AsistenteIA";
+import ModoMatrix from "./pages/Ai/ModoMatrix";
 import Metas from "./pages/Finance/Metas";
 import Juegos from "./pages/Gamificacion/Juegos";
 import ImportarCsv from "./pages/Finance/ImportarCsv";
@@ -44,7 +46,8 @@ export default function App() {
           {/* Dashboard Layout (rutas privadas) */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index path="/" element={<Home />} />
-            
+            <Route path="/calendario-financiero" element={<Calendar />} />
+
             {/* Finance Pages */}
             <Route path="/transacciones" element={<Transacciones />} />
             <Route path="/importar-csv" element={<ImportarCsv />} />
@@ -52,6 +55,7 @@ export default function App() {
             <Route path="/recomendaciones" element={<Recomendaciones />} />
             <Route path="/metas" element={<Metas />} />
             <Route path="/asistente-ia" element={<AsistenteIA />} />
+            <Route path="/modo-matrix" element={<ModoMatrix />} />
             <Route path="/juegos" element={<Juegos />} />
 
             {/* Others Page */}

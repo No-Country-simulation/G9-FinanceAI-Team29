@@ -189,7 +189,7 @@ if (mostrarSplashBienvenida) {
   return (
     <>
       <PageMeta
-        title="FinSightAI | Dashboard"
+        title="Dashboard | FinSightAI"
         description="Dashboard de análisis financiero"
       />
 
@@ -217,7 +217,7 @@ if (authLoading) {
     return (
       <>
         <PageMeta
-          title="FinSightAI | Dashboard"
+          title="Dashboard | FinSightAI"
           description="Dashboard de análisis financiero"
         />
 
@@ -230,7 +230,7 @@ if (authLoading) {
     return (
       <>
         <PageMeta
-          title="FinSightAI | Dashboard"
+            title="Dashboard | FinSightAI"
           description="Dashboard de análisis financiero"
         />
 
@@ -267,7 +267,7 @@ if (authLoading) {
     return (
       <>
         <PageMeta
-          title="FinSightAI | Bienvenida"
+          title="Bienvenida | FinSightAI"
           description="Comenzá tu análisis financiero con FinSightAI"
         />
 
@@ -407,7 +407,7 @@ if (authLoading) {
   return (
     <>
       <PageMeta
-        title="FinSightAI | Dashboard"
+        title="Dashboard | FinSightAI"
         description="Dashboard de análisis financiero personal"
       />
 

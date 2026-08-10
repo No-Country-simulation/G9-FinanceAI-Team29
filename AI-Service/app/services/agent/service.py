@@ -57,7 +57,52 @@ class FinSightAgentService:
         provider: str | None = None,
         previous_answer: str | None = None,
         time_zone: str | None = None,
+        assistant_mode: str | None = None,
     ) -> LLMResponse:
+        # El selector de "modelo" del composer puede forzar el flujo de
+        # soporte directamente, sin pasar por la detección de intención
+        # financiera. Los easter eggs, el filtro de seguridad y las
+        # respuestas sociales rápidas siguen teniendo prioridad.
+        if self._is_support_mode(assistant_mode):
+            security_refusal = self._security_refusal_response(question)
+            if security_refusal is not None:
+                return LLMResponse(
+                    content=security_refusal,
+                    provider="internal",
+                    model="security-rules",
+                    metadata={
+                        "intent": "security_refusal",
+                        "route": "security_account_access_refusal",
+                        "used_financial_context": False,
+                        "save_history": True,
+                        "update_context": False,
+                    },
+                )
+
+            easter_egg = EasterEggResponder.match(question)
+            if easter_egg is not None:
+                return LLMResponse(
+                    content=easter_egg.response,
+                    provider="internal",
+                    model="easter-egg",
+                    metadata={
+                        "intent": "easter_egg",
+                        "route": f"easter_egg_{easter_egg.key}",
+                        "easter_egg": easter_egg.key,
+                        "used_financial_context": False,
+                        "save_history": False,
+                        "update_context": False,
+                    },
+                )
+
+            query = self._prepare_query(question)
+            return await self.support_agent.answer(
+                usuario_id=usuario_id,
+                question=query.original,
+                provider=provider,
+                previous_answer=previous_answer,
+            )
+
         security_refusal = self._security_refusal_response(question)
         if security_refusal is not None:
             return LLMResponse(
@@ -1282,6 +1327,13 @@ class FinSightAgentService:
             "y que te parece",
         )
         return any(term in normalized for term in follow_up_terms)
+
+    @staticmethod
+    def _is_support_mode(assistant_mode: str | None) -> bool:
+        if not assistant_mode:
+            return False
+        normalized = QueryNormalizer.normalize(assistant_mode)
+        return normalized in {"soporte", "soporte tecnico", "support"}
 
     @staticmethod
     def _prepare_query(question: str) -> NormalizedQuery:

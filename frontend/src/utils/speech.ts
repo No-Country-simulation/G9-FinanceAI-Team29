@@ -81,7 +81,11 @@ export async function speakText(text: string): Promise<void> {
   utterance.pitch = 0.85;
   utterance.rate = 1;
 
-  window.speechSynthesis.speak(utterance);
+  await new Promise<void>((resolve) => {
+    utterance.onend = () => resolve();
+    utterance.onerror = () => resolve();
+    window.speechSynthesis.speak(utterance);
+  });
 }
 
 export function stopSpeaking(): void {
