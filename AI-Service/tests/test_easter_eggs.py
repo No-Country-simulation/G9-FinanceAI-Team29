@@ -60,11 +60,11 @@ def test_rickroll_egg_includes_video_embed_and_no_lyrics():
     assert "never gonna" not in result.response.lower()
 
 
-def test_matrix_egg_includes_image_markdown():
+def test_matrix_egg_includes_audio_marker():
     result = EasterEggResponder.match("pastilla roja o azul")
 
     assert result is not None
-    assert "![Pastilla roja o azul](https://www.elcohetealaluna.com/" in result.response
+    assert "!audio[matrix-pill](/images/task/finsi-matrix.mp3)" in result.response
 
 
 @pytest.mark.parametrize(

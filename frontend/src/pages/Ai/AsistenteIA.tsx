@@ -65,7 +65,7 @@ function normalizarPreguntaParaComparar(texto: string): string {
   return texto.trim().toLowerCase();
 }
 
-type EasterEggVisual = "kenobi" | "yoda" | null;
+type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | null;
 
 function detectarEasterEggVisual(texto: string): EasterEggVisual {
   if (texto.includes("!audio[general-kenobi]") || /\bGeneral Kenobi\./i.test(texto)) {
@@ -76,14 +76,148 @@ function detectarEasterEggVisual(texto: string): EasterEggVisual {
     return "yoda";
   }
 
+  if (texto.includes("!audio[matrix-pill]") || /pastilla roja\.\.\. y te muestro/i.test(texto)) {
+    return "matrix";
+  }
+
+  if (texto.includes("!audio[got-winter]") || /El invierno se acerca\./i.test(texto)) {
+    return "got";
+  }
+
   return null;
 }
 
+const EASTER_EGG_VISUAL_ASSETS: Record<
+  Exclude<EasterEggVisual, null>,
+  { src: string; poster: string; durationMs: number; border: string }
+> = {
+  kenobi: {
+    src: "/images/task/finsi-kenobi.webp",
+    poster: "/images/task/finsi-kenobi-poster.webp",
+    durationMs: 4000,
+    border: "border-sky-300/60",
+  },
+  yoda: {
+    src: "/images/task/finsi-yoda.webp",
+    poster: "/images/task/finsi-yoda-poster.webp",
+    durationMs: 6000,
+    border: "border-emerald-300/60",
+  },
+  matrix: {
+    src: "/images/task/finsi-matrix.webp",
+    poster: "/images/task/finsi-matrix-poster.webp",
+    durationMs: 10000,
+    border: "border-violet-400/60",
+  },
+  got: {
+    src: "/images/task/finsi-got.webp",
+    poster: "/images/task/finsi-got-poster.webp",
+    durationMs: 10000,
+    border: "border-slate-400/60",
+  },
+};
+
+const GOT_TITLE_LINES = ["WINTER IS", "COMING"];
+
+const GOT_NUBES = [
+  { top: "14%", width: "42vw", duration: "34s", delay: "0s", opacity: 0.55 },
+  { top: "30%", width: "50vw", duration: "50s", delay: "-16s", opacity: 0.4, reversa: true },
+  { top: "58%", width: "36vw", duration: "40s", delay: "-8s", opacity: 0.35 },
+  { top: "72%", width: "54vw", duration: "58s", delay: "-28s", opacity: 0.28, reversa: true },
+];
+
+const GOT_COPOS = Array.from({ length: 28 }, (_, i) => i);
+
+function WinterCloudsBackdrop() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(148,197,255,0.16),transparent_65%)]" />
+
+      {GOT_NUBES.map((nube, i) => (
+        <span
+          key={i}
+          className={`finsi-cloud absolute rounded-[50%] bg-slate-200/70 blur-2xl ${
+            nube.reversa ? "finsi-cloud-reverse" : ""
+          }`}
+          style={{
+            top: nube.top,
+            width: nube.width,
+            height: `calc(${nube.width} * 0.28)`,
+            opacity: nube.opacity,
+            animationDuration: nube.duration,
+            animationDelay: nube.delay,
+          }}
+        />
+      ))}
+
+      {GOT_COPOS.map((i) => (
+        <span
+          key={i}
+          className="finsi-snowflake absolute top-[-5%] rounded-full bg-white"
+          style={{
+            left: `${(i * 37) % 100}%`,
+            width: `${2 + (i % 3)}px`,
+            height: `${2 + (i % 3)}px`,
+            animationDuration: `${6 + (i % 5)}s`,
+            animationDelay: `${-(i % 7)}s`,
+            opacity: 0.5 + (i % 4) * 0.12,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function GotTitleReveal({ cerrando }: { cerrando: boolean }) {
+  let contadorLetras = 0;
+
+  return (
+    <div
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center gap-0 bg-black/85 px-2 backdrop-blur-sm transition-opacity duration-500 ${
+        cerrando ? "opacity-0" : "opacity-100"
+      }`}
+    >
+      <WinterCloudsBackdrop />
+
+      {GOT_TITLE_LINES.map((linea, indiceLinea) => (
+        <h3
+          key={indiceLinea}
+          className="relative z-10 flex flex-nowrap justify-center font-serif font-black uppercase leading-[0.85] tracking-[0.05em]"
+          style={{ fontSize: "clamp(3.5rem, 16vw, 9rem)" }}
+        >
+          {linea.split("").map((letra) => {
+            const i = contadorLetras++;
+
+            return letra === " " ? (
+              <span key={i} className="w-[0.28em]" />
+            ) : (
+              <span
+                key={i}
+                className="finsi-got-letter inline-block bg-gradient-to-b from-slate-50 via-slate-300 to-slate-500 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(226,232,240,0.5)]"
+                style={{ animationDelay: `${300 + i * 55}ms` }}
+              >
+                {letra}
+              </span>
+            );
+          })}
+        </h3>
+      ))}
+    </div>
+  );
+}
+
 function EasterEggVisual({ tipo }: { tipo: Exclude<EasterEggVisual, null> }) {
-  const src =
-    tipo === "kenobi"
-      ? "/images/task/finsi-kenobi.webp"
-      : "/images/task/finsi-yoda.webp";
+  const { src, poster, durationMs, border } = EASTER_EGG_VISUAL_ASSETS[tipo];
+  const [terminado, setTerminado] = useState(false);
+
+  useEffect(() => {
+    // Al terminar la animación (loop=1, se congela sola en el navegador)
+    // cambiamos al poster estático: el webp animado pesa varios MB, el
+    // último frame como imagen fija pesa unos pocos KB.
+    const idPoster = setTimeout(() => setTerminado(true), durationMs);
+
+    return () => clearTimeout(idPoster);
+  }, [durationMs]);
 
   useEffect(() => {
     if (tipo !== "kenobi") return;
@@ -101,13 +235,9 @@ function EasterEggVisual({ tipo }: { tipo: Exclude<EasterEggVisual, null> }) {
   }, [tipo]);
 
   return (
-    <div
-      className={`relative -mx-4 -mt-3 mb-3 overflow-hidden border-b bg-[#101828] ${
-        tipo === "kenobi" ? "border-sky-300/60" : "border-emerald-300/60"
-      }`}
-    >
+    <div className={`relative -mx-4 -mt-3 mb-3 overflow-hidden border-b bg-[#101828] ${border}`}>
       <img
-        src={src}
+        src={terminado ? poster : src}
         alt=""
         aria-hidden="true"
         draggable={false}
@@ -251,6 +381,32 @@ export default function AsistenteIA() {
   const autoPromptEnviadoRef = useRef(false);
   const mensajesScrollRef = useRef<HTMLDivElement>(null);
   const { isOpen: equipoModalAbierto, openModal: abrirEquipoModal, closeModal: cerrarEquipoModal } = useModal();
+  const [gotSplash, setGotSplash] = useState<"visible" | "cerrando" | null>(null);
+  const gotSplashMostradoRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const ultimoMensaje = messages[messages.length - 1];
+
+    if (
+      !ultimoMensaje ||
+      ultimoMensaje.role !== "assistant" ||
+      gotSplashMostradoRef.current === ultimoMensaje.id ||
+      detectarEasterEggVisual(ultimoMensaje.text) !== "got"
+    ) {
+      return;
+    }
+
+    gotSplashMostradoRef.current = ultimoMensaje.id;
+    setGotSplash("visible");
+
+    const cerrar = setTimeout(() => setGotSplash("cerrando"), 2400);
+    const ocultar = setTimeout(() => setGotSplash(null), 2900);
+
+    return () => {
+      clearTimeout(cerrar);
+      clearTimeout(ocultar);
+    };
+  }, [messages]);
 
   const nombreBienvenida = useMemo(() => {
     const metadata = session?.user.user_metadata;
@@ -585,17 +741,49 @@ export default function AsistenteIA() {
           20% { opacity: .9; }
           100% { transform: translateY(-34px) scale(1.2); opacity: 0; }
         }
+        @keyframes finsiMatrixGlow {
+          0% { transform: scale(.985); box-shadow: 0 0 0 rgba(139,92,246,0); }
+          35% { transform: scale(1.012); box-shadow: 0 0 18px rgba(139,92,246,.52), 0 0 38px rgba(217,70,239,.24); }
+          100% { transform: scale(1); box-shadow: 0 0 0 rgba(139,92,246,0); }
+        }
+        @keyframes finsiGotGlow {
+          0% { transform: scale(.985); box-shadow: 0 0 0 rgba(148,163,184,0); }
+          35% { transform: scale(1.012); box-shadow: 0 0 18px rgba(148,163,184,.5), 0 0 38px rgba(226,232,240,.22); }
+          100% { transform: scale(1); box-shadow: 0 0 0 rgba(148,163,184,0); }
+        }
+        @keyframes finsiGotLetterIn {
+          0% { opacity: 0; transform: translateY(10px) scale(.94); filter: blur(2px); }
+          100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+        }
+        @keyframes finsiCloudDrift {
+          0% { transform: translateX(-35%); }
+          100% { transform: translateX(135%); }
+        }
+        @keyframes finsiSnowFall {
+          0% { transform: translateY(-10%) translateX(0); opacity: 0; }
+          10% { opacity: 1; }
+          100% { transform: translateY(115vh) translateX(14px); opacity: 0; }
+        }
         .finsi-easter-kenobi { animation: finsiKenobiGlow 1.35s ease-out; }
         .finsi-easter-yoda { animation: finsiYodaGlow 1.55s ease-out; }
+        .finsi-easter-matrix { animation: finsiMatrixGlow 1.35s ease-out; }
+        .finsi-easter-got { animation: finsiGotGlow 1.35s ease-out; }
+        .finsi-got-letter { animation: finsiGotLetterIn .55s ease-out both; }
+        .finsi-cloud { left: -20%; animation-name: finsiCloudDrift; animation-timing-function: linear; animation-iteration-count: infinite; }
+        .finsi-cloud-reverse { animation-direction: reverse; }
+        .finsi-snowflake { animation-name: finsiSnowFall; animation-timing-function: linear; animation-iteration-count: infinite; }
         .finsi-yoda-particle { animation: finsiYodaParticle 1.45s ease-out forwards; }
         .finsi-yoda-particle-2 { animation-delay: 90ms; }
         .finsi-yoda-particle-3 { animation-delay: 160ms; }
         .finsi-yoda-particle-4 { animation-delay: 230ms; }
         .finsi-yoda-particle-5 { animation-delay: 310ms; }
         @media (prefers-reduced-motion: reduce) {
-          .finsi-easter-kenobi, .finsi-easter-yoda, .finsi-yoda-particle { animation: none !important; }
+          .finsi-easter-kenobi, .finsi-easter-yoda, .finsi-easter-matrix, .finsi-easter-got,
+          .finsi-got-letter, .finsi-yoda-particle, .finsi-cloud, .finsi-snowflake { animation: none !important; }
         }
       `}</style>
+
+      {gotSplash && <GotTitleReveal cerrando={gotSplash === "cerrando"} />}
 
       <PageMeta title="FinanceAI | Asistente IA" description="Asistente de inteligencia artificial para tus finanzas" />
       <div className="flex h-[calc(100dvh-90px)] gap-6 pb-2 sm:h-[calc(100vh-150px)] sm:pb-0">
@@ -751,17 +939,28 @@ export default function AsistenteIA() {
                               ? "finsi-easter-kenobi bg-[#101828] text-sky-100 ring-1 ring-sky-400/50"
                               : easterVisual === "yoda"
                                 ? "finsi-easter-yoda bg-emerald-50 text-gray-800 ring-1 ring-emerald-300/80 dark:bg-emerald-950/30 dark:text-emerald-50 dark:ring-emerald-500/50"
-                                : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                : easterVisual === "matrix"
+                                  ? "finsi-easter-matrix bg-[#101828] text-violet-100 ring-1 ring-violet-400/50"
+                                  : easterVisual === "got"
+                                    ? "finsi-easter-got bg-[#101828] text-slate-100 ring-1 ring-slate-400/50"
+                                    : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200"
                         }`}
                       >
                         {message.role === "assistant" && easterVisual && (
                           <EasterEggVisual tipo={easterVisual} />
                         )}
 
-                        {easterVisual === "kenobi" && (
-                          <>
-                            <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-sky-300/40" />
-                          </>
+                        {(easterVisual === "kenobi" || easterVisual === "matrix" || easterVisual === "got") && (
+                          <span
+                            aria-hidden="true"
+                            className={`pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ${
+                              easterVisual === "kenobi"
+                                ? "ring-sky-300/40"
+                                : easterVisual === "matrix"
+                                  ? "ring-violet-300/40"
+                                  : "ring-slate-300/40"
+                            }`}
+                          />
                         )}
 
                         {easterVisual === "yoda" && (

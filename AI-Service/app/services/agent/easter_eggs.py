@@ -224,11 +224,7 @@ class EasterEggResponder:
                 key="matrix",
                 response=(
                     "💊 Esta es tu última oportunidad. Después de esto no hay vuelta atrás.\n\n"
-                    "Tomás la pastilla azul... y la historia termina.\n"
-                    "Tomás la roja... y te muestro cuánto gastás en delivery.\n\n"
-                    "![Pastilla roja o azul](https://www.elcohetealaluna.com/wp-content/uploads/2024/11/"
-                    "TheMatrix-LaurenceFishburneasMorpheus-BluePillRedPill-HollywoodMovieArtPoster_"
-                    "54b03b03-84c6-414a-83e8-7068d9450732-1024x713.jpg)"
+                    "!audio[matrix-pill](/images/task/finsi-matrix.mp3)"
                 ),
             )
 
@@ -237,7 +233,8 @@ class EasterEggResponder:
                 key="got",
                 response=(
                     "❄️ El invierno se acerca.\n\n"
-                    "Por eso conviene tener un fondo de emergencia antes de que llegue."
+                    "Por eso conviene tener un fondo de emergencia antes de que llegue.\n\n"
+                    "!audio[got-winter](/images/task/finsi-got.mp3)"
                 ),
             )
 
