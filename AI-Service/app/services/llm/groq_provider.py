@@ -1,9 +1,13 @@
+import logging
 from collections.abc import Sequence
 
 from groq import AsyncGroq
 
 from app.services.llm.base import LLMProvider
 from app.services.llm.schemas import LLMMessage, LLMResponse
+
+
+logger = logging.getLogger(__name__)
 
 
 class GroqProvider(LLMProvider):
@@ -24,10 +28,15 @@ class GroqProvider(LLMProvider):
         temperature: float = 0.2,
         max_tokens: int = 1200,
     ) -> LLMResponse:
-        last_error = None
+        last_error: Exception | None = None
 
         for index, api_key in enumerate(self.api_keys, start=1):
             try:
+                logger.info(
+                    "Intentando Groq con Key #%s",
+                    index,
+                )
+
                 client = AsyncGroq(api_key=api_key)
 
                 response = await client.chat.completions.create(
@@ -44,6 +53,11 @@ class GroqProvider(LLMProvider):
                 )
 
                 usage = response.usage
+
+                logger.info(
+                    "Groq respondió correctamente con Key #%s",
+                    index,
+                )
 
                 return LLMResponse(
                     content=response.choices[0].message.content or "",
@@ -66,7 +80,18 @@ class GroqProvider(LLMProvider):
 
             except Exception as exc:
                 last_error = exc
-                print(f"Groq Key #{index} falló: {exc}")
+
+                logger.warning(
+                    "Groq Key #%s falló: %s",
+                    index,
+                    type(exc).__name__,
+                )
+
                 continue
 
-        raise last_error
+        if last_error is not None:
+            raise last_error
+
+        raise RuntimeError(
+            "Groq no pudo generar una respuesta."
+        )

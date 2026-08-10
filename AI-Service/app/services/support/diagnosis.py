@@ -364,6 +364,32 @@ class GuidedSupportDiagnosis:
                 )
 
         if state == SupportState.PASSWORD_WAITING_ERROR:
+            # Si el usuario vuelve a describir el problema de forma general,
+            # no lo tratamos como si fuera el mensaje exacto del error.
+            # Reiniciamos el triage de contraseña para pedir el síntoma correcto.
+            if cls._contains_any(
+                current,
+                (
+                    "no puedo cambiar mi contrasena",
+                    "no puedo cambiar la contrasena",
+                    "no me deja cambiar mi contrasena",
+                    "no me deja cambiar la contrasena",
+                    "no puedo cambiar mi clave",
+                    "no me deja cambiar mi clave",
+                ),
+            ):
+                return DiagnosisResult(
+                    content=(
+                        "Vamos a revisar qué ocurre con la contraseña:\n\n"
+                        "1. La nueva contraseña es rechazada.\n"
+                        "2. No aparece la opción para cambiarla.\n"
+                        "3. Aparece un mensaje de error al guardar.\n"
+                        "4. No puedo iniciar sesión.\n\n"
+                        "Puedes responder con el número o describir el problema con tus palabras."
+                    ),
+                    route="support_password_triage",
+                )
+
             if cls._is_current_password_error(current):
                 return cls._solved(
                     cls._current_password_error_text(),

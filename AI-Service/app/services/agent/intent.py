@@ -48,7 +48,7 @@ class IntentDetector:
     )
 
     _TERMS: tuple[tuple[Intent, set[str]], ...] = (
-        (Intent.GREETING, {"hola", "holi", "buen dia", "buenas", "buenas tardes", "buenas noches"}),
+        (Intent.GREETING, { "hola","holi","buen dia","buenas", "buenas tardes","buenas noches","como estas","todo bien","como va","que tal",}),
         (Intent.THANKS, {"gracias", "muchas gracias", "te agradezco", "perfecto", "excelente", "ok", "okay", "listo", "dale", "genial"}),
         (Intent.FAREWELL, {"chau", "adios", "hasta luego", "nos vemos"}),
         (Intent.CAPABILITIES, {"que podes hacer", "que puedes hacer", "como me ayudas", "tus funciones"}),
@@ -323,6 +323,9 @@ class IntentDetector:
         "cual es mi porcentaje de endeudamiento",
         "cuanto representa mi deuda",
         "que porcentaje de mis ingresos va a deudas",
+        "que porcentaje de mis ingresos va a deuda",
+        "cual es mi nivel de deuda",
+        "cuanto es mi nivel de deuda",
         "que porcentaje de mis ingresos destino a deudas",
         "estoy muy endeudado",
         "estoy muy endeudada",
@@ -491,6 +494,15 @@ class IntentDetector:
         ):
             return IntentResult(Intent.GREETING, matched_terms=("hola",))
 
+        # Promesas/riesgos de inversión deben evaluarse antes de interpretar
+        # porcentajes como operaciones matemáticas.
+        if self._is_investment_risk_education(normalized):
+            return IntentResult(
+                intent=Intent.FINANCIAL_EDUCATION,
+                mode=QueryMode.ANALYTICAL,
+                matched_terms=("investment_risk_education",),
+            )
+
         has_money = self.has_monetary_amount(text)
         has_math = bool(self._MATH_PATTERN.search(text))
         has_financial_calculation = self._contains_any(normalized, self._FINANCIAL_CALC_TERMS)
@@ -580,6 +592,21 @@ class IntentDetector:
                 matched_terms=("meta",),
             )
 
+        # Comparar ahorros contra deuda requiere contexto financiero personal.
+        if (
+            self._contains_any(normalized, {"ahorro", "ahorros"})
+            and self._contains_any(normalized, {"deuda", "deudas", "tarjeta", "credito"})
+            and self._contains_any(
+                normalized,
+                {"priorizo", "priorizar", "prioridad", "deberia", "que hago"},
+            )
+        ):
+            return IntentResult(
+                intent=Intent.DEBT,
+                mode=QueryMode.ANALYTICAL,
+                matched_terms=("savings_vs_debt_priority",),
+            )
+
         investment_guidance = tuple(
             term
             for term in self._INVESTMENT_GUIDANCE_TERMS
@@ -664,7 +691,7 @@ class IntentDetector:
         if debt_level_terms:
             return IntentResult(
                 intent=Intent.DEBT,
-                mode=QueryMode.DIRECT,
+                mode=QueryMode.ANALYTICAL,
                 matched_terms=debt_level_terms,
             )
 
@@ -871,7 +898,8 @@ class IntentDetector:
             normalized,
             {
                 "garantizado", "garantizada", "garantizados", "garantizadas",
-                "sin riesgo", "dinero facil", "duplicar mi dinero",
+                "sin riesgo", "no tiene riesgo", "ningun riesgo",
+                "dinero facil", "duplicar mi dinero", "duplicar mi plata",
                 "duplicar el dinero", "estafa", "fraude", "scam", "ponzi",
                 "piramide", "demasiado bueno", "confiable", "seguro", "segura",
             },
@@ -892,8 +920,20 @@ class IntentDetector:
                 normalized,
             )
         )
-        return investment_context and (
-            red_flag_context or asks_evaluation or extraordinary_percentage
+        money_context = cls._contains_any(
+            normalized,
+            {
+                "dinero", "plata", "ahorro", "ahorros",
+                "rentabilidad", "rendimiento", "retorno",
+            },
+        )
+
+        return (
+            investment_context
+            and (red_flag_context or asks_evaluation or extraordinary_percentage)
+        ) or (
+            red_flag_context
+            and (extraordinary_percentage or money_context)
         )
 
     def _is_financial_education(self, normalized: str) -> bool:

@@ -938,6 +938,41 @@ class ProductKnowledgeResponder:
         if not normalized:
             return None
 
+        # Product Knowledge responde consultas informativas.
+        # Si el usuario describe un problema técnico explícito, no debe
+        # interceptarlo: el orquestador debe enviarlo al diagnóstico guiado.
+        technical_problem_markers = (
+            "no puedo",
+            "no me deja",
+            "no funciona",
+            "no anda",
+            "no responde",
+            "no carga",
+            "no aparece",
+            "no recibo",
+            "se queda cargando",
+            "se trabo",
+            "se bloqueo",
+            "error",
+            "falla",
+            "fallo",
+            "rechazada",
+            "rechazado",
+            "incorrecta",
+            "incorrecto",
+            "invalida",
+            "invalido",
+            "bloqueada",
+            "bloqueado",
+            "vencido",
+            "vencio",
+            "desaparecio",
+            "perdi mis",
+        )
+
+        if any(marker in normalized for marker in technical_problem_markers):
+            return None
+
         best_rule: ProductKnowledgeRule | None = None
         best_len = -1
 

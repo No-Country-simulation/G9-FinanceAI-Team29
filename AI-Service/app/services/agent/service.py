@@ -203,13 +203,20 @@ class FinSightAgentService:
         # FinSightAI y TwentyNineDevs, excepto cuando la intención ya fue
         # reconocida como educación financiera.
         product_knowledge = (
-            ProductKnowledgeResponder.answer(query.original)
-            if (
-                not explicit_support_query
-                and early_intent.intent != Intent.FINANCIAL_EDUCATION
-            )
-            else None
-        )
+    ProductKnowledgeResponder.answer(query.original)
+    if (
+        not explicit_support_query
+        and early_intent.intent not in {
+            Intent.FINANCIAL_EDUCATION,
+            Intent.GREETING,
+            Intent.THANKS,
+            Intent.FAREWELL,
+            Intent.CAPABILITIES,
+            Intent.CREATOR_INFO,
+        }
+    )
+    else None
+)
         if product_knowledge is not None:
             return LLMResponse(
                 content=product_knowledge.content,
@@ -429,19 +436,6 @@ class FinSightAgentService:
                 usuario_id=usuario_id,
                 limit=limit,
                 today=local_today,
-            )
-            return self._internal_response(
-                content,
-                intent_result.intent,
-                query,
-                used_financial_context=True,
-            )
-
-        if intent_result.intent == Intent.RECOMMENDATIONS:
-            analysis = self._get_analysis(usuario_id)
-            content = DeterministicFinancialResponder.recommendations(
-                analysis=analysis,
-                question=query.corrected,
             )
             return self._internal_response(
                 content,
@@ -747,11 +741,16 @@ class FinSightAgentService:
 
         # Variantes naturales que pueden no contener literalmente "meta".
         patterns = (
-            r"\bcomo vienen mis objetivos\b",
-            r"\bcuanto me falta para (?:llegar|alcanzar|completar)\b",
-            r"\ben cual estoy mas avanzado\b",
-            r"\bcual tengo mas cerca\b",
-        )
+    r"\bcomo vienen mis objetivos\b",
+    r"\bcuanto me falta para (?:llegar|alcanzar|completar)(?:la|lo)?\b",
+    r"\ben cual estoy mas avanzado\b",
+    r"\bcual tengo mas cerca\b",
+
+    # Follow-ups naturales sobre una meta ya mencionada.
+    r"\bque deberia cambiar para (?:llegar|alcanzar|cumplir)(?:la|lo)? antes\b",
+    r"\bque puedo cambiar para (?:llegar|alcanzar|cumplir)(?:la|lo)? antes\b",
+    r"\bcomo (?:puedo )?(?:llegar|alcanzar|cumplir)(?:la|lo)? antes\b",
+)
         return any(re.search(pattern, normalized) for pattern in patterns)
 
     def _direct_goal_response(
@@ -1326,10 +1325,7 @@ class FinSightAgentService:
     @staticmethod
     def _simple_response(intent: Intent) -> str:
         responses = {
-            Intent.GREETING: (
-                "¡Hola! Soy el asistente financiero de FinSightAI. Puedo ayudarte con tus ingresos, "
-                "gastos, ahorro, deudas, presupuesto y perfil financiero."
-            ),
+            Intent.GREETING: "¡Hola! 😊 Todo bien por acá. ¿Cómo estás? ¿En qué puedo ayudarte?",
             Intent.THANKS: "Con gusto. Puedes realizar otra consulta sobre tus finanzas cuando lo necesites.",
             Intent.FAREWELL: "Hasta luego. Estaré disponible cuando necesites revisar tus finanzas.",
             Intent.CAPABILITIES: (
@@ -1353,6 +1349,7 @@ class FinSightAgentService:
                 "deudas, ahorro y cálculos financieros que incluyan un monto monetario."
             ),
         }
+
         return responses.get(
             intent,
             "No pude procesar esa consulta dentro del alcance financiero de FinSightAI.",

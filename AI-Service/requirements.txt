@@ -7,6 +7,7 @@ python-multipart==0.0.32
 
 groq==1.6.0
 google-genai==2.16.0
+openai
 
 faiss-cpu==1.15.0
 numpy==2.5.1

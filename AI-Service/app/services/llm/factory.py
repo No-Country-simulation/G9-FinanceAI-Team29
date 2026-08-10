@@ -24,6 +24,22 @@ class LLMProviderFactory:
                 model=settings.groq_model,
             )
 
+        if selected_provider == "openrouter":
+            if not settings.openrouter_api_key:
+                raise ValueError(
+                    "OPENROUTER_API_KEY no está configurada."
+                )
+
+            from app.services.llm.openrouter_provider import (
+                OpenRouterProvider,
+            )
+
+            return OpenRouterProvider(
+                api_key=settings.openrouter_api_key,
+                model=settings.openrouter_model,
+                base_url=settings.openrouter_base_url,
+            )
+
         if selected_provider in {"gemini", "google"}:
             if not settings.gemini_api_key:
                 raise ValueError(
