@@ -75,6 +75,9 @@ function normalizarPreguntaParaComparar(texto: string): string {
 
 const MENSAJE_EXPLICAME_MAS = "Explícame más";
 
+const MENSAJE_DESCANSO =
+  "🔥 Llevas un rato por aquí. Descansa junto a la hoguera.\n\n!audio[descanso](/images/task/descanso.mp3)";
+
 function puedeMostrarExplicameMas(texto: string): boolean {
   const limpio = texto.trim();
 
@@ -131,7 +134,7 @@ function puedeMostrarExplicameMas(texto: string): boolean {
   return !respuestasInteractivas;
 }
 
-type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | null;
+type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | "wololo" | "descanso" | null;
 
 function detectarEasterEggVisual(texto: string): EasterEggVisual {
   if (texto.includes("!audio[general-kenobi]") || /\bGeneral Kenobi\./i.test(texto)) {
@@ -148,6 +151,14 @@ function detectarEasterEggVisual(texto: string): EasterEggVisual {
 
   if (texto.includes("!audio[got-winter]") || /El invierno se acerca\./i.test(texto)) {
     return "got";
+  }
+  
+  if (texto.includes("!audio[wololo]") || /\bWOLOLO\b/i.test(texto)) {
+    return "wololo";
+  }
+
+  if (texto.includes("!audio[descanso]") || /Descansa junto a la hoguera/i.test(texto)) {
+    return "descanso";
   }
 
   return null;
@@ -181,7 +192,20 @@ const EASTER_EGG_VISUAL_ASSETS: Record<
     durationMs: 10000,
     border: "border-slate-400/60",
   },
+  wololo: {
+    src: "/images/task/wololo.webp",
+    poster: "/images/task/wololo-poster.webp",
+    durationMs: 4700,
+    border: "border-red-400/60",
+  },
+  descanso: {
+  src: "/images/task/descanso.webp",
+  poster: "/images/task/descanso-poster.webp",
+  durationMs: 18090,
+  border: "border-amber-400/60",
+  },
 };
+
 
 const GOT_TITLE_LINES = ["WINTER IS", "COMING"];
 
@@ -544,6 +568,7 @@ export default function AsistenteIA() {
   const [pasoPendiente, setPasoPendiente] = useState<PasoInteractivo>(null);
   const [modeloActivo, setModeloActivo] = useState(MODELOS_ASISTENTE[0]);
   const ignorarProximaRepeticionRef = useRef(false);
+  const descansoMostradoRef = useRef(false);
   const [mensajeEditandoId, setMensajeEditandoId] = useState<number | null>(null);
   const [textoEditando, setTextoEditando] = useState("");
   const ultimoMensajeAsistenteId = [...messages].reverse().find((m) => m.role === "assistant")?.id;
@@ -697,6 +722,11 @@ export default function AsistenteIA() {
     const ignorarRepeticion = ignorarProximaRepeticionRef.current;
     ignorarProximaRepeticionRef.current = false;
 
+    const numeroMensajeUsuario =
+      messages.filter((message) => message.role === "user").length + 1;
+    const debeMostrarDescanso =
+      numeroMensajeUsuario === 10 && !descansoMostradoRef.current;
+
     const esPreguntaRepetida =
       !ignorarRepeticion &&
       ultimaPreguntaUsuario !== undefined &&
@@ -710,10 +740,23 @@ export default function AsistenteIA() {
     if (esPreguntaRepetida) {
       setAgentTabStatus("💬 El agente está escribiendo...");
       if (sonidoActivo) playSendSound();
-      setMessages((prev) => [
-        ...prev,
-        { id: prev.length + 1, role: "assistant", text: RESPUESTA_RICKROLL_REPETIDA },
-      ]);
+      setMessages((prev) => {
+        const siguientes: Message[] = [
+          ...prev,
+          { id: prev.length + 1, role: "assistant", text: RESPUESTA_RICKROLL_REPETIDA },
+        ];
+
+        if (debeMostrarDescanso) {
+          descansoMostradoRef.current = true;
+          siguientes.push({
+            id: prev.length + 2,
+            role: "assistant",
+            text: MENSAJE_DESCANSO,
+          });
+        }
+
+        return siguientes;
+      });
       setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playReceiveSound();
       if (vozActiva) speakText("You just got Rickrolled. Classic.");
@@ -740,10 +783,23 @@ export default function AsistenteIA() {
         (paso) => setMensajePensando(paso),
         modoSeleccionado,
       );
-      setMessages((prev) => [
-        ...prev,
-        { id: prev.length + 1, role: "assistant", text: answer },
-      ]);
+      setMessages((prev) => {
+        const siguientes: Message[] = [
+          ...prev,
+          { id: prev.length + 1, role: "assistant", text: answer },
+        ];
+
+        if (debeMostrarDescanso) {
+          descansoMostradoRef.current = true;
+          siguientes.push({
+            id: prev.length + 2,
+            role: "assistant",
+            text: MENSAJE_DESCANSO,
+          });
+        }
+
+        return siguientes;
+      });
       if (/¿Puedo ayudarte con algo más\?/i.test(answer)) {
         setPasoPendiente("support-help");
       } else if (REGEX_RESPUESTA_CREADOR.test(answer)) {
@@ -888,6 +944,7 @@ export default function AsistenteIA() {
 
   const nuevoChat = () => {
     stopSpeaking();
+    descansoMostradoRef.current = false;
     setPasoPendiente(null);
     setMensajeEditandoId(null);
     setTextoEditando("");
@@ -899,6 +956,11 @@ export default function AsistenteIA() {
 
   const cargarChat = (chat: ChatGuardado) => {
     stopSpeaking();
+    descansoMostradoRef.current = chat.messages.some(
+      (message) =>
+        message.role === "assistant" &&
+        detectarEasterEggVisual(message.text) === "descanso"
+    );
     setMensajeEditandoId(null);
     setTextoEditando("");
     setMessages(chat.messages.map(m => ({ ...m, isHistory: true })));
@@ -1256,7 +1318,13 @@ export default function AsistenteIA() {
 
                         <div className="relative z-10">
                           {message.role === "assistant" ? (
-                            renderMensajeAsistente(limpiarMetadataInterna(message.text))
+                            renderMensajeAsistente(
+                              limpiarMetadataInterna(
+                                message.isHistory
+                                  ? message.text.replace(/!audio\[[^\]]*\]\([^)]+\)/gi, "")
+                                  : message.text
+                              )
+                            )
                           ) : mensajeEditandoId === message.id ? (
                             <div className="min-w-[260px] sm:min-w-[340px]">
                               <textarea

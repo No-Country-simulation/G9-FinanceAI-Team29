@@ -145,6 +145,23 @@ class EasterEggResponder:
         "sabes algun chiste",
     }
 
+    _WOLOLO_TRIGGERS = {
+        "wololo",
+        "wololoo",
+        "wololooo",
+    }
+
+    _DESCANSO_TRIGGERS = {
+        "descanso",
+        "descansar",
+        "descansoo",
+        "descansaar",
+        "cansado",
+        "cansada",
+        "cansadoo",
+        "cansadaa",
+}
+
     _MONGOLIA_SOUNDS = (
         "/images/task/tecnoMongol.mp3",
         "/images/task/canticoMongol.mp3",
@@ -290,6 +307,24 @@ class EasterEggResponder:
                 response="¿Por qué el dinero nunca duerme? Porque tiene muchos intereses. 😄",
             )
 
+        if normalized in cls._WOLOLO_TRIGGERS:
+            return EasterEgg(
+                key="wololo",
+                response=(
+                    "WOLOLO! 🔵➡️🔴\n\n"
+                    "!audio[wololo](/images/task/wololo.mp3)"
+                ),
+            ) 
+
+        if normalized in cls._DESCANSO_TRIGGERS:
+            return EasterEgg(
+                key="descanso",
+                response=(
+                    "🔥 Llevas un rato por aquí. Descansa junto a la hoguera.\n\n"
+                    "!audio[descanso](/images/task/descanso.mp3)"
+                ),
+            )
+        
         if cls._contains_word(normalized, "mongolia") or cls._contains_word(normalized, "mongol"):
             sonido = random.choice(cls._MONGOLIA_SOUNDS)
             bandera = (
