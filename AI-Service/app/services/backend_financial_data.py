@@ -66,6 +66,11 @@ def fetch_user_transactions(usuario_id: str) -> list[dict[str, Any]]:
                 "monto": monto,
                 "categoria": str(raw.get("categoria", "Sin categoría")).strip()
                 or "Sin categoría",
+                "subcategoria": (
+                    str(raw.get("subcategoria", "")).strip()
+                    if raw.get("subcategoria") is not None
+                    else ""
+                ),
                 "fecha": raw.get("fecha"),
                 "tipo": tipo,
                 "medioPago": raw.get("medioPago", raw.get("medio_pago", "")),
@@ -93,6 +98,14 @@ def build_live_analysis(usuario_id: str, transactions: list[dict[str, Any]]) -> 
     frame["tipo"] = frame["tipo"].astype(str).str.upper().str.strip()
     frame["fecha_dt"] = pd.to_datetime(frame.get("fecha"), errors="coerce")
 
+    # Mantener el mismo criterio temporal que TransactionQueryEngine:
+    # una transacción futura no cuenta como ingreso, gasto ni ahorro realizado.
+    hoy = pd.Timestamp.now().normalize()
+    frame = frame[
+        frame["fecha_dt"].isna()
+        | frame["fecha_dt"].dt.normalize().le(hoy)
+    ].copy()
+
     ingresos = frame[frame["tipo"].eq("INGRESO")]
     gastos = frame[frame["tipo"].eq("GASTO")]
     if gastos.empty and ingresos.empty:
@@ -118,9 +131,11 @@ def build_live_analysis(usuario_id: str, transactions: list[dict[str, Any]]) -> 
     months_count = max(len(monthly_expenses), 1)
     deuda_mensual = deuda_total / months_count
 
-    ahorro_mask = gastos["categoria"].astype(str).str.lower().str.contains("ahorro", regex=False)
-    ahorro_mensual = float(gastos.loc[ahorro_mask, "monto"].sum()) / months_count
+    # Capacidad de ahorro real: excedente promedio entre ingresos y gastos.
+    # Las deudas ya forman parte de los gastos, por lo que no se restan dos veces.
+    # Si el balance es negativo, la capacidad de ahorro disponible es 0.
     saldo = ingreso_mensual - gasto_mensual
+    ahorro_mensual = max(saldo, 0.0)
 
     ratio_gasto = _safe_ratio(gasto_mensual, ingreso_mensual)
     ratio_deuda = _safe_ratio(deuda_mensual, ingreso_mensual)
@@ -140,9 +155,23 @@ def build_live_analysis(usuario_id: str, transactions: list[dict[str, Any]]) -> 
         perfil, estado, color, riesgo = "En riesgo", "Riesgo alto", "orange", "Alto"
 
     category_totals: defaultdict[str, float] = defaultdict(float)
+    subcategory_totals: defaultdict[str, float] = defaultdict(float)
+    subcategories_by_category: defaultdict[str, defaultdict[str, float]] = defaultdict(
+        lambda: defaultdict(float)
+    )
+
     for tx in transactions:
         if tx["tipo"] == "GASTO":
-            category_totals[tx["categoria"]] += float(tx["monto"])
+            categoria = str(tx.get("categoria") or "Sin categoría").strip() or "Sin categoría"
+            subcategoria = str(tx.get("subcategoria") or "").strip()
+            monto = float(tx["monto"])
+
+            category_totals[categoria] += monto
+
+            if subcategoria:
+                subcategory_totals[subcategoria] += monto
+                subcategories_by_category[categoria][subcategoria] += monto
+
     total_gastos = sum(category_totals.values())
     categorias = [
         {
@@ -152,6 +181,34 @@ def build_live_analysis(usuario_id: str, transactions: list[dict[str, Any]]) -> 
         }
         for category, amount in sorted(category_totals.items(), key=lambda item: item[1], reverse=True)
     ]
+
+    subcategorias = [
+        {
+            "subcategoria": subcategory,
+            "monto": round(amount, 2),
+            "porcentaje": round((amount / total_gastos * 100) if total_gastos else 0, 2),
+        }
+        for subcategory, amount in sorted(
+            subcategory_totals.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+    ]
+
+    subcategorias_por_categoria = {
+        categoria: [
+            {
+                "subcategoria": subcategoria,
+                "monto": round(amount, 2),
+            }
+            for subcategoria, amount in sorted(
+                valores.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )
+        ]
+        for categoria, valores in subcategories_by_category.items()
+    }
 
     fortalezas: list[str] = []
     oportunidades: list[str] = []
@@ -210,6 +267,8 @@ def build_live_analysis(usuario_id: str, transactions: list[dict[str, Any]]) -> 
             "saldo_disponible": round(saldo - ahorro_mensual, 2),
         },
         "categorias_principales": categorias[:5],
+        "subcategorias_principales": subcategorias[:10],
+        "subcategorias_por_categoria": subcategorias_por_categoria,
         "recomendaciones": recomendaciones,
         "modelo_version": "live-backend-1.0.0",
         "transactions": transactions,

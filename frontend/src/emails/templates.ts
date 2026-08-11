@@ -54,6 +54,40 @@ export function resetPasswordEmail({ logoUrl, greetingName, ctaUrl }: EmailTempl
   });
 }
 
+export function recordatorioFinancieroEmail({ logoUrl, greetingName, ctaUrl }: EmailTemplateParams): string {
+  const itemsDeEjemplo = [
+    { titulo: 'Meta: Ahorro para vacaciones', fecha: '2026-08-13' },
+    { titulo: 'Pago: Factura de Luz', fecha: '2026-08-13' },
+  ];
+
+  const formatearFecha = (fechaStr: string): string => {
+    const d = new Date(`${fechaStr}T00:00:00`);
+    return d.toLocaleDateString('es-AR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  };
+
+  const listaHtml = itemsDeEjemplo
+    .map((item) => `<li>${item.titulo} — ${formatearFecha(item.fecha)}</li>`)
+    .join('');
+
+  return buildEmailHtml({
+    logoUrl,
+    preheader: 'Tienes 2 evento(s) financiero(s) en 3 días.',
+    title: 'Recordatorio financiero',
+    greetingName,
+    bodyParagraphs: [
+      'En 3 días tienes lo siguiente en tu calendario financiero:',
+      `<ul style="margin:0 0 16px;padding-left:20px;">${listaHtml}</ul>`,
+    ],
+    ctaText: 'Ver mi calendario',
+    ctaUrl,
+    footerNote: 'Puedes desactivar estos recordatorios desde el calendario financiero.',
+  });
+}
+
 export const EMAIL_TEMPLATES = {
   'confirmar-registro': {
     etiqueta: 'Confirmar registro',
@@ -69,6 +103,14 @@ export const EMAIL_TEMPLATES = {
     build: resetPasswordEmail,
     goGreetingToken: GO_GREETING_TOKEN_EMAIL,
   },
+  'recordatorio-financiero': {
+    etiqueta: 'Recordatorio financiero',
+    asuntoSugerido: 'Recordatorio: 2 evento(s) financiero(s) próximos',
+    ubicacionSupabase: 'N/A (Se envía desde backend /api/enviar-recordatorios)',
+    build: recordatorioFinancieroEmail,
+    goGreetingToken: '{{ .Nombre }}',
+  },
 } as const;
 
 export type EmailTemplateKey = keyof typeof EMAIL_TEMPLATES;
+

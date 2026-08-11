@@ -5,6 +5,7 @@ from app.config import settings
 from app.services.llm.factory import LLMProviderFactory
 from app.services.llm.schemas import LLMMessage, LLMResponse
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,17 +55,25 @@ class LLMService:
     @staticmethod
     def _is_configured(provider: str) -> bool:
         if provider == "groq":
-            return bool(settings.groq_api_key)
+            return bool(settings.groq_api_keys)
+
+        if provider == "openrouter":
+            return bool(settings.openrouter_api_key)
+
         if provider in {"gemini", "google"}:
             return bool(settings.gemini_api_key)
+
         return False
 
     @staticmethod
     def _fallback(provider: str) -> str | None:
         if provider == "groq":
-            return "gemini"
+            return "openrouter"
+
+        if provider == "openrouter":
+            return None
 
         if provider in {"gemini", "google"}:
-            return "groq"
+            return "openrouter"
 
         return None

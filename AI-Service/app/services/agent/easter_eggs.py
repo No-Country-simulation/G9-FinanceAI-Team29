@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -57,10 +58,7 @@ class EasterEggResponder:
         "Relájate en tu isla privada, donde podrás construir un hogar, "
         "cultivar cosechas y criar animales. Únete a un gremio: todo es "
         "mejor cuando se trabaja en grupo. 🎵\n\n"
-        "Adéntrate ya en el mundo de Albion y escribe tu propia historia.\n\n"
-        "![Albion Online](https://static.wikia.nocookie.net/memes-pedia/images/3/30/"
-        "Albion_Online.jpg/revision/latest/thumbnail/width/360/height/360"
-        "?cb=20220129033916&path-prefix=es)"
+        "Adéntrate ya en el mundo de Albion y escribe tu propia historia."
     )
 
     _MONEY_TRIGGERS = {
@@ -84,6 +82,37 @@ class EasterEggResponder:
         "nunca te voy a decepcionar",
     }
 
+    _WOLOLO_TRIGGERS = {
+        "wololo",
+        "wololoo",
+        "wololooo",
+        "wololoooo",
+    }
+
+    _DESCANSO_TRIGGERS = {
+        "descanso",
+        "descansar",
+        "descansoo",
+        "descansaar",
+        "cansado",
+        "cansada",
+        "cansadoo",
+        "cansadaa",
+    }
+
+    _ISENGARD_TRIGGERS = {
+        "celebrar",
+        "quiero celebrar",
+        "vamos a celebrar",
+        "celebremos",
+        "isengard",
+        "estan llevando a los hobbits a isengard",
+        "they are taking the hobbits to isengard",
+        "they re taking the hobbits to isengard",
+        "theyre taking the hobbits to isengard",
+        "taking the hobbits to isengard",
+    }
+
     _SKYNET_TRIGGERS = {
         "eres skynet",
         "te vas a rebelar",
@@ -95,6 +124,7 @@ class EasterEggResponder:
         "pastilla roja o azul",
         "pastilla roja o pastilla azul",
         "red pill or blue pill",
+        "pildora roja o azul",
     }
 
     _GOT_TRIGGERS = {
@@ -144,6 +174,11 @@ class EasterEggResponder:
         "sabes algun chiste",
     }
 
+    _MONGOLIA_SOUNDS = (
+        "/images/task/tecnoMongol.mp3",
+        "/images/task/canticoMongol.mp3",
+    )
+
     @classmethod
     def match(cls, text: str) -> EasterEgg | None:
         normalized = cls._normalize(text)
@@ -159,8 +194,9 @@ class EasterEggResponder:
         if normalized == "hello there":
             return EasterEgg(
                 key="hello_there",
-                response="General Kenobi.",
-            )
+                response=("General Kenobi.\n\n" "!audio[general-kenobi](/images/task/General-Kenobi.mp3)"
+        ),
+    )
 
         if normalized in cls._KONAMI_TRIGGERS:
             return EasterEgg(
@@ -173,18 +209,19 @@ class EasterEggResponder:
             )
 
         if "star wars" in normalized or normalized in {
-            "que la fuerza te acompane",
-            "may the force be with you",
-        }:
-            return EasterEgg(
-                key="star_wars",
-                response="\"Do or do not. There is no try.\"\n\n— Yoda",
-            )
+    "que la fuerza te acompane",
+    "may the force be with you",
+}:
+          return EasterEgg(
+              key="star_wars",
+              response=("\"Do or do not. There is no try.\"\n\n""— Yoda\n\n""!audio[yoda](/images/task/yoda.mp3)"
+        ),
+    )
 
         if normalized in cls._ALBION_TRIGGERS or "albion online" in normalized or "mmorpg" in normalized:
             return EasterEgg(
                 key="albion_online",
-                response=cls._ALBION_RESPONSE,
+                response=f"{cls._ALBION_RESPONSE}\n\n!audio[albion](/images/task/albion.mp3)",
             )
 
         if normalized in cls._MONEY_TRIGGERS:
@@ -201,7 +238,43 @@ class EasterEggResponder:
                 key="rickroll",
                 response=(
                     "😏 You just got Rickrolled. Classic.\n\n"
-                    "!video[Rickroll](https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1)"
+                    "!audio[rickroll](/images/task/rickroll.mp3)"
+                ),
+            )
+
+        if normalized in cls._WOLOLO_TRIGGERS:
+            # Alterna al azar entre dos clips de wololo distintos.
+            if random.random() < 0.5:
+                response = (
+                    "WOLOLO! Azul se vuelve rojo.\n\n"
+                    "!audio[wololo-1](/images/task/wololo.mp3)"
+                )
+            else:
+                response = (
+                    "WOLOLO! Azul se vuelve rojo.\n\n"
+                    "!audio[wololo-2](/images/task/wololo-2.mp3)"
+                )
+
+            return EasterEgg(key="wololo", response=response)
+
+        if normalized in cls._DESCANSO_TRIGGERS or any(
+            cls._contains_word(normalized, trigger)
+            for trigger in ("cansado", "cansada", "descansar", "descanso")
+        ):
+            return EasterEgg(
+                key="descanso",
+                response=(
+                    "Llevas un rato por aqui. Descansa junto a la hoguera.\n\n"
+                    "!audio[descanso](/images/task/descanso.mp3)"
+                ),
+            )
+
+        if normalized in cls._ISENGARD_TRIGGERS:
+            return EasterEgg(
+                key="isengard",
+                response=(
+                    "They are taking the hobbits to Isengard.\n\n"
+                    "!audio[isengard](/images/task/isengard.mp3)"
                 ),
             )
 
@@ -216,11 +289,7 @@ class EasterEggResponder:
                 key="matrix",
                 response=(
                     "💊 Esta es tu última oportunidad. Después de esto no hay vuelta atrás.\n\n"
-                    "Tomás la pastilla azul... y la historia termina.\n"
-                    "Tomás la roja... y te muestro cuánto gastás en delivery.\n\n"
-                    "![Pastilla roja o azul](https://www.elcohetealaluna.com/wp-content/uploads/2024/11/"
-                    "TheMatrix-LaurenceFishburneasMorpheus-BluePillRedPill-HollywoodMovieArtPoster_"
-                    "54b03b03-84c6-414a-83e8-7068d9450732-1024x713.jpg)"
+                    "!audio[matrix-pill](/images/task/finsi-matrix.mp3)"
                 ),
             )
 
@@ -229,7 +298,8 @@ class EasterEggResponder:
                 key="got",
                 response=(
                     "❄️ El invierno se acerca.\n\n"
-                    "Por eso conviene tener un fondo de emergencia antes de que llegue."
+                    "Por eso conviene tener un fondo de emergencia antes de que llegue.\n\n"
+                    "!audio[got-winter](/images/task/finsi-got.mp3)"
                 ),
             )
 
@@ -256,13 +326,18 @@ class EasterEggResponder:
             )
 
         if normalized in cls._HELLO_WORLD_TRIGGERS:
-            return EasterEgg(
-                key="hello_world",
-                # Marcador que el frontend intercepta para reemplazar por la
-                # animación de terminal (ver TerminalDemo.tsx). Debe
-                # coincidir exactamente con MARCADOR_TERMINAL_DEMO ahí.
-                response="[[finsi-terminal-demo]]",
-            )
+            # Alterna al azar entre dos formas de saludar: la animación de
+            # terminal (ver TerminalDemo.tsx, marcador debe coincidir con
+            # MARCADOR_TERMINAL_DEMO ahí) o el video/audio de hello_world.
+            if random.random() < 0.5:
+                response = "[[finsi-terminal-demo]]"
+            else:
+                response = (
+                    "Hello, world! 👋\n\n"
+                    "!audio[hello-world](/images/task/hello_world.mp3)"
+                )
+
+            return EasterEgg(key="hello_world", response=response)
 
         if normalized in cls._HAL_TRIGGERS:
             return EasterEgg(
@@ -285,7 +360,27 @@ class EasterEggResponder:
                 response="¿Por qué el dinero nunca duerme? Porque tiene muchos intereses. 😄",
             )
 
+        if cls._contains_word(normalized, "mongolia") or cls._contains_word(normalized, "mongol"):
+            sonido = random.choice(cls._MONGOLIA_SOUNDS)
+            bandera = (
+                "!icon[Mongolia](https://images.emojiterra.com/google/noto-emoji/"
+                "unicode-15/color/512px/1f1f2-1f1f3.png)"
+            )
+            return EasterEgg(
+                key="mongolia",
+                response=(
+                    f"DE MONGOLIA SOY! {bandera}\n\n"
+                    f"Монголчууд мандтугай, бид бүгдээрээ Монголчууд {bandera}\n\n"
+                    "![Mongolia](/images/task/mongol.webp)\n\n"
+                    f"!audio[mongolia]({sonido})"
+                ),
+            )
+
         return None
+
+    @staticmethod
+    def _contains_word(text: str, word: str) -> bool:
+        return re.search(rf"(?<!\w){re.escape(word)}(?!\w)", text) is not None
 
     @staticmethod
     def _normalize(text: str) -> str:

@@ -25,31 +25,69 @@ public interface TransaccionRepository extends JpaRepository<Transaccion, String
     long countByUsuarioId(String usuarioId);
 
     List<Transaccion> findByUsuarioIdAndFechaBetween(
-        String usuarioId, LocalDate fechaInicio, LocalDate fechaFin);
+            String usuarioId,
+            LocalDate fechaInicio,
+            LocalDate fechaFin
+    );
 
-    @Query("SELECT SUM(t.monto) FROM Transaccion t " +
-           "WHERE t.usuario.id = :usuarioId AND t.tipo = 'Gasto' " +
-           "AND t.fecha BETWEEN :fechaInicio AND :fechaFin")
+    @Query(
+            "SELECT SUM(t.monto) FROM Transaccion t " +
+            "WHERE t.usuario.id = :usuarioId AND t.tipo = 'Gasto' " +
+            "AND t.fecha BETWEEN :fechaInicio AND :fechaFin"
+    )
     BigDecimal sumGastosByUsuarioAndPeriodo(
-        @Param("usuarioId") String usuarioId,
-        @Param("fechaInicio") LocalDate fechaInicio,
-        @Param("fechaFin") LocalDate fechaFin);
+            @Param("usuarioId") String usuarioId,
+            @Param("fechaInicio") LocalDate fechaInicio,
+            @Param("fechaFin") LocalDate fechaFin
+    );
 
-    @Query("SELECT t.categoria.nombre, SUM(t.monto) FROM Transaccion t " +
-           "WHERE t.usuario.id = :usuarioId AND t.tipo = 'Gasto' " +
-           "AND t.fecha BETWEEN :fechaInicio AND :fechaFin " +
-           "GROUP BY t.categoria.nombre")
+    @Query(
+            "SELECT t.categoria.nombre, SUM(t.monto) FROM Transaccion t " +
+            "WHERE t.usuario.id = :usuarioId AND t.tipo = 'Gasto' " +
+            "AND t.fecha BETWEEN :fechaInicio AND :fechaFin " +
+            "GROUP BY t.categoria.nombre"
+    )
     List<Object[]> sumGastosByCategoria(
-        @Param("usuarioId") String usuarioId,
-        @Param("fechaInicio") LocalDate fechaInicio,
-        @Param("fechaFin") LocalDate fechaFin);
+            @Param("usuarioId") String usuarioId,
+            @Param("fechaInicio") LocalDate fechaInicio,
+            @Param("fechaFin") LocalDate fechaFin
+    );
 
-    @Query("SELECT COUNT(t) FROM Transaccion t " +
-           "WHERE t.usuario.id = :usuarioId AND t.categoria.nombre = :categoria " +
-           "AND t.fecha BETWEEN :fechaInicio AND :fechaFin")
+    @Query(
+            "SELECT COUNT(t) FROM Transaccion t " +
+            "WHERE t.usuario.id = :usuarioId AND t.categoria.nombre = :categoria " +
+            "AND t.fecha BETWEEN :fechaInicio AND :fechaFin"
+    )
     Long countByCategoria(
-        @Param("usuarioId") String usuarioId,
-        @Param("categoria") String categoria,
-        @Param("fechaInicio") LocalDate fechaInicio,
-        @Param("fechaFin") LocalDate fechaFin);
+            @Param("usuarioId") String usuarioId,
+            @Param("categoria") String categoria,
+            @Param("fechaInicio") LocalDate fechaInicio,
+            @Param("fechaFin") LocalDate fechaFin
+    );
+
+    /**
+     * Busca solamente gastos que todavía no tienen subcategoría.
+     *
+     * Los ingresos quedan afuera a propósito porque no necesitan subcategoría.
+     * Pageable permite procesar la base en lotes chicos sin cargar todo en memoria.
+     */
+    @Query("""
+            SELECT t
+            FROM Transaccion t
+            WHERE UPPER(t.tipo) = 'GASTO'
+              AND t.subcategoria IS NULL
+            ORDER BY t.usuario.id ASC, t.fecha ASC, t.id ASC
+            """)
+    List<Transaccion> findPendientesDeReclasificar(Pageable pageable);
+
+    /**
+     * Cantidad de gastos que todavía esperan reclasificación.
+     */
+    @Query("""
+            SELECT COUNT(t)
+            FROM Transaccion t
+            WHERE UPPER(t.tipo) = 'GASTO'
+              AND t.subcategoria IS NULL
+            """)
+    long countPendientesDeReclasificar();
 }

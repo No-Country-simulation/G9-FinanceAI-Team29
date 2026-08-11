@@ -664,6 +664,219 @@ layer(base);
   }
 }
 
+@keyframes achievement-locked-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(-6px);
+  }
+  30% {
+    transform: translateX(5px);
+  }
+  45% {
+    transform: translateX(-4px);
+  }
+  60% {
+    transform: translateX(3px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+.animate-achievement-locked-shake {
+  animation: achievement-locked-shake 0.45s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-achievement-locked-shake {
+    animation: none;
+  }
+}
+
+@keyframes achievement-locked-special-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0);
+  }
+  50% {
+    box-shadow: 0 0 12px 2px rgba(250, 204, 21, 0.25);
+  }
+}
+
+.animate-achievement-locked-special-glow {
+  animation: achievement-locked-special-glow 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-achievement-locked-special-glow {
+    animation: none;
+  }
+}
+
+@keyframes quiz-fade-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-quiz-fade-slide-in {
+  animation: quiz-fade-slide-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes quiz-option-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-quiz-option-in {
+  animation: quiz-option-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes quiz-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-7px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+.animate-quiz-shake {
+  animation: quiz-shake 0.4s ease-in-out;
+}
+
+@keyframes quiz-correct-pop {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45);
+  }
+  40% {
+    transform: scale(1.035);
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.12);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+.animate-quiz-correct-pop {
+  animation: quiz-correct-pop 0.55s ease-out;
+}
+
+@keyframes quiz-feedback-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.85);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1.05);
+  }
+  25% {
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.95);
+  }
+}
+
+.animate-quiz-feedback-pop {
+  animation: quiz-feedback-pop 1.1s ease-in-out forwards;
+}
+
+@keyframes quiz-confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--quiz-confetti-x, 0), 90px) rotate(var(--quiz-confetti-rot, 180deg));
+  }
+}
+
+.animate-quiz-confetti {
+  animation: quiz-confetti-fall 1.1s ease-out forwards;
+}
+
+@keyframes quiz-ring-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-quiz-ring-in {
+  animation: quiz-ring-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Etiqueta de categoría que aparece mientras la ruleta de trivia "sortea"
+   la pregunta al presionar Jugar. */
+@keyframes trivia-category-cycle {
+  0% {
+    opacity: 0;
+    transform: translateY(3px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-trivia-category-cycle {
+  animation: trivia-category-cycle 0.12s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-quiz-fade-slide-in,
+  .animate-quiz-option-in,
+  .animate-quiz-shake,
+  .animate-quiz-correct-pop,
+  .animate-quiz-feedback-pop,
+  .animate-quiz-confetti,
+  .animate-quiz-ring-in,
+  .animate-trivia-category-cycle {
+    animation: none;
+  }
+}
+
 .tableCheckbox:checked ~ span span {
   @apply opacity-100;
 }
@@ -1147,6 +1360,15 @@ span.flatpickr-weekday,
   background-color: transparent;
   border: none;
   color: black;
+}
+/* El Modal propio de la app usa z-index: 99999 (clase z-99999); SweetAlert2
+   por defecto usa 1060 y quedaba tapado detrás de cualquier modal abierto. */
+.swal2-container {
+  z-index: 100000 !important;
+}
+.custom-calendar .fc-day-con-meta {
+  background-color: rgba(59, 130, 246, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.35);
 }
 .fc.fc-media-screen {
   @apply min-h-screen;

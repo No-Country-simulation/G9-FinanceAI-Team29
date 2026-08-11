@@ -15,6 +15,7 @@ export interface Transaccion {
   descripcion: string;
   monto: number;
   categoria: string;
+  subcategoria?: string | null;
   fecha: string;
   tipo: string;
   medioPago: string;
@@ -77,6 +78,7 @@ export interface ResumenTransacciones {
   porCategoria: Record<string, number>;
   cantidadTransacciones: number;
 }
+
 export type GoalCategory = 'COMPRA' | 'DEUDA' | 'AHORRO' | 'EMERGENCIA' | 'VIAJE' | 'OTRO';
 export type GoalStatus = 'ACTIVA' | 'COMPLETADA' | 'CANCELADA';
 
@@ -103,4 +105,24 @@ export interface GoalInput {
   categoria: GoalCategory;
   montoObjetivo: number;
   fechaObjetivo?: string;
+}
+
+export type TipoEventoCalendario = 'Pago' | 'Ingreso' | 'Meta' | 'Recordatorio';
+
+export interface EventoCalendario {
+  id: string;
+  usuarioId: string;
+  titulo: string;
+  tipo: TipoEventoCalendario;
+  fechaInicio: string;
+  fechaFin?: string | null;
+  fechaCreacion: string;
+  fechaActualizacion: string;
+}
+
+export interface EventoCalendarioInput {
+  titulo: string;
+  tipo: TipoEventoCalendario;
+  fechaInicio: string;
+  fechaFin?: string | null;
 }

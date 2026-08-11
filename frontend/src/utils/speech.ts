@@ -38,13 +38,18 @@ export function pickMaleSpanishVoice(voices: SpeechSynthesisVoice[]): SpeechSynt
   const esVoices = voices.filter((v) => v.lang?.toLowerCase().startsWith("es"));
   const pool = esVoices.length > 0 ? esVoices : voices;
 
-  const explicitlyMale = pool.find((v) => MALE_VOICE_HINTS.some((hint) => v.name.toLowerCase().includes(hint)));
+  const mxVoices = pool.filter((v) => v.lang?.toLowerCase().startsWith("es-mx"));
+  const searchPool = mxVoices.length > 0 ? mxVoices : pool;
+
+  const explicitlyMale = searchPool.find((v) =>
+    MALE_VOICE_HINTS.some((hint) => v.name.toLowerCase().includes(hint)),
+  );
   if (explicitlyMale) return explicitlyMale;
 
-  const notFemale = pool.find((v) => !FEMALE_VOICE_HINTS.some((hint) => v.name.toLowerCase().includes(hint)));
+  const notFemale = searchPool.find((v) => !FEMALE_VOICE_HINTS.some((hint) => v.name.toLowerCase().includes(hint)));
   if (notFemale) return notFemale;
 
-  return pool[0] ?? null;
+  return searchPool[0] ?? null;
 }
 
 function limpiarTextoParaVoz(text: string): string {
@@ -71,12 +76,16 @@ export async function speakText(text: string): Promise<void> {
     utterance.voice = voice;
     utterance.lang = voice.lang;
   } else {
-    utterance.lang = "es-ES";
+    utterance.lang = "es-MX";
   }
   utterance.pitch = 0.85;
   utterance.rate = 1;
 
-  window.speechSynthesis.speak(utterance);
+  await new Promise<void>((resolve) => {
+    utterance.onend = () => resolve();
+    utterance.onerror = () => resolve();
+    window.speechSynthesis.speak(utterance);
+  });
 }
 
 export function stopSpeaking(): void {

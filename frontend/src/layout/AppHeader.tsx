@@ -47,6 +47,12 @@ const SECTION_ENTRIES: SearchEntry[] = [
   { name: "Tu Perfil Financiero", path: "/recomendaciones#perfil-financiero-recomendaciones", group: "Recomendaciones" },
   { name: "Recomendaciones Personalizadas", path: "/recomendaciones#recomendaciones-personalizadas", group: "Recomendaciones" },
   { name: "Nueva Meta", path: "/metas#formulario-meta", group: "Metas" },
+  { name: "Retos Semanales", path: "/juegos#retos-semanales", group: "Juegos" },
+  { name: "Trivia Financiera", path: "/juegos#trivia-financiera", group: "Juegos" },
+  { name: "Logros", path: "/juegos#logros", group: "Juegos" },
+  { name: "Metas Próximas", path: "/calendario-financiero#metas-proximas-calendario", group: "Calendario Financiero" },
+  { name: "Recordatorios y Exportar Calendario", path: "/calendario-financiero#acciones-calendario", group: "Calendario Financiero" },
+  { name: "Soporte", path: "/soporte", group: "Cuenta" },
 ];
 
 const buildSearchIndex = (): SearchEntry[] => {

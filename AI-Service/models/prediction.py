@@ -4,16 +4,64 @@ import joblib
 import numpy as np
 import pandas as pd
 
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODELS_DIR = BASE_DIR / "models"
 
-RUTA_MODELO_GASTOS = (
-    MODELS_DIR / "clasificador_gastos.joblib"
-)
+RUTA_MODELO_GASTOS = MODELS_DIR / "clasificador_gastos.joblib"
 
-modelo_gastos = joblib.load(
-    RUTA_MODELO_GASTOS
-)
+modelo_gastos = joblib.load(RUTA_MODELO_GASTOS)
+
+
+# Traduce marcas comerciales y nombres habituales a descripciones genéricas
+# conocidas por el modelo entrenado.
+ALIASES_DESCRIPCIONES = {
+    # Streaming y entretenimiento digital
+    "netflix": "streaming",
+    "spotify": "servicio de musica",
+    "disney+": "streaming",
+    "disney plus": "streaming",
+    "youtube premium": "streaming",
+    "hbo max": "streaming",
+    "prime video": "streaming",
+
+    # Transporte
+    "uber": "viaje por aplicacion",
+    "cabify": "viaje por aplicacion",
+    "didi": "viaje por aplicacion",
+
+    # Compras por internet
+    "mercado libre": "compra por internet",
+    "amazon": "compra por internet",
+    "temu": "compra por internet",
+    "shein": "compra por internet",
+
+    # Videojuegos
+    "steam": "videojuego",
+    "epic games": "videojuego",
+    "playstation": "videojuego",
+    "xbox": "videojuego",
+    "nintendo": "videojuego",
+
+    # Comida rápida
+    "mcdonald": "comida rapida",
+    "burger king": "comida rapida",
+    "kfc": "comida rapida",
+
+    # Delivery
+    "pedidosya": "pedido de comida",
+    "rappi": "pedido de comida",
+}
+
+
+def normalizar_descripcion(descripcion: str) -> str:
+    texto = descripcion.lower().strip()
+
+    for alias, descripcion_generica in ALIASES_DESCRIPCIONES.items():
+        if alias in texto:
+            return descripcion_generica
+
+    return texto
 
 
 def preparar_transaccion(
@@ -26,9 +74,7 @@ def preparar_transaccion(
 
     fecha_convertida = pd.to_datetime(fecha)
 
-    descripcion_limpia = (
-        descripcion.lower().strip()
-    )
+    descripcion_limpia = normalizar_descripcion(descripcion)
 
     return pd.DataFrame([
         {
@@ -54,14 +100,15 @@ def preparar_transaccion(
 def generar_advertencias(
     descripcion: str,
     monto: float,
+    confianza: float | None = None,
 ) -> list[str]:
 
     advertencias = []
 
-    descripcion = descripcion.lower()
+    descripcion_normalizada = normalizar_descripcion(descripcion)
 
     if (
-        "alquiler" in descripcion
+        "alquiler" in descripcion_normalizada
         and monto < 100
     ):
         advertencias.append(
@@ -71,6 +118,11 @@ def generar_advertencias(
     if monto >= 5000:
         advertencias.append(
             "Monto muy elevado. La confianza del modelo puede disminuir para valores extremos."
+        )
+
+    if confianza is not None and confianza < 0.40:
+        advertencias.append(
+            "La categoría fue estimada con baja confianza. Revisa la categoría antes de guardar."
         )
 
     return advertencias
@@ -114,8 +166,9 @@ def predecir_categoria(
             4,
         ),
         "advertencias": generar_advertencias(
-            descripcion,
-            monto,
+            descripcion=descripcion,
+            monto=monto,
+            confianza=confianza,
         ),
-        "modelo_version": "7.0.0",
+        "modelo_version": "7.1.0",
     }

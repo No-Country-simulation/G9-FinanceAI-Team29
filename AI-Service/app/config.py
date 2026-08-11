@@ -22,9 +22,28 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 700
 
 
-    # Groq
+        # Groq
     groq_api_key: str | None = None
+    groq_api_key_2: str | None = None
+    groq_api_key_3: str | None = None
+    groq_api_key_4: str | None = None
     groq_model: str = "llama-3.3-70b-versatile"
+
+    @property
+    def groq_api_keys(self) -> list[str]:
+        keys = [
+            self.groq_api_key,
+            self.groq_api_key_2,
+            self.groq_api_key_3,
+            self.groq_api_key_4,
+        ]
+
+        return list(dict.fromkeys(key for key in keys if key))
+
+# OpenRouter
+    openrouter_api_key: str | None = None
+    openrouter_model: str = "openrouter/free"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     # Gemini
     gemini_api_key: str | None = None

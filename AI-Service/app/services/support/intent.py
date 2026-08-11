@@ -22,8 +22,8 @@ class SupportIntentDetector:
     )
 
     _STRONG_PATTERNS = (
-        r"\b(no puedo|no me deja|no funciona|no anda|fall[ao]|error|problema)\b.*\b(csv|pdf|informe|archivo|import|export|descarg|subir|cargar|login|sesion|contrase|perfil|cuenta|dashboard|meta|registro|boton|pantalla)\b",
-        r"\b(csv|pdf|informe|archivo|import|export|descarg|subir|cargar|login|sesion|contrase|perfil|cuenta|dashboard|meta|registro|boton|pantalla)\b.*\b(no puedo|no me deja|no funciona|no anda|fall[ao]|error|problema|cero|vacio|rechaz)\b",
+        r"\b(no puedo|no me deja|no funciona|no me anda|no anda|fall[ao]|error|problema)\b.*\b(csv|pdf|informe|archivo|import|export|descarg|subir|cargar|login|sesion|contrase|perfil|cuenta|dashboard|meta|registro|boton|pantalla)\b",
+        r"\b(csv|pdf|informe|archivo|import|export|descarg|subir|cargar|login|sesion|contrase|perfil|cuenta|dashboard|meta|registro|boton|pantalla)\b.*\b(no puedo|no me deja|no funciona|no me anda|no anda|fall[ao]|error|problema|cero|vacio|rechaz)\b",
         r"\b(como|donde|que|para que)\b.*\b(importar|exportar|descargar|cambiar contrase|editar perfil|dar de baja|eliminar cuenta|compartir informe|iniciar sesion|registrarme|crear meta|dashboard|transacciones|analisis|recomendaciones|endeudamiento|capacidad de ahorro|frecuencia de ahorro)\b",
         r"\b(monto debe ser mayor que cero|archivo fue rechazado|ai-service|ventanas emergentes|popup|correo de soporte)\b",
         r"\b(dar de baja|eliminar cuenta|cerrar cuenta)\b",
@@ -40,10 +40,15 @@ class SupportIntentDetector:
         r"\b(dashboard|transacciones|importar csv|analisis|recomendaciones|metas|mi cuenta|mi perfil|asistente ia|soporte)\b.*\b(como|que|donde|para que|funciona|sirve|muestra)\b",
     )
 
-    _PRODUCT_PATTERNS = (
-        r"\b(como|donde)\b.*\b(creo|crear|importo|importar|exporto|exportar|cambio|cambiar|elimino|eliminar|comparto|compartir)\b.*\b(meta|csv|pdf|contrasena|cuenta|perfil|movimientos|informe)\b",
-        r"\b(que|para que)\b.*\b(significa|muestra|sirve|son|hace)\b.*\b(dashboard|endeudamiento|capacidad de ahorro|frecuencia de ahorro|en riesgo|recomendaciones|prioridad alta|prioridad media|sugerencia)\b",
-        r"\b(dashboard|transacciones|importar csv|analisis|recomendaciones|metas|mi cuenta|mi perfil|asistente ia|soporte)\b.*\b(como|que|donde|para que|funciona|sirve|muestra)\b",
+    _INFORMATION_PATTERNS = (
+        r"^\s*(como|donde|que|cual|para que)\b",
+        r"\b(que significa|como funciona|donde encuentro|donde veo|como puedo|como hago)\b",
+    )
+
+    _PROBLEM_PATTERNS = (
+        r"\b(no puedo|no me deja|no funciona|no me anda|no anda|no carga(?:r)?|no aparece(?:n)?|no veo|no recibo|no responde)\b",
+        r"\b(error|problema|falla|fallo|rechazad[ao]|incorrect[ao]|invalid[ao]|vencid[ao]|bloquead[ao])\b",
+        r"\b(se queda cargando|pantalla en blanco|queda pensando|datos ajenos|no reconozco)\b",
     )
 
     _APP_TERMS = {
@@ -54,6 +59,7 @@ class SupportIntentDetector:
         "cargar archivo", "archivo", "perfil calculado", "preview", "vista previa", "ai-service",
         "transacciones", "analisis", "recomendaciones", "metas", "mi perfil", "mi cuenta",
         "capacidad de ahorro", "endeudamiento", "frecuencia de ahorro", "en riesgo",
+        "correo de recuperacion", "recuperar contrasena", "restablecer contrasena",
     }
 
     _FOLLOW_UP_MARKERS = (
@@ -78,7 +84,7 @@ class SupportIntentDetector:
     )
 
     _SUPPORT_WORDS = {
-        "error", "falla", "fallo", "problema", "ayuda", "funciona", "anda", "cargar",
+        "error", "falla", "fallo", "ayuda", "funciona", "anda", "cargar",
         "importar", "exportar", "descargar", "descarga", "rechazado", "rechaza", "aparece", "muestra",
         "guardar", "guardado", "boton", "pantalla", "como", "donde", "cambiar", "editar",
         "responde", "respuesta",
@@ -92,6 +98,25 @@ class SupportIntentDetector:
         )
 
     @classmethod
+    def is_information_query(cls, text: str) -> bool:
+        """Detecta preguntas sobre cómo usar FinSightAI sin describir un fallo."""
+        normalized = cls._normalize(text)
+        if not normalized or cls.is_critical_support_query(normalized):
+            return False
+
+        has_information_marker = any(
+            re.search(pattern, normalized) for pattern in cls._INFORMATION_PATTERNS
+        )
+        has_problem_marker = any(
+            re.search(pattern, normalized) for pattern in cls._PROBLEM_PATTERNS
+        )
+        has_app_context = (
+            any(term in normalized for term in cls._APP_TERMS)
+            or any(re.search(pattern, normalized) for pattern in cls._PRODUCT_PATTERNS)
+        )
+        return has_information_marker and has_app_context and not has_problem_marker
+
+    @classmethod
     def is_support_query(cls, text: str) -> bool:
         normalized = cls._normalize(text)
         if not normalized:
@@ -100,12 +125,27 @@ class SupportIntentDetector:
             return True
         if any(re.search(pattern, normalized) for pattern in cls._STRONG_PATTERNS):
             return True
-        if any(re.search(pattern, normalized) for pattern in cls._PRODUCT_PATTERNS):
-            return True
         app_hits = sum(1 for term in cls._APP_TERMS if term in normalized)
-        support_hits = sum(1 for term in cls._SUPPORT_WORDS if term in normalized)
-        return app_hits >= 1 and support_hits >= 1
+        problem_hits = sum(
+            1 for pattern in cls._PROBLEM_PATTERNS if re.search(pattern, normalized)
+        )
+        return (
+            cls.is_information_query(normalized)
+            or (app_hits >= 1 and problem_hits >= 1)
+        )
 
+
+    @classmethod
+    def is_clear_financial_query(cls, text: str) -> bool:
+        normalized = cls._normalize(text)
+        markers = (
+            "ingreso", "gasto", "ahorro", "deuda", "endeudamiento",
+            "score", "puntaje", "perfil financiero", "fin de mes",
+            "categoria", "finanzas", "presupuesto",
+            "que deberia mejorar", "que revisarias primero",
+            "que cambiarias", "como reduzco mis gastos",
+        )
+        return any(marker in normalized for marker in markers)
 
     @classmethod
     def is_support_follow_up(cls, text: str, previous_answer: str | None) -> bool:
@@ -117,6 +157,9 @@ class SupportIntentDetector:
         financiero.
         """
         if not previous_answer:
+            return False
+
+        if cls.is_clear_financial_query(text):
             return False
 
         current = cls._normalize(text)

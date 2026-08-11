@@ -26,7 +26,10 @@ export const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    subItems: [{ name: "Resumen Financiero", path: "/", pro: false }],
+    subItems: [
+      { name: "Resumen Financiero", path: "/", pro: false },
+      { name: "Calendario Financiero", path: "/calendario-financiero", pro: false },
+    ],
   },
   {
     icon: <CalenderIcon />,
@@ -190,12 +193,18 @@ const AppSidebar: React.FC = () => {
                 data-tour={
                   nav.path === "/importar-csv"
                     ? "nav-import"
+                    : nav.path === "/transacciones"
+                    ? "nav-transactions"
                     : nav.path === "/analisis"
                     ? "nav-analysis"
+                    : nav.path === "/recomendaciones"
+                    ? "nav-recommendations"
                     : nav.path === "/metas"
                     ? "nav-goals"
                     : nav.path === "/asistente-ia"
                     ? "nav-assistant"
+                    : nav.path === "/juegos"
+                    ? "nav-games"
                     : undefined
                 }
                 onClick={() => isMobileOpen && closeMobileSidebar()}
@@ -236,7 +245,11 @@ const AppSidebar: React.FC = () => {
                   <li key={subItem.name}>
                     <Link
                       to={subItem.path}
-                      data-tour={subItem.path === "/" ? "nav-dashboard" : undefined}
+                      data-tour={
+                        subItem.path === "/" ? "nav-dashboard" :
+                        subItem.path === "/calendario-financiero" ? "nav-calendar" :
+                        undefined
+                      }
                       onClick={() => isMobileOpen && closeMobileSidebar()}
                       className={`menu-dropdown-item ${
                         isActive(subItem.path)

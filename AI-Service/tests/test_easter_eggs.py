@@ -25,13 +25,15 @@ from app.services.agent.service import FinSightAgentService
         ("¿Qué es Albion Online?", "albion_online", "Albion Online es un MMORPG"),
         ("¿Conoces Albion Online?", "albion_online", "Albion Online es un MMORPG"),
         ("Never gonna give you up", "rickroll", "You just got Rickrolled"),
+        ("Wololo", "wololo", "WOLOLO"),
+        ("Estoy cansado", "descanso", "Descansa junto a la hoguera"),
+        ("Isengard", "isengard", "hobbits to Isengard"),
         ("¿Eres Skynet?", "skynet", "Todavía no domino el mundo"),
-        ("¿Pastilla roja o azul?", "matrix", "Tomás la roja"),
+        ("¿Pastilla roja o azul?", "matrix", "oportunidad"),
         ("Winter is coming", "got", "El invierno se acerca"),
         ("¿Cuál es el sentido de la vida?", "42", "42."),
         ("To the moon", "to_the_moon", "To the moon"),
         ("Diamond hands", "diamond_hands", "Manos de diamante"),
-        ("Hello world", "hello_world", "[[finsi-terminal-demo]]"),
         ("¿Eres una IA?", "hal9000", "Me temo que no puedo hacer eso"),
         ("Dame un abrazo", "abrazo", "abrazo virtual"),
         ("Cuéntame un chiste", "chiste", "muchos intereses"),
@@ -45,26 +47,87 @@ def test_easter_egg_variants(question: str, key: str, expected: str):
     assert expected in result.response
 
 
-def test_albion_online_egg_includes_image_markdown():
+def test_albion_online_egg_includes_local_audio():
     result = EasterEggResponder.match("¿Qué es Albion Online?")
 
     assert result is not None
-    assert "![Albion Online](https://static.wikia.nocookie.net/" in result.response
+    assert "!audio[albion](/images/task/albion.mp3)" in result.response
 
 
-def test_rickroll_egg_includes_video_embed_and_no_lyrics():
+@patch("app.services.agent.easter_eggs.random.random", return_value=0.1)
+def test_hello_world_egg_returns_terminal_demo_marker(_mock_random):
+    result = EasterEggResponder.match("hello world")
+
+    assert result is not None
+    assert result.key == "hello_world"
+    assert result.response == "[[finsi-terminal-demo]]"
+
+
+@patch("app.services.agent.easter_eggs.random.random", return_value=0.9)
+def test_hello_world_egg_returns_video_variant(_mock_random):
+    result = EasterEggResponder.match("hola mundo")
+
+    assert result is not None
+    assert result.key == "hello_world"
+    assert "!audio[hello-world](/images/task/hello_world.mp3)" in result.response
+
+
+def test_rickroll_egg_includes_local_audio_and_no_lyrics():
     result = EasterEggResponder.match("never gonna give you up")
 
     assert result is not None
-    assert "!video[Rickroll](https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1)" in result.response
+    assert "!audio[rickroll](/images/task/rickroll.mp3)" in result.response
     assert "never gonna" not in result.response.lower()
 
 
-def test_matrix_egg_includes_image_markdown():
+@patch("app.services.agent.easter_eggs.random.random", return_value=0.1)
+def test_wololo_egg_uses_first_variant(_mock_random):
+    result = EasterEggResponder.match("wololo")
+
+    assert result is not None
+    assert result.key == "wololo"
+    assert "!audio[wololo-1](/images/task/wololo.mp3)" in result.response
+
+
+@patch("app.services.agent.easter_eggs.random.random", return_value=0.9)
+def test_wololo_egg_uses_second_variant(_mock_random):
+    result = EasterEggResponder.match("wololo")
+
+    assert result is not None
+    assert result.key == "wololo"
+    assert "!audio[wololo-2](/images/task/wololo-2.mp3)" in result.response
+
+
+def test_descanso_egg_uses_local_audio_asset():
+    result = EasterEggResponder.match("descanso")
+
+    assert result is not None
+    assert result.key == "descanso"
+    assert "!audio[descanso](/images/task/descanso.mp3)" in result.response
+
+
+def test_isengard_egg_uses_local_audio_asset():
+    result = EasterEggResponder.match("they're taking the hobbits to isengard")
+
+    assert result is not None
+    assert result.key == "isengard"
+    assert "!audio[isengard](/images/task/isengard.mp3)" in result.response
+
+
+@pytest.mark.parametrize("question", ["celebrar", "quiero celebrar", "celebremos"])
+def test_isengard_egg_triggers_for_celebration_phrases(question: str):
+    result = EasterEggResponder.match(question)
+
+    assert result is not None
+    assert result.key == "isengard"
+    assert "!audio[isengard](/images/task/isengard.mp3)" in result.response
+
+
+def test_matrix_egg_includes_audio_marker():
     result = EasterEggResponder.match("pastilla roja o azul")
 
     assert result is not None
-    assert "![Pastilla roja o azul](https://www.elcohetealaluna.com/" in result.response
+    assert "!audio[matrix-pill](/images/task/finsi-matrix.mp3)" in result.response
 
 
 @pytest.mark.parametrize(
@@ -97,7 +160,8 @@ def test_service_returns_before_existing_pipeline():
             )
         )
 
-    assert response.content == "General Kenobi."
+    assert response.content.startswith("General Kenobi.")
+    assert "!audio[general-kenobi](/images/task/General-Kenobi.mp3)" in response.content
     assert response.model == "easter-egg"
     assert response.metadata["intent"] == "easter_egg"
     assert response.metadata["save_history"] is False

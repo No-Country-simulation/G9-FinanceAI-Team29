@@ -47,8 +47,8 @@ class TransactionQueryEngine:
             "gasto", "gastos", "gaste", "gasté", "compra", "compras",
             "ingreso", "ingresos", "ingrese", "cobre", "cobré", "sueldo",
             "ahorro", "ahorre", "movimiento", "movimientos", "transaccion",
-            "transacciones", "categoria", "categoría", "medio de pago",
-            "balance", "finanzas", "deuda", "presupuesto",
+            "transacciones", "categoria", "categoría", "subcategoria", "subcategorias", "medio de pago",
+            "balance", "finanzas", "deuda", "presupuesto", "plata", "dinero",
             "hoy", "ayer", "anteayer", "semana", "mes pasado", "mes anterior",
         )
         month_names = (
@@ -126,13 +126,17 @@ class TransactionQueryEngine:
             )
 
         frame = cls._frame(transactions)
-        reference_today = cls._reference_date(frame, actual_today)
-        query_today = (
-            actual_today
-            if (actual_today.year, actual_today.month)
-            == (reference_today.year, reference_today.month)
-            else reference_today
-        )
+
+        # Finsi solo analiza movimientos ocurridos hasta la fecha actual/local.
+        # Las transacciones futuras del dataset no se consideran realizadas.
+        if not frame.empty and "fecha" in frame.columns:
+            frame = frame[
+                frame["fecha"].isna()
+                | frame["fecha"].dt.date.le(actual_today)
+            ].copy()
+
+        reference_today = actual_today
+        query_today = actual_today
         expenses = frame[frame["_kind"].eq("expense")].copy() if not frame.empty else frame
         incomes = frame[frame["_kind"].eq("income")].copy() if not frame.empty else frame
 
@@ -155,6 +159,14 @@ class TransactionQueryEngine:
         )
         if contextual_year_result is not None:
             return contextual_year_result
+
+        contextual_expense_rank_result = cls._contextual_expense_ranking_follow_up(
+            q,
+            previous_answer,
+            expenses=expenses,
+        )
+        if contextual_expense_rank_result is not None:
+            return contextual_expense_rank_result
 
         contextual_category_result = cls._contextual_category_ranking_follow_up(
             q,
@@ -222,7 +234,12 @@ class TransactionQueryEngine:
         if cls._has(q, "si sigo asi", "como terminare el mes", "como voy a terminar el mes", "proyeccion del mes", "prediccion del mes", "cuanto voy a gastar este mes"):
             return cls._result(cls._month_projection(expenses, incomes, query_today), "month_projection")
 
-        if cls._has(q, "gasto inusual", "gastos inusuales", "compra inusual", "anomalia", "movimiento raro"):
+        if cls._has(
+            q,
+            "gasto inusual", "gastos inusuales", "compra inusual", "anomalia",
+            "movimiento raro", "fuera de lo normal", "gasto raro",
+            "algo raro en mis gastos", "gasto que te parezca fuera de lo normal",
+        ):
             return cls._result(cls._anomalies(expenses), "expense_anomalies")
 
         result = cls._movement_query(q, frame, query_today)
@@ -407,6 +424,45 @@ class TransactionQueryEngine:
         )
 
     @classmethod
+    def _contextual_expense_ranking_follow_up(
+        cls,
+        q: str,
+        previous_answer: str | None,
+        *,
+        expenses: pd.DataFrame,
+    ) -> TransactionQueryResult | None:
+        if not previous_answer or expenses.empty:
+            return None
+
+        previous = QueryNormalizer.normalize(previous_answer)
+        if "categoria" in previous:
+            return None
+        if not cls._has(
+            previous,
+            "tu mayor gasto fue", "mayor gasto", "gasto mas grande",
+            "compra mas cara",
+        ):
+            return None
+
+        ordinal_patterns = {
+            1: ("el primero", "la primera", "primero"),
+            2: ("el segundo", "la segunda", "segundo", "segunda"),
+            3: ("el tercero", "la tercera", "tercero", "tercera"),
+            4: ("el cuarto", "la cuarta", "cuarto", "cuarta"),
+            5: ("el quinto", "la quinta", "quinto", "quinta"),
+        }
+        position = next(
+            (pos for pos, markers in ordinal_patterns.items() if cls._has(q, *markers)),
+            None,
+        )
+        if position is None:
+            return None
+        return cls._result(
+            cls._expense_position(expenses, position),
+            f"contextual_expense_position_{position}",
+        )
+
+    @classmethod
     def _contextual_category_ranking_follow_up(
         cls,
         q: str,
@@ -426,11 +482,11 @@ class TransactionQueryEngine:
             return None
 
         ordinal_patterns = {
-            1: ("la primera", "primera categoria", "numero 1"),
-            2: ("la segunda", "segunda categoria", "numero 2"),
-            3: ("la tercera", "tercera categoria", "numero 3"),
-            4: ("la cuarta", "cuarta categoria", "numero 4"),
-            5: ("la quinta", "quinta categoria", "numero 5"),
+            1: ("la primera", "el primero", "primera categoria", "numero 1"),
+            2: ("la segunda", "el segundo", "segunda categoria", "numero 2"),
+            3: ("la tercera", "el tercero", "tercera categoria", "numero 3"),
+            4: ("la cuarta", "el cuarto", "cuarta categoria", "numero 4"),
+            5: ("la quinta", "el quinto", "quinta categoria", "numero 5"),
         }
         position = next(
             (pos for pos, markers in ordinal_patterns.items() if cls._has(q, *markers)),
@@ -509,6 +565,16 @@ class TransactionQueryEngine:
         if not previous_answer:
             return None
 
+        # Una consulta explícita sobre el último gasto/compra debe resolverse
+        # por _expense_query, no heredando el total de la respuesta anterior.
+        if cls._has(
+            q,
+            "ultimo gasto",
+            "gasto mas reciente",
+            "ultima compra",
+        ):
+            return None
+
         previous = QueryNormalizer.normalize(previous_answer)
         context = cls._context_data(previous_answer)
         requested = cls._extract_requested_month(q, reference_today)
@@ -559,7 +625,7 @@ class TransactionQueryEngine:
             )
 
         if cls._has(previous, "dia que mas gastaste", "día que más gastaste"):
-            selected = cls._month_frame(expenses, year, month, today)
+            selected = cls._month_frame(expenses, year, month, reference_today)
             if selected.empty:
                 return cls._result(
                     cls._no_expenses_for_period(expenses, f"en {period_name}"),
@@ -571,7 +637,7 @@ class TransactionQueryEngine:
             )
 
         if cls._has(previous, "mayor gasto", "gasto mas grande", "compra mas cara"):
-            selected = cls._month_frame(expenses, year, month, today)
+            selected = cls._month_frame(expenses, year, month, reference_today)
             if selected.empty:
                 return cls._result(
                     cls._no_expenses_for_period(expenses, f"en {period_name}"),
@@ -701,8 +767,111 @@ class TransactionQueryEngine:
     # ------------------------------------------------------------------
     @classmethod
     def _expense_query(cls, q: str, expenses: pd.DataFrame, today: date) -> TransactionQueryResult | None:
-        if expenses.empty or not cls._has(q, "gasto", "gastos", "gaste", "compra", "compras", "consumo", "egreso", "categoria", "medio de pago", "compre", "compré"):
+        if expenses.empty or not cls._has(
+            q, "gasto", "gastos", "gaste", "gastando", "compra", "compras", "consumo",
+            "egreso", "categoria", "subcategoria", "subcategorias", "medio de pago",
+            "compre", "compré", "plata", "dinero", "pesa", "peso",
+        ):
             return None
+
+        # Comparación directa entre dos meses explícitos.
+        # Ej.: "¿Gasté más en julio o en agosto?"
+        month_names = {
+            "enero": 1,
+            "febrero": 2,
+            "marzo": 3,
+            "abril": 4,
+            "mayo": 5,
+            "junio": 6,
+            "julio": 7,
+            "agosto": 8,
+            "septiembre": 9,
+            "setiembre": 9,
+            "octubre": 10,
+            "noviembre": 11,
+            "diciembre": 12,
+        }
+        mentioned_months = re.findall(
+            r"\b(" + "|".join(month_names) + r")\b",
+            q,
+        )
+
+        if (
+            len(mentioned_months) >= 2
+            and cls._has(
+                q,
+                "gaste mas",
+                "gasto mas",
+                "compare",
+                "comparar",
+                "comparacion",
+                "vs",
+            )
+        ):
+            first_name = mentioned_months[0]
+            second_name = mentioned_months[1]
+            first_month = month_names[first_name]
+            second_month = month_names[second_name]
+
+            explicit_years = [
+                int(value)
+                for value in re.findall(r"\b(20\d{2})\b", q)
+            ]
+
+            if len(explicit_years) >= 2:
+                first_year = explicit_years[0]
+                second_year = explicit_years[1]
+            elif len(explicit_years) == 1:
+                first_year = explicit_years[0]
+                second_year = explicit_years[0]
+            else:
+                first_year = today.year
+                second_year = today.year
+
+            first = cls._month_frame(
+                expenses,
+                first_year,
+                first_month,
+                today,
+            )
+            second = cls._month_frame(
+                expenses,
+                second_year,
+                second_month,
+                today,
+            )
+
+            first_total = float(first["monto"].sum())
+            second_total = float(second["monto"].sum())
+
+            first_label = cls._spanish_month(
+                first_year,
+                first_month,
+            )
+            second_label = cls._spanish_month(
+                second_year,
+                second_month,
+            )
+
+            if first_total > second_total:
+                conclusion = f"Gastaste más en {first_label}."
+            elif second_total > first_total:
+                conclusion = f"Gastaste más en {second_label}."
+            else:
+                conclusion = (
+                    "Gastaste lo mismo en ambos meses."
+                )
+
+            return cls._result(
+                (
+                    f"En {first_label} gastaste "
+                    f"{cls._money(first_total)} y en "
+                    f"{second_label} gastaste "
+                    f"{cls._money(second_total)}. "
+                    f"{conclusion}"
+                ),
+                "expenses_two_months_comparison",
+            )
 
         requested_year = cls._extract_requested_year(q)
         if requested_year is not None and cls._has(
@@ -727,7 +896,14 @@ class TransactionQueryEngine:
             )
 
         requested_month = cls._extract_requested_month(q, today)
-        if requested_month and cls._has(
+        asks_latest_expense = cls._has(
+            q,
+            "gasto mas reciente",
+            "ultima compra",
+            "ultimo gasto",
+        )
+
+        if requested_month and not asks_latest_expense and cls._has(
             q,
             "cuanto fue mi gasto",
             "cuanto fue el gasto",
@@ -844,12 +1020,86 @@ class TransactionQueryEngine:
             return cls._result(content, "expenses_min_transaction")
 
         if cls._has(q, "gasto mas reciente", "ultima compra", "ultimo gasto"):
-            return cls._result(cls._latest_transaction(expenses, "gasto"), "expenses_latest")
+            selected = expenses
+
+            requested_month = cls._extract_requested_month(q, today)
+            if requested_month is not None:
+                year, month = requested_month
+                selected = cls._month_frame(
+                    expenses,
+                    year,
+                    month,
+                    today,
+                )
+
+            return cls._result(
+                cls._latest_transaction(selected, "gasto"),
+                "expenses_latest",
+            )
+
+        # Comparación entre dos categorías explícitas, por ejemplo
+        # "¿gasto más en comida o en transporte?".
+        categories = cls._extract_categories(q, expenses)
+        if len(categories) >= 2 and cls._has(q, "gasto mas", "gaste mas", "mas en", "compar", " vs ", " o "):
+            return cls._result(
+                cls._compare_categories(expenses, categories[0], categories[1]),
+                "expenses_category_comparison",
+            )
+
+        # Ranking de subcategorías global o dentro de una categoría.
+        if cls._has(q, "subcategoria", "subcategorias") and cls._has(
+            q, "mas", "mayor", "principal", "gastando", "gasto", "gaste"
+        ):
+            category = cls._extract_category(q, expenses)
+            selected = expenses
+            if category:
+                selected = expenses[
+                    expenses["categoria"].str.casefold().eq(category.casefold())
+                ]
+            return cls._result(
+                cls._subcategory_ranking(selected, category=category),
+                "expenses_top_subcategory",
+            )
+
+        # "Dentro de Transporte, ¿en qué estoy gastando más?"
+        category = cls._extract_category(q, expenses)
+        if category and cls._has(
+            q,
+            "dentro de",
+            "en que estoy gastando mas",
+            "en que gasto mas",
+            "en que gaste mas",
+            "que es lo que mas gasto",
+            "que es lo que mas pesa",
+            "donde gasto mas",
+        ):
+            selected = expenses[
+                expenses["categoria"].str.casefold().eq(category.casefold())
+            ]
+            if "subcategoria" in selected.columns and selected["subcategoria"].fillna("").str.strip().ne("").any():
+                return cls._result(
+                    cls._subcategory_ranking(selected, category=category),
+                    "expenses_top_subcategory_in_category",
+                )
 
         if cls._has(q, "segunda categoria", "segunda categoría") and cls._has(q, "mas gastos", "gasto mas"):
             return cls._result(cls._category_position(expenses, 2), "expenses_second_category")
 
-        if cls._has(q, "categoria con mas", "en que categoria gasto mas", "en que categoria gaste mas", "donde gasto mas", "en que gasto mas"):
+        if cls._has(
+            q,
+            "categoria con mas",
+            "en que categoria gasto mas",
+            "en que categoria gaste mas",
+            "donde gasto mas",
+            "donde gaste mas",
+            "en que gasto mas",
+            "en que gaste mas",
+            "cual es la categoria en la que mas gasto",
+            "cual es la categoria donde mas gasto",
+            "en que se me esta yendo toda la plata",
+            "en que se me esta yendo la plata",
+            "donde se me va la plata",
+        ):
             selected, period_label = cls._selected_expenses_for_period(expenses, q, today)
             if selected.empty:
                 return cls._result(cls._no_expenses_for_period(expenses, period_label), "expenses_top_category_empty")
@@ -1058,7 +1308,14 @@ class TransactionQueryEngine:
             rate = current_saving / current_income * 100
             return cls._result(f"Este mes ahorraste el {rate:.1f}% de tus ingresos ({cls._money(current_saving)}).", "savings_rate")
 
-        if cls._has(q, "cuanto ahorre", "ahorro este mes", "ahorro este ano"):
+        if cls._has(q, "cuanto estoy ahorrando por mes", "cuanto ahorro por mes", "ahorro mensual", "promedio mensual de ahorro"):
+            average = float(balances["balance"].mean())
+            return cls._result(
+                f"Tu ahorro mensual promedio es {cls._money(average)}, calculado sobre {len(balances)} meses con movimientos.",
+                "savings_monthly_average",
+            )
+
+        if cls._has(q, "cuanto ahorre", "cuanto estoy ahorrando", "cuanto ahorro", "ahorro este mes", "ahorro este ano"):
             period, label = cls._select_period(q, today)
             income = cls._period_frame(incomes, period, today)["monto"].sum()
             expense = cls._period_frame(expenses, period, today)["monto"].sum()
@@ -1123,30 +1380,152 @@ class TransactionQueryEngine:
 
     @classmethod
     def _analysis_query(cls, q: str, expenses: pd.DataFrame, incomes: pd.DataFrame, analysis: dict[str, Any] | None, today: date) -> TransactionQueryResult | None:
-        if not cls._has(q, "salud financiera", "gastando demasiado", "gastos sostenibles", "gastos son sostenibles", "que puedo mejorar", "gastos podria reducir", "perdiendo mas dinero", "categoria deberia controlar", "viviendo por encima"):
+        if not cls._has(
+            q,
+            "salud financiera", "gastando demasiado", "gastos sostenibles",
+            "gastos son sostenibles", "que puedo mejorar", "gastos podria reducir",
+            "perdiendo mas dinero", "categoria deberia controlar",
+            "viviendo por encima", "tres cosas concretas",
+            "mejorar mis finanzas este mes", "por que no llego a fin de mes",
+            "no llego a fin de mes",
+        ):
             return None
-        income = cls._month_total(incomes, today, 0)
-        expense = cls._month_total(expenses, today, 0)
+
+        # Para preguntas generales de situación financiera usamos los mismos
+        # promedios del análisis vivo que utiliza el resto de Finsi. Así evitamos
+        # comparar un mes puntual con métricas promedio y sacar conclusiones falsas.
+        metrics = (analysis or {}).get("metricas", {}) if analysis else {}
+
+        try:
+            avg_income = float(metrics.get("ingreso_mensual") or 0)
+        except (TypeError, ValueError):
+            avg_income = 0.0
+        try:
+            avg_expense = float(
+                metrics.get("gasto_mensual_promedio")
+                or metrics.get("gasto_mensual")
+                or 0
+            )
+        except (TypeError, ValueError):
+            avg_expense = 0.0
+        try:
+            avg_saving = float(metrics.get("ahorro_mensual_estimado") or 0)
+        except (TypeError, ValueError):
+            avg_saving = 0.0
+
+        income = avg_income if avg_income > 0 else cls._month_total(incomes, today, 0)
+        expense = avg_expense if avg_expense > 0 else cls._month_total(expenses, today, 0)
+        saving = avg_saving if analysis else max(income - expense, 0.0)
         ratio = expense / income * 100 if income > 0 else None
         top = cls._top_category_tuple(expenses)
+
         if cls._has(q, "viviendo por encima", "gastando demasiado", "gastos sostenibles", "gastos son sostenibles"):
             if income <= 0:
-                return cls._result("No hay ingresos del mes para evaluar si tus gastos son sostenibles.", "analysis_sustainability")
+                return cls._result(
+                    "No hay ingresos suficientes para evaluar si tus gastos son sostenibles.",
+                    "analysis_sustainability",
+                )
             status = "sí" if expense > income else "no"
-            return cls._result(f"{status.capitalize()}: este mes gastaste el {ratio:.1f}% de tus ingresos ({cls._money(expense)} sobre {cls._money(income)}).", "analysis_sustainability")
+            return cls._result(
+                f"{status.capitalize()}: tus gastos representan aproximadamente el "
+                f"{ratio:.1f}% de tus ingresos ({cls._money(expense)} sobre "
+                f"{cls._money(income)}).",
+                "analysis_sustainability",
+            )
+
         if cls._has(q, "categoria deberia controlar", "perdiendo mas dinero") and top:
             category, value = top
-            return cls._result(f"La categoría que más deberías revisar es {category}, donde acumulás {cls._money(value)} en gastos.", "analysis_category_control")
-        if cls._has(q, "gastos podria reducir", "que puedo mejorar"):
-            lines = []
+            return cls._result(
+                f"La categoría que más deberías revisar es {category}, donde acumulás "
+                f"{cls._money(value)} en gastos.",
+                "analysis_category_control",
+            )
+
+        # Esta consulta necesita una explicación, no una lista genérica de mejoras.
+        if cls._has(q, "por que no llego a fin de mes", "no llego a fin de mes"):
+            if income <= 0:
+                return cls._result(
+                    "No tengo ingresos suficientes registrados para explicar por qué no llegas a fin de mes.",
+                    "analysis_end_of_month",
+                )
+
+            if expense > income:
+                deficit = expense - income
+                text = (
+                    f"Tus gastos promedio superan tus ingresos en "
+                    f"{cls._money(deficit)} por mes: gastas aproximadamente "
+                    f"{cls._money(expense)} frente a ingresos de {cls._money(income)}."
+                )
+            else:
+                margin = max(income - expense, saving)
+                text = (
+                    f"Tus gastos no superan tus ingresos, pero consumen aproximadamente "
+                    f"el {ratio:.1f}% de ellos. En promedio ingresas "
+                    f"{cls._money(income)}, gastas {cls._money(expense)} y te queda un "
+                    f"margen de alrededor de {cls._money(margin)} por mes."
+                )
+
             if top:
-                lines.append(f"1. Revisa {top[0]}, tu categoría de mayor gasto ({cls._money(top[1])}).")
-            if ratio is not None and ratio > 80:
-                lines.append(f"2. Tus gastos consumen el {ratio:.1f}% de tus ingresos; buscá liberar al menos un 10%.")
+                text += (
+                    f" La categoría con mayor gasto acumulado es {top[0]}, con "
+                    f"{cls._money(top[1])}, así que es un buen lugar para revisar "
+                    f"si puedes liberar más margen."
+                )
+            return cls._result(text, "analysis_end_of_month")
+
+        if cls._has(
+            q,
+            "gastos podria reducir", "que puedo mejorar", "tres cosas concretas",
+            "mejorar mis finanzas este mes",
+        ):
+            lines: list[str] = []
+
+            if top:
+                lines.append(
+                    f"1. Revisa {top[0]}, tu categoría de mayor gasto "
+                    f"({cls._money(top[1])}), y busca al menos un gasto que puedas "
+                    f"reducir o postergar este mes."
+                )
+            else:
+                lines.append(
+                    "1. Revisa tus gastos de mayor importe y elige uno que puedas reducir o postergar este mes."
+                )
+
             recurring = expenses[expenses["recurrente"]]
             if not recurring.empty:
-                lines.append(f"3. Revisa tus gastos recurrentes, que suman {cls._money(recurring['monto'].sum())}.")
-            return cls._result("\n".join(lines or ["No detecté una mejora concreta con los datos disponibles."]), "analysis_improvements")
+                lines.append(
+                    f"2. Revisa tus gastos recurrentes, que suman "
+                    f"{cls._money(recurring['monto'].sum())}, y elimina o renegocia "
+                    f"al menos uno que ya no sea prioritario."
+                )
+            elif ratio is not None:
+                lines.append(
+                    f"2. Tus gastos consumen el {ratio:.1f}% de tus ingresos; intenta "
+                    f"liberar una parte de los gastos variables."
+                )
+            else:
+                lines.append(
+                    "2. Separa tus gastos fijos de los variables y recorta primero uno de los variables."
+                )
+
+            if saving > 0:
+                lines.append(
+                    f"3. Separa al menos {cls._money(saving)} al comienzo del mes para "
+                    f"ahorro o para tu meta financiera prioritaria, en vez de esperar "
+                    f"a ver qué sobra al final."
+                )
+            elif income > expense and income > 0:
+                lines.append(
+                    f"3. Reserva el margen mensual de {cls._money(income - expense)} "
+                    f"para ahorro o reducción de deuda antes de destinarlo a nuevos gastos."
+                )
+            else:
+                lines.append(
+                    "3. Define un monto fijo, aunque sea pequeño, para ahorro o reducción de deuda y trátalo como un gasto obligatorio."
+                )
+
+            return cls._result("\n".join(lines[:3]), "analysis_improvements")
+
         if cls._has(q, "salud financiera"):
             if analysis:
                 return cls._result(cls._score_response(analysis, None), "financial_score")
@@ -1218,12 +1597,12 @@ class TransactionQueryEngine:
     @classmethod
     def _frame(cls, transactions: list[dict[str, Any]]) -> pd.DataFrame:
         if not transactions:
-            return pd.DataFrame(columns=["monto", "fecha", "descripcion", "categoria", "medio_pago", "recurrente", "_kind", "_search"])
+            return pd.DataFrame(columns=["monto", "fecha", "descripcion", "categoria", "subcategoria", "medio_pago", "recurrente", "_kind", "_search"])
         frame = pd.DataFrame(transactions).copy()
         aliases = {
             "medio_pago": ["medioPago", "medio_pago"],
         }
-        for col, default in (("descripcion", "Movimiento"), ("categoria", "Sin categoría"), ("recurrente", False), ("tipo", ""), ("monto", 0), ("fecha", None)):
+        for col, default in (("descripcion", "Movimiento"), ("categoria", "Sin categoría"), ("subcategoria", ""), ("recurrente", False), ("tipo", ""), ("monto", 0), ("fecha", None)):
             if col not in frame.columns:
                 frame[col] = default
         for canonical, candidates in aliases.items():
@@ -1236,11 +1615,12 @@ class TransactionQueryEngine:
         frame["fecha"] = pd.to_datetime(frame["fecha"], errors="coerce")
         frame["descripcion"] = frame["descripcion"].fillna("Movimiento").astype(str).str.strip()
         frame["categoria"] = frame["categoria"].fillna("Sin categoría").astype(str).str.strip()
+        frame["subcategoria"] = frame["subcategoria"].fillna("").astype(str).str.strip()
         frame["medio_pago"] = frame["medio_pago"].fillna("").astype(str).str.strip()
         frame["recurrente"] = frame["recurrente"].apply(cls._bool)
         types = frame["tipo"].fillna("").astype(str).str.strip().str.upper()
         frame["_kind"] = types.apply(lambda v: "expense" if v in cls.EXPENSE_TYPES else "income" if v in cls.INCOME_TYPES else "other")
-        frame["_search"] = (frame["descripcion"] + " " + frame["categoria"]).str.casefold()
+        frame["_search"] = (frame["descripcion"] + " " + frame["categoria"] + " " + frame["subcategoria"]).str.casefold()
         return frame
 
     @classmethod
@@ -1707,6 +2087,48 @@ class TransactionQueryEngine:
         return f"Tu último {noun} fue {cls._money(row['monto'])} por {row['descripcion']} ({row['categoria']}) el {cls._date(row['fecha'])}."
 
     @classmethod
+    def _expense_position(cls, frame: pd.DataFrame, position: int) -> str:
+        ordered = frame.sort_values("monto", ascending=False).reset_index(drop=True)
+        if len(ordered) < position:
+            return f"No hay al menos {position} gastos para armar ese ranking."
+        row = ordered.iloc[position - 1]
+        return (
+            f"Tu gasto número {position} por importe es {cls._money(row['monto'])} "
+            f"por {row['descripcion']} ({row['categoria']}) el {cls._date(row['fecha'])}."
+        )
+
+    @classmethod
+    def _subcategory_ranking(cls, frame: pd.DataFrame, category: str | None = None) -> str:
+        if frame.empty or "subcategoria" not in frame.columns:
+            return "No hay datos de subcategorías disponibles para responder esa consulta."
+        valid = frame.copy()
+        valid["subcategoria"] = valid["subcategoria"].fillna("").astype(str).str.strip()
+        valid = valid[valid["subcategoria"].ne("")]
+        if valid.empty:
+            suffix = f" dentro de {category}" if category else ""
+            return f"No encontré subcategorías registradas{suffix}."
+        grouped = valid.groupby("subcategoria")["monto"].sum().sort_values(ascending=False)
+        subcategory, value = grouped.index[0], float(grouped.iloc[0])
+        if category:
+            return f"Dentro de {category}, la subcategoría en la que más gastaste fue {subcategory}, con {cls._money(value)}."
+        return f"La subcategoría en la que más gastaste fue {subcategory}, con {cls._money(value)}."
+
+    @classmethod
+    def _compare_categories(cls, frame: pd.DataFrame, first: str, second: str) -> str:
+        first_total = float(frame.loc[frame["categoria"].str.casefold().eq(first.casefold()), "monto"].sum())
+        second_total = float(frame.loc[frame["categoria"].str.casefold().eq(second.casefold()), "monto"].sum())
+        if first_total > second_total:
+            conclusion = f"Gastaste más en {first}."
+        elif second_total > first_total:
+            conclusion = f"Gastaste más en {second}."
+        else:
+            conclusion = "Gastaste lo mismo en ambas categorías."
+        return (
+            f"En {first} gastaste {cls._money(first_total)} y en {second} "
+            f"gastaste {cls._money(second_total)}. {conclusion}"
+        )
+
+    @classmethod
     def _category_ranking(cls, frame: pd.DataFrame, highest: bool, income: bool = False) -> str:
         grouped = frame.groupby("categoria")["monto"].sum().sort_values(ascending=not highest)
         category, value = grouped.index[0], float(grouped.iloc[0])
@@ -1836,23 +2258,45 @@ class TransactionQueryEngine:
     def _shift_month(year: int, month: int, offset: int) -> tuple[int,int]:
         idx=year*12+(month-1)+offset; return idx//12, idx%12+1
 
-    @staticmethod
-    def _extract_category(q: str, frame: pd.DataFrame) -> str | None:
+    @classmethod
+    def _extract_categories(cls, q: str, frame: pd.DataFrame) -> list[str]:
         aliases = {
-            "comida": ("alimentacion","alimentación","comida","restaurante","supermercado","delivery"),
-            "supermercado": ("supermercado",), "transporte": ("transporte",), "salud": ("salud",),
-            "entretenimiento": ("entretenimiento","ocio"), "educacion": ("educación","educacion"),
-            "servicios": ("servicios",), "impuestos": ("impuestos","impuesto"),
+            "comida": ("alimentacion", "alimentación", "comida"),
+            "alimentacion": ("alimentacion", "alimentación"),
+            "transporte": ("transporte",),
+            "salud": ("salud",),
+            "vivienda": ("vivienda",),
+            "entretenimiento": ("entretenimiento", "ocio"),
+            "educacion": ("educación", "educacion"),
+            "servicios": ("servicios",),
+            "compras": ("compras",),
+            "deudas": ("deudas", "deuda"),
+            "impuestos": ("impuestos", "impuesto"),
         }
-        categories = sorted(frame["categoria"].dropna().astype(str).unique(), key=len, reverse=True)
+        categories = sorted(
+            frame["categoria"].dropna().astype(str).unique(),
+            key=len,
+            reverse=True,
+        )
+        found: list[str] = []
         for category in categories:
-            if QueryNormalizer.normalize(category) in q: return category
+            if QueryNormalizer.normalize(category) in q and category not in found:
+                found.append(category)
         for alias, candidates in aliases.items():
-            if alias in q:
-                for category in categories:
-                    norm = QueryNormalizer.normalize(category)
-                    if any(c in norm for c in candidates): return category
-        return None
+            if alias not in q:
+                continue
+            for category in categories:
+                norm = QueryNormalizer.normalize(category)
+                if any(QueryNormalizer.normalize(c) in norm for c in candidates):
+                    if category not in found:
+                        found.append(category)
+                    break
+        return found
+
+    @classmethod
+    def _extract_category(cls, q: str, frame: pd.DataFrame) -> str | None:
+        categories = cls._extract_categories(q, frame)
+        return categories[0] if categories else None
 
     _CONTEXT_PATTERN = re.compile(
         r"<!--\s*finsi-financial-context\s+"

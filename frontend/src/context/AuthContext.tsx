@@ -7,6 +7,7 @@ import {
 } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
+import { mostrarSesionExpirada } from '../utils/alerts';
 
 /**
  * Mapeo de cada cuenta demo (Supabase Auth) al usuario de datos (USRxxxx)
@@ -23,10 +24,9 @@ const ADMIN_EMAILS = ['demo.admin@finsight.com'];
 
 /** Lista de cuentas que el admin puede inspeccionar. */
 export const CUENTAS_DEMO = [
-  { usuarioId: 'USR0001', etiqueta: 'Crítico · USR0001' },
-  { usuarioId: 'USR0002', etiqueta: 'Intermedio · USR0002' },
+  { usuarioId: 'USR0001', etiqueta: 'En Riesgo · USR0001' },
+  { usuarioId: 'USR0002', etiqueta: 'En Observación · USR0002' },
   { usuarioId: 'USR0009', etiqueta: 'Saludable · USR0009' },
-  { usuarioId: 'USR1001', etiqueta: 'CSV demo · USR1001' },
 ];
 
 const ADMIN_DEFAULT_USUARIO = 'USR0001';
@@ -341,11 +341,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const timeoutMs = minutos * 60 * 1000;
     let timer: number;
 
+    console.log('[inactividad] raw env =', import.meta.env.VITE_INACTIVITY_MINUTES, 'minutos =', minutos, 'timeoutMs =', timeoutMs);
+
     const reiniciar = () => {
       window.clearTimeout(timer);
 
       timer = window.setTimeout(() => {
-        void signOut();
+        void signOut().then(() => mostrarSesionExpirada());
       }, timeoutMs);
     };
 

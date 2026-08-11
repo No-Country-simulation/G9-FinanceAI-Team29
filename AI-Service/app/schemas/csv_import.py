@@ -24,6 +24,7 @@ class CSVTransactionData(BaseModel):
     moneda: str
     tipo: str
     categoria: str
+    subcategoria: str | None = None
     medio_pago: str
     recurrente: bool
     origen: str

@@ -14,15 +14,19 @@ import {
   playWelcomeChime,
 } from "../../utils/sound";
 
-const TOUR_VERSION = 1;
+const TOUR_VERSION = 2;
 const MASCOTA_SRC = "/images/mascot/finsight-bird-v2.png";
 
 const menuTargetByRoute: Record<string, string> = {
   "/": "nav-dashboard-menu",
+  "/calendario-financiero": "nav-calendar",
+  "/transacciones": "nav-transactions",
   "/importar-csv": "nav-import",
   "/analisis": "nav-analysis",
+  "/recomendaciones": "nav-recommendations",
   "/metas": "nav-goals",
   "/asistente-ia": "nav-assistant",
+  "/juegos": "nav-games",
 };
 
 function HelpIcon({ className = "size-5" }: { className?: string }) {
@@ -102,14 +106,34 @@ const steps: TourStep[] = [
       "Para comenzar, importa tus movimientos. Puedes descargar una plantilla de ejemplo y luego cargar tu archivo CSV.",
   },
   {
+    id: "transactions",
+    route: "/transacciones",
+    target: "page-transactions",
+    title: "Visualiza todos tus movimientos",
+    description:
+      "En Transacciones ves un registro detallado de todos tus ingresos y gastos. Filtra por categoría, fecha o monto para encontrar rápidamente lo que buscas.",
+    spokenText:
+      "En Transacciones puedes ver todos tus movimientos. Filtra y organiza tus ingresos y gastos de forma fácil.",
+  },
+  {
     id: "analysis",
     route: "/analisis",
     target: "page-analysis",
     title: "Entiende tu situación",
     description:
-      "Análisis calcula tu perfil y nivel de riesgo. Recomendaciones convierte esos resultados en consejos concretos y fáciles de aplicar.",
+      "Análisis calcula tu perfil y nivel de riesgo basado en tus movimientos. Usa estos insights para tomar mejores decisiones financieras.",
     spokenText:
-      "En Análisis puedes entender tu perfil, tu nivel de riesgo y recibir recomendaciones concretas.",
+      "En Análisis puedes entender tu perfil, tu nivel de riesgo y recibir insights sobre tu situación financiera.",
+  },
+  {
+    id: "recommendations",
+    route: "/recomendaciones",
+    target: "page-recommendations",
+    title: "Recibe consejos personalizados",
+    description:
+      "Las Recomendaciones convierten el análisis en consejos prácticos y específicos para tu situación. Cada recomendación está diseñada para mejorar tu salud financiera.",
+    spokenText:
+      "En Recomendaciones recibes consejos personalizados basados en tu análisis financiero.",
   },
   {
     id: "goals",
@@ -120,6 +144,26 @@ const steps: TourStep[] = [
       "Crea objetivos con monto y fecha, registra nuevos ahorros y observa cuánto te falta. Así puedes transformar una recomendación en progreso medible.",
     spokenText:
       "En Metas puedes definir un objetivo, registrar ahorros y seguir tu progreso hasta completarlo.",
+  },
+  {
+    id: "calendar",
+    route: "/calendario-financiero",
+    target: "page-calendar",
+    title: "Planifica con tu calendario",
+    description:
+      "El Calendario Financiero te ayuda a visualizar ingresos, gastos y eventos importantes. Planifica mejor sabiendo cuándo ocurren tus movimientos.",
+    spokenText:
+      "En el Calendario puedes ver tus eventos financieros organizados por fecha. Planifica con mayor claridad.",
+  },
+  {
+    id: "games",
+    route: "/juegos",
+    target: "page-games",
+    title: "Aprende jugando",
+    description:
+      "En Juegos encontrarás Retos semanales para mejorar tus hábitos, Trivia sobre finanzas para aprender y Logros que celebren tu progreso.",
+    spokenText:
+      "En Juegos puedes participar en retos, trivia financiera y desbloquear logros mientras aprendes.",
   },
   {
     id: "assistant",
@@ -466,7 +510,7 @@ export default function OnboardingTour() {
                   Bienvenido a FinSightAI
                 </h2>
                 <p id="onboarding-description" className="mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                  Te mostraremos cómo cargar tus movimientos, entender tu situación y convertir recomendaciones en metas. El recorrido tiene 5 pasos y dura menos de un minuto.
+                  Te mostraremos cómo cargar tus movimientos, entender tu situación, convertir recomendaciones en metas y jugar mientras aprendes. El recorrido tiene 9 pasos y dura menos de 2 minutos.
                 </p>
                 {speechAvailable && (
                   <label className="mt-4 flex cursor-pointer items-center gap-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-700 dark:bg-white/[0.04] dark:text-gray-200">

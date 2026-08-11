@@ -71,6 +71,72 @@ class GuidedSupportDiagnosis:
         previous = SupportQueryNormalizer.normalize(previous_answer or "")
         raw_current = current
 
+        if (
+            cls._is_goal_delete_triage_prompt(previous)
+            and raw_current in {"1", "2", "3", "4"}
+        ):
+            if raw_current == "1":
+                return DiagnosisResult(
+                    content=(
+                        "Abre **Metas** y selecciona la meta que deseas "
+                        "eliminar. Revisa el menú de acciones o el botón "
+                        "**Eliminar** dentro del detalle de la meta. "
+                        "Actualiza la página si la opción no aparece.\n\n"
+                        "Si después de actualizar continúa sin aparecer, "
+                        "escribe `sigue igual` para derivar el caso al "
+                        "equipo de soporte."
+                    ),
+                    route="support_goal_delete_missing_option",
+                )
+
+            if raw_current == "2":
+                return DiagnosisResult(
+                    content=(
+                        "Copia el mensaje de error exacto que aparece al "
+                        "intentar eliminar la meta. No compartas "
+                        "contraseñas, códigos de verificación ni datos "
+                        "bancarios."
+                    ),
+                    route="support_goal_delete_waiting_error",
+                )
+
+            if raw_current == "3":
+                return DiagnosisResult(
+                    content=(
+                        "Actualiza la página y vuelve a entrar en "
+                        "**Metas** para confirmar si la meta continúa "
+                        "visible. Evita repetir la eliminación varias "
+                        "veces.\n\n"
+                        "Si la meta sigue apareciendo, escribe "
+                        "`sigue igual` para que el equipo revise el caso."
+                    ),
+                    route="support_goal_delete_still_visible",
+                )
+
+            return DiagnosisResult(
+                content=(
+                    "Describe qué ocurre al intentar eliminar la meta "
+                    "e indica si aparece algún mensaje en pantalla. "
+                    "Incluye una captura si es posible, sin compartir "
+                    "información sensible."
+                ),
+                route="support_goal_delete_other_detail",
+            )
+
+        if current in {
+            "necesito soporte", "necesito ayuda", "tengo un problema",
+            "ayuda", "soporte",
+        }:
+            return DiagnosisResult(
+                content=(
+                    "¿Con qué sección necesitas ayuda? Indica: **inicio de sesión**, "
+                    "**contraseña**, **cuenta**, **CSV**, **transacciones**, "
+                    "**metas**, **Dashboard**, **Análisis**, **exportaciones** "
+                    "u **otro problema**."
+                ),
+                route="support_general_triage",
+            )
+
         # El menú del Dashboard usa la última respuesta como estado. Resolvemos
         # sus opciones antes del enrutamiento general para que una respuesta
         # breve (1/2/3/4) no caiga en el fallback de soporte.
@@ -128,6 +194,27 @@ class GuidedSupportDiagnosis:
                 "Eso no debería ocurrir y requiere una revisión del equipo. "
                 "Verifica que estés en la cuenta correcta y no importes ni elimines "
                 "movimientos hasta que se revise el caso."
+            )
+
+        if cls._contains_any(
+            current,
+            (
+                "no puedo eliminar una meta",
+                "no puedo borrar una meta",
+                "no me deja eliminar una meta",
+                "error al eliminar una meta",
+            ),
+        ):
+            return DiagnosisResult(
+                content=(
+                    "Entiendo. ¿Qué ocurre al intentar eliminar la meta?\n\n"
+                    "1. No aparece la opción **Eliminar**.\n"
+                    "2. Aparece un mensaje de error.\n"
+                    "3. Confirmas la eliminación, pero la meta sigue apareciendo.\n"
+                    "4. Ocurre otra situación.\n\n"
+                    "Puedes responder con el número o describir lo que ves."
+                ),
+                route="support_goal_delete_triage",
             )
 
         # Un problema genérico del Dashboard debe abrir un diagnóstico propio,
@@ -277,6 +364,32 @@ class GuidedSupportDiagnosis:
                 )
 
         if state == SupportState.PASSWORD_WAITING_ERROR:
+            # Si el usuario vuelve a describir el problema de forma general,
+            # no lo tratamos como si fuera el mensaje exacto del error.
+            # Reiniciamos el triage de contraseña para pedir el síntoma correcto.
+            if cls._contains_any(
+                current,
+                (
+                    "no puedo cambiar mi contrasena",
+                    "no puedo cambiar la contrasena",
+                    "no me deja cambiar mi contrasena",
+                    "no me deja cambiar la contrasena",
+                    "no puedo cambiar mi clave",
+                    "no me deja cambiar mi clave",
+                ),
+            ):
+                return DiagnosisResult(
+                    content=(
+                        "Vamos a revisar qué ocurre con la contraseña:\n\n"
+                        "1. La nueva contraseña es rechazada.\n"
+                        "2. No aparece la opción para cambiarla.\n"
+                        "3. Aparece un mensaje de error al guardar.\n"
+                        "4. No puedo iniciar sesión.\n\n"
+                        "Puedes responder con el número o describir el problema con tus palabras."
+                    ),
+                    route="support_password_triage",
+                )
+
             if cls._is_current_password_error(current):
                 return cls._solved(
                     cls._current_password_error_text(),
@@ -542,6 +655,70 @@ class GuidedSupportDiagnosis:
                     ),
                     route="support_csv_requirements_fix",
                 )
+
+        # Diagnóstico guiado para problemas al crear metas. Evita derivar
+        # inmediatamente a soporte cuando todavía podemos pedir el síntoma exacto.
+        if cls._contains_any(previous, ("que ocurre al intentar crear la meta", "problema al crear una meta")):
+            if current in {"1", "el boton no responde", "boton no responde"}:
+                return DiagnosisResult(
+                    content=(
+                        "Comprueba que completaste **nombre**, **tipo**, **monto objetivo** y **fecha**. "
+                        "El monto debe ser mayor que cero y la fecha no puede estar vacía. "
+                        "Luego vuelve a seleccionar **Crear meta**.\n\n"
+                        "Si el botón sigue sin responder, escribe `sigue igual`."
+                    ),
+                    route="support_goal_button_check",
+                )
+            if current in {"2", "aparece un error", "me aparece un error"}:
+                return DiagnosisResult(
+                    content=(
+                        "Copia el mensaje exacto que aparece al guardar la meta. "
+                        "También indica si sucede antes o después de seleccionar **Crear meta**. "
+                        "No compartas contraseñas ni datos bancarios."
+                    ),
+                    route="support_goal_waiting_error",
+                )
+            if current in {"3", "se guarda pero no aparece", "no aparece"}:
+                return DiagnosisResult(
+                    content=(
+                        "Actualiza la pantalla **Metas** y verifica que sigas en la misma cuenta. "
+                        "Si la meta continúa sin aparecer, no la crees varias veces: escribe `sigue igual` "
+                        "para derivar el caso sin generar duplicados."
+                    ),
+                    route="support_goal_not_visible",
+                )
+            if current in {"4", "fecha o monto rechazado", "monto rechazado", "fecha rechazada"}:
+                return DiagnosisResult(
+                    content=(
+                        "Verifica que el **monto objetivo** sea mayor que cero y que la **fecha** tenga "
+                        "un formato válido y no haya quedado vacía. Corrige esos campos y vuelve a guardar.\n\n"
+                        "Si los valores son válidos y aún se rechazan, escribe `sigue igual`."
+                    ),
+                    route="support_goal_validation",
+                )
+
+        if cls._contains_any(
+            current,
+            (
+                "no puedo crear una meta",
+                "no me deja crear una meta",
+                "error al crear una meta",
+                "falla al crear una meta",
+                "problema al crear una meta",
+                "no puedo guardar una meta",
+            ),
+        ):
+            return DiagnosisResult(
+                content=(
+                    "Entiendo. ¿Qué ocurre al intentar crear la meta?\n\n"
+                    "1. El botón **Crear meta** no responde.\n"
+                    "2. Aparece un mensaje de error.\n"
+                    "3. Se guarda, pero la meta no aparece.\n"
+                    "4. La fecha o el monto son rechazados.\n\n"
+                    "Puedes responder con el número o describir lo que ves."
+                ),
+                route="support_goal_create_triage",
+            )
 
         # Regla global anti-bucle: si el usuario confirma que el problema
         # continúa después de una respuesta de soporte, no repetimos pasos.
@@ -1079,6 +1256,21 @@ class GuidedSupportDiagnosis:
             "Si no recuerdas la contraseña actual, usa **¿Olvidaste tu contraseña?** "
             "en la pantalla de inicio de sesión para crear una nueva.\n\n"
             "Por seguridad, no escribas ni compartas tu contraseña en este chat."
+        )
+
+    @classmethod
+    def _is_goal_delete_triage_prompt(
+        cls,
+        previous: str,
+    ) -> bool:
+        return cls._contains_any(
+            previous,
+            (
+                "que ocurre al intentar eliminar la meta",
+                "no aparece la opcion eliminar",
+                "confirmas la eliminacion pero la meta sigue apareciendo",
+                "ocurre otra situacion",
+            ),
         )
 
     @classmethod

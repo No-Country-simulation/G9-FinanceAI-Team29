@@ -6,6 +6,8 @@ import {
   ResumenTransacciones,
   Goal,
   GoalInput,
+  EventoCalendario,
+  EventoCalendarioInput,
 } from '../types/finance';
 import { NotFoundError } from './errors';
 import { supabase } from './supabase';
@@ -20,7 +22,7 @@ const AI_BASE =
  * cuando hay sesión activa. Un único lugar → todas las llamadas al backend
  * quedan autenticadas sin repetir código en cada función.
  */
-async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
+export async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const conAuth = (token?: string): RequestInit => {
     const headers = new Headers(init.headers);
     if (token) {
@@ -84,6 +86,7 @@ export async function preguntarAgente(
   question: string,
   usuarioId: string,
   previousAnswer?: string,
+  assistantMode?: string,
 ): Promise<AgentResponse> {
   const id = exigirUsuarioId(usuarioId);
 
@@ -94,6 +97,7 @@ export async function preguntarAgente(
       usuario_id: id,
       question,
       previous_answer: previousAnswer,
+      assistant_mode: assistantMode,
     }),
   });
 
@@ -106,6 +110,65 @@ export async function preguntarAgente(
   }
 
   return response.json();
+}
+
+// Variante con streaming de estado (SSE) — usada como ejemplo para narrar
+// pasos tipo "Finsi está analizando tus gastos..." mientras se procesa la
+// pregunta (hoy solo el AI-Service narra pasos para "resumen financiero";
+// el resto de las preguntas llega directo con un único evento "done").
+export async function preguntarAgenteStream(
+  question: string,
+  usuarioId: string,
+  previousAnswer: string | undefined,
+  onStep: (mensaje: string) => void,
+  assistantMode?: string,
+): Promise<AgentResponse> {
+  const id = exigirUsuarioId(usuarioId);
+
+  const response = await fetch(`${AI_BASE}/agent/chat/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      usuario_id: id,
+      question,
+      previous_answer: previousAnswer,
+      assistant_mode: assistantMode,
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    const detalle = await response.text().catch(() => '');
+    throw new Error(detalle || 'Error al consultar el asistente IA.');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const eventos = buffer.split('\n\n');
+    buffer = eventos.pop() ?? '';
+
+    for (const bloque of eventos) {
+      const linea = bloque.split('\n').find((l) => l.startsWith('data: '));
+      if (!linea) continue;
+      const evento = JSON.parse(linea.slice('data: '.length));
+
+      if (evento.status === 'step') {
+        onStep(evento.message);
+      } else if (evento.status === 'done') {
+        return { answer: evento.answer, provider: evento.provider };
+      } else if (evento.status === 'error') {
+        throw new Error(evento.message || 'Error al consultar el asistente IA.');
+      }
+    }
+  }
+
+  throw new Error('El asistente IA cerró la conexión sin responder.');
 }
 
 export async function analizarFinanzas(
@@ -465,6 +528,125 @@ export async function cancelarMeta(
 
   return response.json();
 }
+
+export async function obtenerEventosCalendario(
+  usuarioId: string,
+): Promise<EventoCalendario[]> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/eventos-calendario`,
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function crearEventoCalendario(
+  data: EventoCalendarioInput,
+  usuarioId: string,
+): Promise<EventoCalendario> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/eventos-calendario`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function actualizarEventoCalendario(
+  eventoId: string,
+  data: Partial<EventoCalendarioInput>,
+  usuarioId: string,
+): Promise<EventoCalendario> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/eventos-calendario/${encodeURIComponent(eventoId)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    },
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new NotFoundError('El evento solicitado no existe.');
+    }
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function eliminarEventoCalendario(
+  eventoId: string,
+  usuarioId: string,
+): Promise<void> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/eventos-calendario/${encodeURIComponent(eventoId)}`,
+    { method: 'DELETE' },
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new NotFoundError('El evento solicitado no existe.');
+    }
+    throw new Error(await parseApiError(response));
+  }
+}
+
+/** Devuelve el token secreto (generándolo si es la primera vez) que identifica
+ * el feed .ics del usuario logueado. Llama a una función serverless de Vercel
+ * (mismo origen), no al backend Java. */
+export async function obtenerTokenCalendario(): Promise<string> {
+  const response = await apiFetch('/api/calendario-token');
+  if (!response.ok) {
+    throw new Error('No se pudo generar el enlace de suscripción al calendario.');
+  }
+  const data = await response.json();
+  return data.token;
+}
+
+export interface PushSubscriptionInput {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+export async function suscribirNotificacionesPush(subscription: PushSubscriptionInput): Promise<void> {
+  const response = await apiFetch('/api/push-subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(subscription),
+  });
+  if (!response.ok) {
+    throw new Error('No se pudo activar las notificaciones push.');
+  }
+}
+
+export async function cancelarNotificacionesPush(endpoint: string): Promise<void> {
+  const response = await apiFetch('/api/push-unsubscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endpoint }),
+  });
+  if (!response.ok) {
+    throw new Error('No se pudo desactivar las notificaciones push.');
+  }
+}
+
 export interface PerfilCompleto {
   id: string;
   nombre?: string | null;
@@ -517,6 +699,159 @@ export async function actualizarPerfil(
   }
 }
 
+// --- Gamificación (retos, trivia, logros) persistidos en Supabase ---
+
+export interface RetoProgresoDTO {
+  retoId: string;
+  semanaIso: string;
+  completado: boolean;
+  progreso: string | null;
+  actualizadoAt: string;
+}
+
+export interface LogroDTO {
+  logroId: string;
+  desbloqueadoAt: string;
+}
+
+export interface TriviaRespuestaDTO {
+  preguntaId: string;
+  correcta: boolean;
+}
+
+export async function guardarRetoProgreso(
+  usuarioId: string,
+  retoId: string,
+  semanaIso: string,
+  completado: boolean,
+  progreso: string | null,
+): Promise<RetoProgresoDTO> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/retos/${encodeURIComponent(retoId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ semanaIso, completado, progreso }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function obtenerLogrosDesbloqueados(usuarioId: string): Promise<LogroDTO[]> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/logros`);
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function desbloquearLogroRemoto(usuarioId: string, logroId: string): Promise<LogroDTO> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/logros/${encodeURIComponent(logroId)}`,
+    { method: 'POST' },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function registrarResultadosTrivia(
+  usuarioId: string,
+  respuestas: TriviaRespuestaDTO[],
+): Promise<void> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/trivia`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ respuestas }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+}
+
+export interface TriviaEstadisticasDTO {
+  bestScore: number;
+  correctStreak: number;
+  lastPlayedDate: string | null;
+  canPlayToday: boolean;
+}
+
+export async function obtenerEstadisticasTrivia(usuarioId: string): Promise<TriviaEstadisticasDTO> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/trivia/estadisticas`,
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export interface EstadoGamificacionDTO {
+  weekKey: string;
+  challengesBaseline: string | null;
+  streak: number;
+  bestStreak: number;
+  lastActiveDate: string | null;
+  dailyStreak: number;
+  bestDailyStreak: number;
+  bestLevelSeen: number;
+  ultimaSubidaNivel: string | null;
+  puntos: number;
+}
+
+export async function obtenerEstadoGamificacion(usuarioId: string): Promise<EstadoGamificacionDTO | null> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/estado`);
+
+  if (response.status === 204) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
+export async function guardarEstadoGamificacion(
+  usuarioId: string,
+  estado: EstadoGamificacionDTO,
+): Promise<EstadoGamificacionDTO> {
+  const id = exigirUsuarioId(usuarioId);
+  const response = await apiFetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}/gamificacion/estado`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(estado),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  return response.json();
+}
+
 export async function darDeBajaCuenta(usuarioId: string): Promise<void> {
   const id = exigirUsuarioId(usuarioId);
   const response = await apiFetch(`${API_BASE}/usuarios/${encodeURIComponent(id)}`, {
@@ -527,4 +862,37 @@ export async function darDeBajaCuenta(usuarioId: string): Promise<void> {
     const detalle = await response.text();
     throw new Error(detalle || 'No se pudo dar de baja la cuenta.');
   }
+}
+
+export interface ReclasificacionResponse {
+  usuarioId: string;
+  transaccionesTotales: number;
+  gastosProcesados: number;
+  actualizadas: number;
+  omitidas: number;
+  errores: number;
+}
+
+export async function reclasificarTransacciones(
+  usuarioId: string,
+): Promise<ReclasificacionResponse> {
+  const id = exigirUsuarioId(usuarioId);
+
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/reclasificar`,
+    {
+      method: 'POST',
+    },
+  );
+
+  if (!response.ok) {
+    const detalle = await response.text();
+
+    throw new Error(
+      detalle ||
+        `No se pudieron reclasificar las transacciones (${response.status}).`,
+    );
+  }
+
+  return response.json();
 }

@@ -14,6 +14,10 @@ class FinancialSpellCorrector:
         "recomendaciones", "finanzas", "financiero", "financiera", "analisis",
         "situacion", "capacidad", "descuento", "interes", "impuesto",
         "aumento", "rendimiento", "rentabilidad", "prestamo", "credito",
+        "bitcoin", "ethereum", "crypto", "cripto", "criptomoneda", "criptomonedas",
+        "cryptocurrency", "stablecoin", "stablecoins", "memecoin", "memecoins",
+        "blockchain", "exchange", "etf", "etfs", "bono", "bonos",
+        "volatilidad", "diversificacion", "liquidez",
     })
 
     # Palabras válidas frecuentes que pueden parecerse a términos financieros.

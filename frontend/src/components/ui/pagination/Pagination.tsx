@@ -41,7 +41,7 @@ export default function Pagination({
         disabled={currentPage === totalPages}
         className={buttonClass(false, currentPage === totalPages)}
       >
-        Next
+        Sig.
       </button>
     </nav>
   );

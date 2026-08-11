@@ -151,8 +151,9 @@ public class CsvImportService {
             // La columna actual admite 10 caracteres; generamos un ID compacto y único.
             transaccion.setId("C" + UUID.randomUUID().toString().replace("-", "").substring(0, 9).toUpperCase());
             transaccion.setUsuario(usuario);
-            transaccion.setCategoria(categoria);
-            transaccion.setFecha(item.getFecha());
+        transaccion.setCategoria(categoria);
+        transaccion.setSubcategoria(item.getSubcategoria());
+        transaccion.setFecha(item.getFecha());
             transaccion.setDescripcion(item.getDescripcion());
             transaccion.setMonto(item.getMonto());
             transaccion.setMoneda("USD");

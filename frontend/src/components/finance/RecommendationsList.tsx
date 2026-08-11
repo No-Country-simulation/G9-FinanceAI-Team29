@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import type { RecomendacionFinanciera } from "../../types/finance";
+import { speakText, stopSpeaking, isSpeechSupported } from "../../utils/speech";
 
 interface RecommendationsListProps {
   recomendaciones: RecomendacionFinanciera[];
@@ -26,6 +28,27 @@ const iconosPrioridad: Record<RecomendacionFinanciera['prioridad'], string> = {
 
 export default function RecommendationsList({ recomendaciones, className = "" }: RecommendationsListProps) {
   const navigate = useNavigate();
+  const [leyendoId, setLeyendoId] = useState<string | null>(null);
+
+  useEffect(() => stopSpeaking, []);
+
+  const textoParaLeer = (recomendacion: RecomendacionFinanciera) => [
+    recomendacion.titulo,
+    recomendacion.diagnostico,
+    `Acción sugerida: ${recomendacion.accion}`,
+    recomendacion.objetivo ? `Objetivo: ${recomendacion.objetivo}` : null,
+  ].filter(Boolean).join('. ');
+
+  const leerRecomendacion = async (recomendacion: RecomendacionFinanciera) => {
+    if (leyendoId === recomendacion.id) {
+      stopSpeaking();
+      setLeyendoId(null);
+      return;
+    }
+    setLeyendoId(recomendacion.id);
+    await speakText(textoParaLeer(recomendacion));
+    setLeyendoId((actual) => (actual === recomendacion.id ? null : actual));
+  };
 
   const preguntarleAFinsi = (recomendacion: RecomendacionFinanciera) => {
     const contexto = [
@@ -60,13 +83,24 @@ export default function RecommendationsList({ recomendaciones, className = "" }:
                   <p className="text-sm font-semibold text-gray-800 dark:text-white/90">{rec.titulo}</p>
                   <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{rec.diagnostico}</p>
                   <p className="mt-1 text-xs text-gray-600 dark:text-gray-400"><strong>Acción:</strong> {rec.accion}</p>
-                  <button
-                    type="button"
-                    onClick={() => preguntarleAFinsi(rec)}
-                    className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
-                  >
-                    💬 Preguntar a Finsi sobre esto
-                  </button>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => preguntarleAFinsi(rec)}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                    >
+                      💬 Preguntar a Finsi sobre esto
+                    </button>
+                    {isSpeechSupported() && (
+                      <button
+                        type="button"
+                        onClick={() => leerRecomendacion(rec)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                      >
+                        {leyendoId === rec.id ? '⏹️ Detener lectura' : '🔊 Que Finsi lo lea'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

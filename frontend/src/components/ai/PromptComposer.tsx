@@ -5,7 +5,8 @@ interface PromptComposerProps {
   placeholder?: string;
   models?: string[];
   buttonLabel?: string;
-  onSubmit: (prompt: string) => void;
+  onSubmit: (prompt: string, model: string) => void;
+  onModelChange?: (model: string) => void;
 }
 
 interface SpeechRecognitionResultLike {
@@ -60,9 +61,10 @@ function MicrofonoIcon({ className }: { className?: string }) {
 /** Barra de prompt inferior del Asistente IA. */
 export default function PromptComposer({
   placeholder = "Escribe tu pregunta...",
-  models = ["FinanceAI Advisor"],
+  models = ["FinSightAI Advisor"],
   buttonLabel,
   onSubmit,
+  onModelChange,
 }: PromptComposerProps) {
   const [value, setValue] = useState("");
   const [model, setModel] = useState(models[0]);
@@ -170,7 +172,7 @@ export default function PromptComposer({
 
   const submit = () => {
     if (!value.trim()) return;
-    onSubmit(value.trim());
+    onSubmit(value.trim(), model);
     setValue("");
   };
 
@@ -205,7 +207,10 @@ export default function PromptComposer({
       <div className="mt-2 flex items-center justify-between gap-2">
         <select
           value={model}
-          onChange={(e) => setModel(e.target.value)}
+          onChange={(e) => {
+            setModel(e.target.value);
+            onModelChange?.(e.target.value);
+          }}
           className="rounded-lg border border-gray-300 bg-transparent px-3 py-1.5 text-theme-xs font-medium text-gray-600 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
         >
           {models.map((m) => (
