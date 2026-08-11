@@ -103,6 +103,7 @@ class EasterEggResponder:
     _ISENGARD_TRIGGERS = {
         "celebrar",
         "quiero celebrar",
+        "vamos a celebrar",
         "celebremos",
         "isengard",
         "estan llevando a los hobbits a isengard",
@@ -123,6 +124,7 @@ class EasterEggResponder:
         "pastilla roja o azul",
         "pastilla roja o pastilla azul",
         "red pill or blue pill",
+        "pildora roja o azul",
     }
 
     _GOT_TRIGGERS = {
