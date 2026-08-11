@@ -52,9 +52,13 @@ const MODELOS_ASISTENTE = ["FinSightAI Advisor", "Soporte técnico"];
 const CONTEXTO_FINANCIERO_INTERNO =
   /<!--\s\*finsi-financial-context\s+metric=(?:income|expense|unknown)\s+granularity=(?:year|month|rank|other)\s+year=(?:\d{4}|none)\s+month=(?:\d{1,2}|none)\s+position=(?:\d+|none)\s\*-->/gi;
 
+const GOAL_DRAFT_INTERNO =
+  /\\?<!--\s*finsi-goal-draft\s+name=.*?\s*\|\s*amount=.*?\s*\|\s*date=.*?\s*-->/gi;
+
 function limpiarMetadataInterna(texto: string): string {
   return texto
     .replace(CONTEXTO_FINANCIERO_INTERNO, "")
+    .replace(GOAL_DRAFT_INTERNO, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -67,6 +71,64 @@ const RESPUESTA_RICKROLL_REPETIDA =
 
 function normalizarPreguntaParaComparar(texto: string): string {
   return texto.trim().toLowerCase();
+}
+
+const MENSAJE_EXPLICAME_MAS = "Explícame más";
+
+function puedeMostrarExplicameMas(texto: string): boolean {
+  const limpio = texto.trim();
+
+  if (!limpio || limpio.length < 80) {
+    return false;
+  }
+
+  // Algunas respuestas informativas pueden venir precedidas por el saludo de Finsi.
+  // Quitamos solo ese prefijo para decidir si el contenido real merece "Explícame más".
+  // Así un saludo puro sigue sin mostrar el botón, pero "Hola... + explicación de Bitcoin" sí.
+  const contenidoSinSaludo = limpio
+    .replace(
+      /^👋?\s*Hola,\s*soy\s+\*\*?Finsi\*\*?,?\s*el asistente de FinSightAI\.\s*Puedo ayudarte a entender tus finanzas y a resolver dudas sobre la aplicación\.\s*/i,
+      "",
+    )
+    .trim();
+
+  const contenidoEvaluado = contenidoSinSaludo || limpio;
+
+  // No mostrar "Explícame más" en saludos, cierres ni respuestas
+  // conversacionales simples: el botón está pensado para contenido
+  // informativo/financiero que realmente pueda ampliarse.
+  const respuestaConversacional = (
+    /^👋?\s*hola[,!.\s]/i.test(contenidoEvaluado) ||
+    /^hola[,!.\s]/i.test(contenidoEvaluado) ||
+    /^¡?hola[,!.\s]/i.test(contenidoEvaluado) ||
+    /soy\s+\*\*?finsi\*\*?,?\s+el asistente de finsightai/i.test(contenidoEvaluado) ||
+    /^¿En qué puedo ayudarte hoy\?$/i.test(contenidoEvaluado) ||
+    /^¿En qué más puedo ayudarte\?$/i.test(contenidoEvaluado) ||
+    /Para preguntas de soporte, en el selector de abajo/i.test(contenidoEvaluado) ||
+    /Para preguntas financieras, en el selector de abajo/i.test(contenidoEvaluado) ||
+    /^¡?perfecto!/i.test(contenidoEvaluado) ||
+    /^¡?genial!/i.test(contenidoEvaluado) ||
+    /^de acuerdo[.!]/i.test(contenidoEvaluado) ||
+    /^gracias\b/i.test(contenidoEvaluado)
+  );
+
+  if (respuestaConversacional) {
+    return false;
+  }
+
+  const respuestasInteractivas = (
+    /¿Puedo ayudarte con algo más\?/i.test(limpio) ||
+    /¿Quieres que (?:cree|analice|te ayude|prepare)/i.test(limpio) ||
+    /¿Deseas que (?:cree|analice|te ayude|prepare)/i.test(limpio) ||
+    /¿Confirmas que/i.test(limpio) ||
+    /¿Qué quieres conseguir con esta meta\?/i.test(limpio) ||
+    /¿Cuánto dinero necesitas para alcanzarla\?/i.test(limpio) ||
+    /¿Para qué fecha te gustaría alcanzar esta meta\?/i.test(limpio) ||
+    /Responde \*\*Sí\*\*/i.test(limpio) ||
+    /\[\[finsi-terminal-demo\]\]/i.test(limpio)
+  );
+
+  return !respuestasInteractivas;
 }
 
 type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | null;
@@ -480,7 +542,12 @@ export default function AsistenteIA() {
     "Finsi está analizando tus finanzas"
   );
   const [pasoPendiente, setPasoPendiente] = useState<PasoInteractivo>(null);
+  const [modeloActivo, setModeloActivo] = useState(MODELOS_ASISTENTE[0]);
+  const ignorarProximaRepeticionRef = useRef(false);
+  const [mensajeEditandoId, setMensajeEditandoId] = useState<number | null>(null);
+  const [textoEditando, setTextoEditando] = useState("");
   const ultimoMensajeAsistenteId = [...messages].reverse().find((m) => m.role === "assistant")?.id;
+  const ultimaPreguntaUsuarioTexto = [...messages].reverse().find((m) => m.role === "user")?.text ?? "";
   const [vozActiva, setVozActiva] = useState(
     () => localStorage.getItem("asistenteVozActiva") === "true"
   );
@@ -617,12 +684,21 @@ export default function AsistenteIA() {
   const toggleVoz = () => setVozActiva((prev) => !prev);
   const toggleSonido = () => setSonidoActivo((prev) => !prev);
 
-  const handleSubmit = async (prompt: string, modelo: string = MODELOS_ASISTENTE[0]) => {
+  const handleSubmit = async (
+    prompt: string,
+    modelo?: string,
+    previousAnswerOverride?: string | null,
+  ) => {
     if (enviando) return;
     setPasoPendiente(null);
 
+    const modoSeleccionado = modelo ?? modeloActivo;
     const ultimaPreguntaUsuario = [...messages].reverse().find((m) => m.role === "user")?.text;
+    const ignorarRepeticion = ignorarProximaRepeticionRef.current;
+    ignorarProximaRepeticionRef.current = false;
+
     const esPreguntaRepetida =
+      !ignorarRepeticion &&
       ultimaPreguntaUsuario !== undefined &&
       normalizarPreguntaParaComparar(ultimaPreguntaUsuario) === normalizarPreguntaParaComparar(prompt);
 
@@ -652,14 +728,17 @@ export default function AsistenteIA() {
       playSendSound();
       startTypingSound();
     }
-    const previousAnswer = [...messages].reverse().find((m) => m.role === "assistant")?.text;
+    const previousAnswer =
+      previousAnswerOverride !== undefined
+        ? previousAnswerOverride ?? undefined
+        : [...messages].reverse().find((m) => m.role === "assistant")?.text;
     try {
       const { answer } = await preguntarAgenteStream(
         prompt,
         usuarioId,
         previousAnswer,
         (paso) => setMensajePensando(paso),
-        modelo,
+        modoSeleccionado,
       );
       setMessages((prev) => [
         ...prev,
@@ -712,6 +791,60 @@ export default function AsistenteIA() {
     }
   };
 
+  const handleModelChange = (modelo: string) => {
+    // El cambio de agente se anuncia localmente: no llama al backend ni consume tokens.
+    // Además, la primera pregunta en el nuevo agente no cuenta como repetición aunque
+    // sea igual a la última pregunta hecha en el agente anterior.
+    stopSpeaking();
+    setPasoPendiente(null);
+    setModeloActivo(modelo);
+    ignorarProximaRepeticionRef.current = true;
+
+    const texto =
+      modelo === "Soporte técnico"
+        ? "🛠️ Estás en **Soporte técnico**. ¿Con qué problema de FinSightAI puedo ayudarte?"
+        : "✨ Estás en **FinSightAI Advisor**. ¿Qué aspecto de tus finanzas quieres revisar?";
+
+    setMessages((prev) => [
+      ...prev,
+      { id: prev.length + 1, role: "assistant", text: texto },
+    ]);
+  };
+
+  const iniciarEdicionMensaje = (message: Message) => {
+    if (enviando || message.role !== "user") return;
+    setMensajeEditandoId(message.id);
+    setTextoEditando(message.text);
+  };
+
+  const cancelarEdicionMensaje = () => {
+    setMensajeEditandoId(null);
+    setTextoEditando("");
+  };
+
+  const reenviarMensajeEditado = (messageId: number) => {
+    const nuevoTexto = textoEditando.trim();
+    if (!nuevoTexto || enviando) return;
+
+    const indice = messages.findIndex((m) => m.id === messageId);
+    if (indice < 0) return;
+
+    // Al editar una pregunta, descartamos visualmente todo lo que vino después
+    // y reconstruimos la conversación desde ese punto, como en ChatGPT.
+    const mensajesPrevios = messages.slice(0, indice);
+    // Una edición crea una rama nueva desde esta pregunta. No reutilizamos
+    // la respuesta anterior como previous_answer porque el backend podría
+    // interpretarla como un follow-up y generar una respuesta expandida.
+    setMessages(mensajesPrevios);
+    setPasoPendiente(null);
+    setMensajeEditandoId(null);
+    setTextoEditando("");
+
+    // Reenviar una edición nunca debe contar como "pregunta repetida".
+    ignorarProximaRepeticionRef.current = true;
+    void handleSubmit(nuevoTexto, modeloActivo, null);
+  };
+
   const responderSoporte = (respuesta: "sí" | "no") => {
     setPasoPendiente(null);
     void handleSubmit(respuesta);
@@ -756,6 +889,8 @@ export default function AsistenteIA() {
   const nuevoChat = () => {
     stopSpeaking();
     setPasoPendiente(null);
+    setMensajeEditandoId(null);
+    setTextoEditando("");
     if (messages.length === 0) return;
     setMessages([]);
     setChatActualId(null);
@@ -764,6 +899,8 @@ export default function AsistenteIA() {
 
   const cargarChat = (chat: ChatGuardado) => {
     stopSpeaking();
+    setMensajeEditandoId(null);
+    setTextoEditando("");
     setMessages(chat.messages.map(m => ({ ...m, isHistory: true })));
     setChatActualId(chat.id);
     setHistorialAbierto(false);
@@ -1076,7 +1213,9 @@ export default function AsistenteIA() {
                       <div
                         className={`relative overflow-hidden rounded-2xl px-4 py-3 text-theme-sm ${
                           message.role === "user"
-                            ? "whitespace-pre-line bg-brand-500 text-white"
+                            ? mensajeEditandoId === message.id
+                              ? "whitespace-pre-line border border-gray-700 bg-gray-800 text-white dark:border-gray-700 dark:bg-gray-800"
+                              : "whitespace-pre-line bg-brand-500 text-white"
                             : easterVisual === "kenobi"
                               ? "finsi-easter-kenobi bg-[#101828] text-sky-100 ring-1 ring-sky-400/50"
                               : easterVisual === "yoda"
@@ -1116,11 +1255,109 @@ export default function AsistenteIA() {
                         )}
 
                         <div className="relative z-10">
-                          {message.role === "assistant"
-                            ? renderMensajeAsistente(limpiarMetadataInterna(message.text))
-                            : message.text}
+                          {message.role === "assistant" ? (
+                            renderMensajeAsistente(limpiarMetadataInterna(message.text))
+                          ) : mensajeEditandoId === message.id ? (
+                            <div className="min-w-[260px] sm:min-w-[340px]">
+                              <textarea
+                                autoFocus
+                                value={textoEditando}
+                                onChange={(e) => setTextoEditando(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    cancelarEdicionMensaje();
+                                  }
+                                  if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    reenviarMensajeEditado(message.id);
+                                  }
+                                }}
+                                rows={3}
+                                className="w-full resize-none rounded-lg border border-gray-600 bg-gray-900/70 px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-brand-400"
+                              />
+                              <div className="mt-2 flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={cancelarEdicionMensaje}
+                                  className="rounded-lg border border-gray-600 bg-transparent px-3 py-1.5 text-xs font-medium text-gray-300 transition hover:border-gray-500 hover:bg-white/[0.05] hover:text-white"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => reenviarMensajeEditado(message.id)}
+                                  disabled={!textoEditando.trim()}
+                                  className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Enviar
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            message.text
+                          )}
                         </div>
                       </div>
+
+                      {message.role === "user" &&
+                        mensajeEditandoId !== message.id &&
+                        !enviando && (
+                          <button
+                            type="button"
+                            onClick={() => iniciarEdicionMensaje(message)}
+                            title="Editar mensaje"
+                            aria-label="Editar mensaje"
+                            className="mt-1 inline-flex size-7 items-center justify-center rounded-md text-gray-400 opacity-60 transition hover:bg-gray-100 hover:text-gray-600 hover:opacity-100 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              className="size-4"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M4 20h4L18.5 9.5a2.828 2.828 0 1 0-4-4L4 16v4Z"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="m13.5 6.5 4 4"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </button>
+                        )}
+
+                      {message.role === "assistant" &&
+                        message.id === ultimoMensajeAsistenteId &&
+                        !message.isHistory &&
+                        !enviando &&
+                        !pasoPendiente &&
+                        !easterVisual &&
+                        modeloActivo === "FinSightAI Advisor" &&
+                        !/You just got Rickrolled|!video\[Rickroll\]/i.test(message.text) &&
+                        normalizarPreguntaParaComparar(ultimaPreguntaUsuarioTexto) !==
+                          normalizarPreguntaParaComparar(MENSAJE_EXPLICAME_MAS) &&
+                        puedeMostrarExplicameMas(message.text) && (
+                          <div className="mt-2 flex w-full justify-start">
+                            <button
+                              type="button"
+                              onClick={() => void handleSubmit(MENSAJE_EXPLICAME_MAS)}
+                              disabled={enviando}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-theme-xs font-medium text-brand-600 transition hover:border-brand-300 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-800 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
+                            >
+                              <span aria-hidden="true">✨</span>
+                              Explícame más
+                            </button>
+                          </div>
+                        )}
+
                       {/* Elección de pastilla Matrix */}
                       {message.role === "assistant" &&
                         message.id === ultimoMensajeAsistenteId &&
@@ -1227,7 +1464,11 @@ export default function AsistenteIA() {
           </div>
 
           <div data-tour="assistant-composer" className="scroll-mb-4 mt-4">
-            <PromptComposer models={MODELOS_ASISTENTE} onSubmit={handleSubmit} />
+            <PromptComposer
+            models={MODELOS_ASISTENTE}
+            onSubmit={handleSubmit}
+            onModelChange={handleModelChange}
+          />
           </div>
         </section>
       </div>

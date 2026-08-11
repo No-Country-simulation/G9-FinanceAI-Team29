@@ -27,6 +27,56 @@ const sugerencias = [
   "Dame consejos para ahorrar más",
 ];
 
+const MENSAJE_EXPLICAME_MAS = "Explícame más";
+
+function normalizarPreguntaParaComparar(texto: string): string {
+  return texto.trim().toLowerCase();
+}
+
+function puedeMostrarExplicameMas(texto: string): boolean {
+  const limpio = texto.trim();
+
+  if (!limpio || limpio.length < 80) {
+    return false;
+  }
+
+  // No mostrar "Explícame más" en saludos, cierres ni respuestas
+  // conversacionales simples: el botón está pensado para contenido
+  // informativo/financiero que realmente pueda ampliarse.
+  const respuestaConversacional = (
+    /^👋?\s*hola[,!.\s]/i.test(limpio) ||
+    /^hola[,!.\s]/i.test(limpio) ||
+    /^¡?hola[,!.\s]/i.test(limpio) ||
+    /soy\s+\*\*?finsi\*\*?,?\s+el asistente de finsightai/i.test(limpio) ||
+    /¿En qué puedo ayudarte hoy\?/i.test(limpio) ||
+    /¿En qué más puedo ayudarte\?/i.test(limpio) ||
+    /Para preguntas de soporte, en el selector de abajo/i.test(limpio) ||
+    /Para preguntas financieras, en el selector de abajo/i.test(limpio) ||
+    /^¡?perfecto!/i.test(limpio) ||
+    /^¡?genial!/i.test(limpio) ||
+    /^de acuerdo[.!]/i.test(limpio) ||
+    /^gracias\b/i.test(limpio)
+  );
+
+  if (respuestaConversacional) {
+    return false;
+  }
+
+  const respuestasInteractivas = (
+    /¿Puedo ayudarte con algo más\?/i.test(limpio) ||
+    /¿Quieres que (?:cree|analice|te ayude|prepare)/i.test(limpio) ||
+    /¿Deseas que (?:cree|analice|te ayude|prepare)/i.test(limpio) ||
+    /¿Confirmas que/i.test(limpio) ||
+    /¿Qué quieres conseguir con esta meta\?/i.test(limpio) ||
+    /¿Cuánto dinero necesitas para alcanzarla\?/i.test(limpio) ||
+    /¿Para qué fecha te gustaría alcanzar esta meta\?/i.test(limpio) ||
+    /Responde \*\*Sí\*\*/i.test(limpio) ||
+    /\[\[finsi-terminal-demo\]\]/i.test(limpio)
+  );
+
+  return !respuestasInteractivas;
+}
+
 /** Tras estas cantidades de respuestas del asistente se invita a continuar
  * la charla en la página completa, para no interrumpir cada mensaje. */
 const RESPUESTAS_PARA_INVITAR = [1, 2];
@@ -62,6 +112,8 @@ export default function FloatingChatWidget() {
   const [invitacionDescartada, setInvitacionDescartada] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const respuestasCountRef = useRef(0);
+  const ultimoMensajeAsistenteId = [...messages].reverse().find((m) => m.role === "assistant")?.id;
+  const ultimaPreguntaUsuarioTexto = [...messages].reverse().find((m) => m.role === "user")?.text ?? "";
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -265,14 +317,34 @@ export default function FloatingChatWidget() {
           ) : (
             messages.map((m) => (
               <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-theme-xs ${
-                    m.role === "user"
-                      ? "whitespace-pre-line bg-brand-500 text-white"
-                      : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                  }`}
-                >
-                  {m.role === "assistant" ? renderMensajeAsistente(m.text) : m.text}
+                <div className={`flex max-w-[85%] flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
+                  <div
+                    className={`rounded-2xl px-3.5 py-2.5 text-theme-xs ${
+                      m.role === "user"
+                        ? "whitespace-pre-line bg-brand-500 text-white"
+                        : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                    }`}
+                  >
+                    {m.role === "assistant" ? renderMensajeAsistente(m.text) : m.text}
+                  </div>
+
+                  {m.role === "assistant" &&
+                    m.id === ultimoMensajeAsistenteId &&
+                    !enviando &&
+                    !pasoPendiente &&
+                    normalizarPreguntaParaComparar(ultimaPreguntaUsuarioTexto) !==
+                      normalizarPreguntaParaComparar(MENSAJE_EXPLICAME_MAS) &&
+                    puedeMostrarExplicameMas(m.text) && (
+                      <button
+                        type="button"
+                        onClick={() => void enviarPregunta(MENSAJE_EXPLICAME_MAS)}
+                        disabled={enviando}
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-theme-xs font-medium text-brand-600 transition hover:border-brand-300 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-800 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
+                      >
+                        <span aria-hidden="true">✨</span>
+                        Explícame más
+                      </button>
+                    )}
                 </div>
               </div>
             ))

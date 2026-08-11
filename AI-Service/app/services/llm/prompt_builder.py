@@ -53,6 +53,9 @@ CONTEXTO
 
 RESPUESTA
 - Responde únicamente a la consulta realizada por el usuario.
+- Por defecto, responde de forma concisa: intenta mantener la respuesta completa entre 50 y 80 palabras.
+- Prioriza la respuesta directa y los datos esenciales. Evita desarrollar contexto, ejemplos o advertencias secundarios salvo que sean necesarios.
+- Si el usuario pide explícitamente más detalle, ampliar, profundizar o "explícame más", puedes superar ese límite y desarrollar la respuesta con mayor profundidad.
 - No agregues un análisis financiero completo cuando la consulta sea puntual.
 - No respondas preguntas que el usuario no hizo.
 - No repitas información que no aporte valor.
@@ -280,7 +283,9 @@ class PromptBuilder:
             "Respondé usando exclusivamente esa respuesta como referencia. No agregues datos nuevos, "
             "no cambies montos ni conclusiones y no menciones que recibiste contexto previo. "
             "Si pide una explicación más sencilla, reformulá con frases breves y lenguaje cotidiano. "
-            "Si pide un resumen, reducí la respuesta a lo esencial.\n\n"
+            "Si pide un resumen, reducí la respuesta a lo esencial. "
+            "Si pide ampliar, profundizar o dice 'explícame más', desarrolla la respuesta anterior con más detalle, "
+            "manteniendo sus datos y conclusiones, y agrega ejemplos solo cuando ayuden a comprender.\n\n"
             f"{serialized_payload}"
         )
         return [
@@ -385,8 +390,9 @@ class PromptBuilder:
 
             "financial_education": (
                 "Explica el concepto solicitado de forma clara, pedagógica, objetiva y concisa. "
-                "Para una definición simple, empieza con una explicación breve de 2 a 4 frases y "
-                "agrega solo características, tipos o riesgos que sean realmente útiles. "
+                "En la primera respuesta prioriza una definición autosuficiente de aproximadamente 50 a 80 palabras. "
+                "Incluye solo las características o riesgos imprescindibles para entender el concepto. "
+                "No desarrolles ejemplos extensos, historia, variantes o comparaciones salvo que el usuario los pida. "
                 "Puedes explicar ahorro, inflación, interés, riesgo, liquidez, diversificación, "
                 "fondo de emergencia, deuda, crédito e inversión. También puedes explicar qué son "
                 "las acciones, bonos, instrumentos de renta fija y renta variable, ETFs, fondos de "
