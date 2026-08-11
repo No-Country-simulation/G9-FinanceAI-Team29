@@ -17,6 +17,9 @@ export type AchievementId =
   | 'abrazo'
   | 'chiste'
   | 'mongolia'
+  | 'wololo'
+  | 'descanso'
+  | 'isengard'
   | 'admin_click_frenzy'
   | 'primera_meta'
   | 'primer_csv'
@@ -62,6 +65,9 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
   { id: 'hal9000', titulo: 'Me temo que no puedo hacer eso', descripcion: 'Le preguntaste al asistente si es real.', emoji: '🔴', categoria: 'especial', pista: 'Pregúntale al asistente si es una inteligencia artificial, un bot o un robot.' },
   { id: 'abrazo', titulo: 'Abrazo virtual', descripcion: 'Le pediste un abrazo al asistente.', emoji: '🤗', categoria: 'especial', pista: 'Pídele un abrazo al asistente.' },
   { id: 'chiste', titulo: 'Comediante financiero', descripcion: 'Le pediste un chiste al asistente.', emoji: '😄', categoria: 'especial', pista: 'Pídele al asistente que cuente un chiste.' },
+  { id: 'wololo', titulo: 'Wololo', descripcion: 'Invocaste el wololo financiero.', emoji: 'WO', categoria: 'especial', pista: 'Escribe "wololo" en el chat.' },
+  { id: 'descanso', titulo: 'Junto a la hoguera', descripcion: 'Le pediste un descanso al asistente.', emoji: 'OK', categoria: 'especial', pista: 'Dile al asistente que estas cansado o que necesitas descansar.' },
+  { id: 'isengard', titulo: 'Camino a Isengard', descripcion: 'Encontraste una ruta muy poco financiera.', emoji: 'IG', categoria: 'especial', pista: 'Menciona Isengard o los hobbits en el chat.' },
   {
     id: 'mongolia',
     titulo: 'DE MONGOLIA SOY',

@@ -13,6 +13,7 @@ import { speakText, stopSpeaking, isSpeechSupported } from "../../utils/speech";
 import { playSendSound, playReceiveSound, playErrorSound, startTypingSound, stopTypingSound } from "../../utils/sound";
 import { renderMensajeAsistente } from "../../utils/renderMensajeAsistente";
 import { setAgentTabStatus } from "../../utils/tabTitle";
+import { detenerOtrosEasterEggs, registrarEasterEgg } from "../../utils/easterEggPlayback";
 import {
   esErrorSinDatos,
   MENSAJE_SIN_DATOS,
@@ -67,7 +68,7 @@ function limpiarMetadataInterna(texto: string): string {
 // muestra el rickroll sin pasar por el backend. Mismo texto que el easter egg
 // "rickroll" de AI-Service/app/services/agent/easter_eggs.py.
 const RESPUESTA_RICKROLL_REPETIDA =
-  "😏 You just got Rickrolled. Classic.\n\n!video[Rickroll](https://www\.youtube.com/embed/dQw4w9WgXcQ?autoplay=1)";
+  "😏 You just got Rickrolled. Classic.\n\n!audio[rickroll](/images/task/rickroll.mp3)";
 
 function normalizarPreguntaParaComparar(texto: string): string {
   return texto.trim().toLowerCase();
@@ -134,7 +135,7 @@ function puedeMostrarExplicameMas(texto: string): boolean {
   return !respuestasInteractivas;
 }
 
-type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | "wololo" | "descanso" | null;
+type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | "wololo1" | "wololo2" | "descanso" | "rickroll" | "isengard" | "albion" | "hello_world" | null;
 
 function detectarEasterEggVisual(texto: string): EasterEggVisual {
   if (texto.includes("!audio[general-kenobi]") || /\bGeneral Kenobi\./i.test(texto)) {
@@ -153,12 +154,32 @@ function detectarEasterEggVisual(texto: string): EasterEggVisual {
     return "got";
   }
   
-  if (texto.includes("!audio[wololo]") || /\bWOLOLO\b/i.test(texto)) {
-    return "wololo";
+  if (texto.includes("!audio[wololo-1]")) {
+    return "wololo1";
+  }
+
+  if (texto.includes("!audio[wololo-2]")) {
+    return "wololo2";
   }
 
   if (texto.includes("!audio[descanso]") || /Descansa junto a la hoguera/i.test(texto)) {
     return "descanso";
+  }
+
+  if (texto.includes("!audio[rickroll]") || /You just got Rickrolled/i.test(texto)) {
+    return "rickroll";
+  }
+
+  if (texto.includes("!audio[isengard]") || /hobbits to Isengard/i.test(texto)) {
+    return "isengard";
+  }
+
+  if (texto.includes("!audio[albion]")) {
+    return "albion";
+  }
+
+  if (texto.includes("!audio[hello-world]")) {
+    return "hello_world";
   }
 
   return null;
@@ -192,17 +213,47 @@ const EASTER_EGG_VISUAL_ASSETS: Record<
     durationMs: 10000,
     border: "border-slate-400/60",
   },
-  wololo: {
+  wololo1: {
     src: "/images/task/wololo.webp",
     poster: "/images/task/wololo-poster.webp",
-    durationMs: 4700,
+    durationMs: 4600,
+    border: "border-red-400/60",
+  },
+  wololo2: {
+    src: "/images/task/wololo-2.webp",
+    poster: "/images/task/wololo-2-poster.webp",
+    durationMs: 9900,
     border: "border-red-400/60",
   },
   descanso: {
-  src: "/images/task/descanso.webp",
-  poster: "/images/task/descanso-poster.webp",
-  durationMs: 18090,
-  border: "border-amber-400/60",
+    src: "/images/task/descanso.webp",
+    poster: "/images/task/descanso-poster.webp",
+    durationMs: 18090,
+    border: "border-amber-400/60",
+  },
+  rickroll: {
+    src: "/images/task/rickroll.webp",
+    poster: "/images/task/rickroll-poster.webp",
+    durationMs: 8000,
+    border: "border-pink-400/60",
+  },
+  isengard: {
+    src: "/images/task/isengard.webp",
+    poster: "/images/task/isengard-poster.webp",
+    durationMs: 8000,
+    border: "border-emerald-400/60",
+  },
+  albion: {
+    src: "/images/task/albion.webp",
+    poster: "/images/task/albion-poster.webp",
+    durationMs: 19900,
+    border: "border-orange-400/60",
+  },
+  hello_world: {
+    src: "/images/task/hello_world.webp",
+    poster: "/images/task/hello_world-poster.webp",
+    durationMs: 9900,
+    border: "border-lime-400/60",
   },
 };
 
@@ -296,9 +347,24 @@ function GotTitleReveal({ cerrando }: { cerrando: boolean }) {
   );
 }
 
-function EasterEggVisual({ tipo, isHistory }: { tipo: Exclude<EasterEggVisual, null>, isHistory?: boolean }) {
+function EasterEggVisual({
+  tipo,
+  isHistory,
+  messageId,
+}: {
+  tipo: Exclude<EasterEggVisual, null>;
+  isHistory?: boolean;
+  messageId: number;
+}) {
   const { src, poster, durationMs, border } = EASTER_EGG_VISUAL_ASSETS[tipo];
-  const [terminado, setTerminado] = useState(isHistory ?? false);
+  // `terminado` solo importa mientras el mensaje está "vivo": un mensaje de
+  // historial siempre debe mostrar el poster, sin importar qué estado haya
+  // quedado guardado (por ejemplo si React reutiliza esta instancia al
+  // cambiar de chat). Por eso el render de abajo no usa `terminado` solo,
+  // sino `isHistory || terminado`.
+  const [terminado, setTerminado] = useState(false);
+  const saberAudioRef = useRef<HTMLAudioElement | null>(null);
+  const mostrarPoster = isHistory || terminado;
 
   useEffect(() => {
     if (isHistory) return;
@@ -316,19 +382,39 @@ function EasterEggVisual({ tipo, isHistory }: { tipo: Exclude<EasterEggVisual, n
     // El diálogo "General Kenobi" sigue viniendo del !audio del backend.
     // Este audio adicional reproduce únicamente el sonido del sable.
     const saberAudio = new Audio("/images/task/finsi-kenobi.mp3");
+    saberAudioRef.current = saberAudio;
     saberAudio.volume = 1;
     saberAudio.play().catch(() => {});
 
     return () => {
       saberAudio.pause();
       saberAudio.currentTime = 0;
+      saberAudioRef.current = null;
     };
   }, [tipo, isHistory]);
+
+  useEffect(() => {
+    // Si arranca el easter egg de otro mensaje, este se congela en su
+    // último frame y corta cualquier audio propio (p. ej. el sable de
+    // Kenobi) al instante en vez de seguir animándose en paralelo.
+    if (isHistory) return;
+
+    detenerOtrosEasterEggs(messageId);
+
+    return registrarEasterEgg(messageId, () => {
+      setTerminado(true);
+      const saberAudio = saberAudioRef.current;
+      if (saberAudio) {
+        saberAudio.pause();
+        saberAudio.currentTime = 0;
+      }
+    });
+  }, [messageId, isHistory]);
 
   return (
     <div className={`relative -mx-4 -mt-3 mb-3 overflow-hidden border-b bg-[#101828] ${border}`}>
       <img
-        src={terminado ? poster : src}
+        src={mostrarPoster ? poster : src}
         alt=""
         aria-hidden="true"
         draggable={false}
@@ -1290,7 +1376,7 @@ export default function AsistenteIA() {
                         }`}
                       >
                         {message.role === "assistant" && easterVisual && (
-                          <EasterEggVisual tipo={easterVisual} isHistory={message.isHistory} />
+                          <EasterEggVisual tipo={easterVisual} isHistory={message.isHistory} messageId={message.id} />
                         )}
 
                         {(easterVisual === "kenobi" || easterVisual === "matrix" || easterVisual === "got") && (
@@ -1323,7 +1409,8 @@ export default function AsistenteIA() {
                                 message.isHistory
                                   ? message.text.replace(/!audio\[[^\]]*\]\([^)]+\)/gi, "")
                                   : message.text
-                              )
+                              ),
+                              message.id
                             )
                           ) : mensajeEditandoId === message.id ? (
                             <div className="min-w-[260px] sm:min-w-[340px]">

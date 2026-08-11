@@ -58,10 +58,7 @@ class EasterEggResponder:
         "Relájate en tu isla privada, donde podrás construir un hogar, "
         "cultivar cosechas y criar animales. Únete a un gremio: todo es "
         "mejor cuando se trabaja en grupo. 🎵\n\n"
-        "Adéntrate ya en el mundo de Albion y escribe tu propia historia.\n\n"
-        "![Albion Online](https://static.wikia.nocookie.net/memes-pedia/images/3/30/"
-        "Albion_Online.jpg/revision/latest/thumbnail/width/360/height/360"
-        "?cb=20220129033916&path-prefix=es)"
+        "Adéntrate ya en el mundo de Albion y escribe tu propia historia."
     )
 
     _MONEY_TRIGGERS = {
@@ -83,6 +80,36 @@ class EasterEggResponder:
         "nunca te voy a abandonar",
         "never gonna give you up",
         "nunca te voy a decepcionar",
+    }
+
+    _WOLOLO_TRIGGERS = {
+        "wololo",
+        "wololoo",
+        "wololooo",
+        "wololoooo",
+    }
+
+    _DESCANSO_TRIGGERS = {
+        "descanso",
+        "descansar",
+        "descansoo",
+        "descansaar",
+        "cansado",
+        "cansada",
+        "cansadoo",
+        "cansadaa",
+    }
+
+    _ISENGARD_TRIGGERS = {
+        "celebrar",
+        "quiero celebrar",
+        "celebremos",
+        "isengard",
+        "estan llevando a los hobbits a isengard",
+        "they are taking the hobbits to isengard",
+        "they re taking the hobbits to isengard",
+        "theyre taking the hobbits to isengard",
+        "taking the hobbits to isengard",
     }
 
     _SKYNET_TRIGGERS = {
@@ -145,23 +172,6 @@ class EasterEggResponder:
         "sabes algun chiste",
     }
 
-    _WOLOLO_TRIGGERS = {
-        "wololo",
-        "wololoo",
-        "wololooo",
-    }
-
-    _DESCANSO_TRIGGERS = {
-        "descanso",
-        "descansar",
-        "descansoo",
-        "descansaar",
-        "cansado",
-        "cansada",
-        "cansadoo",
-        "cansadaa",
-}
-
     _MONGOLIA_SOUNDS = (
         "/images/task/tecnoMongol.mp3",
         "/images/task/canticoMongol.mp3",
@@ -209,7 +219,7 @@ class EasterEggResponder:
         if normalized in cls._ALBION_TRIGGERS or "albion online" in normalized or "mmorpg" in normalized:
             return EasterEgg(
                 key="albion_online",
-                response=cls._ALBION_RESPONSE,
+                response=f"{cls._ALBION_RESPONSE}\n\n!audio[albion](/images/task/albion.mp3)",
             )
 
         if normalized in cls._MONEY_TRIGGERS:
@@ -226,7 +236,43 @@ class EasterEggResponder:
                 key="rickroll",
                 response=(
                     "😏 You just got Rickrolled. Classic.\n\n"
-                    "!video[Rickroll](https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1)"
+                    "!audio[rickroll](/images/task/rickroll.mp3)"
+                ),
+            )
+
+        if normalized in cls._WOLOLO_TRIGGERS:
+            # Alterna al azar entre dos clips de wololo distintos.
+            if random.random() < 0.5:
+                response = (
+                    "WOLOLO! Azul se vuelve rojo.\n\n"
+                    "!audio[wololo-1](/images/task/wololo.mp3)"
+                )
+            else:
+                response = (
+                    "WOLOLO! Azul se vuelve rojo.\n\n"
+                    "!audio[wololo-2](/images/task/wololo-2.mp3)"
+                )
+
+            return EasterEgg(key="wololo", response=response)
+
+        if normalized in cls._DESCANSO_TRIGGERS or any(
+            cls._contains_word(normalized, trigger)
+            for trigger in ("cansado", "cansada", "descansar", "descanso")
+        ):
+            return EasterEgg(
+                key="descanso",
+                response=(
+                    "Llevas un rato por aqui. Descansa junto a la hoguera.\n\n"
+                    "!audio[descanso](/images/task/descanso.mp3)"
+                ),
+            )
+
+        if normalized in cls._ISENGARD_TRIGGERS:
+            return EasterEgg(
+                key="isengard",
+                response=(
+                    "They are taking the hobbits to Isengard.\n\n"
+                    "!audio[isengard](/images/task/isengard.mp3)"
                 ),
             )
 
@@ -278,13 +324,18 @@ class EasterEggResponder:
             )
 
         if normalized in cls._HELLO_WORLD_TRIGGERS:
-            return EasterEgg(
-                key="hello_world",
-                # Marcador que el frontend intercepta para reemplazar por la
-                # animación de terminal (ver TerminalDemo.tsx). Debe
-                # coincidir exactamente con MARCADOR_TERMINAL_DEMO ahí.
-                response="[[finsi-terminal-demo]]",
-            )
+            # Alterna al azar entre dos formas de saludar: la animación de
+            # terminal (ver TerminalDemo.tsx, marcador debe coincidir con
+            # MARCADOR_TERMINAL_DEMO ahí) o el video/audio de hello_world.
+            if random.random() < 0.5:
+                response = "[[finsi-terminal-demo]]"
+            else:
+                response = (
+                    "Hello, world! 👋\n\n"
+                    "!audio[hello-world](/images/task/hello_world.mp3)"
+                )
+
+            return EasterEgg(key="hello_world", response=response)
 
         if normalized in cls._HAL_TRIGGERS:
             return EasterEgg(
@@ -307,24 +358,6 @@ class EasterEggResponder:
                 response="¿Por qué el dinero nunca duerme? Porque tiene muchos intereses. 😄",
             )
 
-        if normalized in cls._WOLOLO_TRIGGERS:
-            return EasterEgg(
-                key="wololo",
-                response=(
-                    "WOLOLO! 🔵➡️🔴\n\n"
-                    "!audio[wololo](/images/task/wololo.mp3)"
-                ),
-            ) 
-
-        if normalized in cls._DESCANSO_TRIGGERS:
-            return EasterEgg(
-                key="descanso",
-                response=(
-                    "🔥 Llevas un rato por aquí. Descansa junto a la hoguera.\n\n"
-                    "!audio[descanso](/images/task/descanso.mp3)"
-                ),
-            )
-        
         if cls._contains_word(normalized, "mongolia") or cls._contains_word(normalized, "mongol"):
             sonido = random.choice(cls._MONGOLIA_SOUNDS)
             bandera = (

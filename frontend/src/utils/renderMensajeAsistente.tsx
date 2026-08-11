@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { notifySupportMailOpened } from "./supportSuccess";
 import TerminalDemo from "../components/ai/TerminalDemo";
+import { detenerOtrosEasterEggs, registrarEasterEgg } from "./easterEggPlayback";
 
 const ESQUEMAS_PERMITIDOS = /^(https?:|mailto:|\/)/i;
 
@@ -22,7 +23,32 @@ function limpiarMetadataInterna(texto: string): string {
     .trim();
 }
 
-function renderConNegritas(text: string) {
+/**
+ * <audio> autoplay de un easter egg. Se registra en el controlador
+ * compartido para que, si empieza a sonar otro easter egg, este se corte
+ * de inmediato en vez de seguir sonando en paralelo.
+ */
+function EasterEggAudioTag({ src, messageId }: { src: string; messageId?: number }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (messageId === undefined) return;
+
+    detenerOtrosEasterEggs(messageId);
+
+    return registrarEasterEgg(messageId, () => {
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    });
+  }, [messageId]);
+
+  return <audio ref={audioRef} src={src} autoPlay className="hidden" />;
+}
+
+function renderConNegritas(text: string, messageId?: number) {
   const partes = text.split(
     /(\*\*[^*]+\*\*|!video\[[^\]]*\]\([^)]+\)|!audio\[[^\]]*\]\([^)]+\)|!icon\[[^\]]*\]\([^)]+\)|!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\))/g,
   );
@@ -43,12 +69,7 @@ function renderConNegritas(text: string) {
       ESQUEMAS_PERMITIDOS.test(matchAudio[2])
     ) {
       return (
-        <audio
-          key={i}
-          src={matchAudio[2]}
-          autoPlay
-          className="hidden"
-        />
+        <EasterEggAudioTag key={i} src={matchAudio[2]} messageId={messageId} />
       );
     }
 
@@ -156,7 +177,7 @@ function renderConNegritas(text: string) {
  * Renderiza negritas, enlaces Markdown y viñetas del texto plano
  * de un mensaje del asistente, sin utilizar un parser completo.
  */
-export function renderMensajeAsistente(text: string) {
+export function renderMensajeAsistente(text: string, messageId?: number) {
   const textoVisible = limpiarMetadataInterna(text);
 
   if (textoVisible.includes(MARCADOR_TERMINAL_DEMO)) {
@@ -170,7 +191,7 @@ export function renderMensajeAsistente(text: string) {
 
         {resto && (
           <div className="mt-3">
-            {renderMensajeAsistente(resto)}
+            {renderMensajeAsistente(resto, messageId)}
           </div>
         )}
       </>
@@ -193,7 +214,7 @@ export function renderMensajeAsistente(text: string) {
       >
         {viñetaActual.map((item, i) => (
           <li key={i}>
-            {renderConNegritas(item)}
+            {renderConNegritas(item, messageId)}
           </li>
         ))}
       </ul>,
@@ -217,7 +238,7 @@ export function renderMensajeAsistente(text: string) {
     if (linea.trim() !== "") {
       bloques.push(
         <p key={`p-${bloques.length}`}>
-          {renderConNegritas(linea)}
+          {renderConNegritas(linea, messageId)}
         </p>,
       );
     } else if (i !== lineas.length - 1) {
