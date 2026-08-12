@@ -44,6 +44,8 @@ export default function Analisis() {
   // El formulario se llena con el perfil y las transacciones reales de la
   // cuenta activa. Al cambiar de usuario se vuelve a pedir todo.
   useEffect(() => {
+    // El análisis anterior deja de ser válido al cambiar de usuario.
+    setResultado(null);
     setCargandoDatos(true);
     obtenerDatosReales();
     async function obtenerDatosReales() {
@@ -79,14 +81,25 @@ export default function Analisis() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData) return;
+
+    // Invalidar cualquier análisis anterior mientras se calcula el nuevo.
+    setResultado(null);
     setLoading(true);
+
     try {
       const result = await analizarFinanzas(formData, usuarioId);
       setResultado(result);
-      mostrarExito('Análisis completado', `Perfil financiero: ${result.perfilFinanciero}`);
+      mostrarExito(
+        'Análisis completado',
+        `Perfil financiero: ${result.perfilFinanciero}`,
+      );
     } catch (err) {
       console.error(err);
-      mostrarError('No se pudo completar el análisis', 'Revisa los datos ingresados e intenta de nuevo.');
+      setResultado(null);
+      mostrarError(
+        'No se pudo completar el análisis',
+        'Revisa los datos ingresados e intenta de nuevo.',
+      );
     } finally {
       setLoading(false);
     }
@@ -152,7 +165,13 @@ export default function Analisis() {
                 <input
                   type="number"
                   value={formData.ingresoMensual}
-                  onChange={(e) => setFormData({ ...formData, ingresoMensual: Number(e.target.value) })}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      ingresoMensual: Number(e.target.value),
+                    });
+                    setResultado(null);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 />
               </div>
@@ -164,7 +183,13 @@ export default function Analisis() {
                 <input
                   type="number"
                   value={formData.nivelEndeudamiento}
-                  onChange={(e) => setFormData({ ...formData, nivelEndeudamiento: Number(e.target.value) })}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      nivelEndeudamiento: Number(e.target.value),
+                    });
+                    setResultado(null);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 />
               </div>
@@ -175,7 +200,13 @@ export default function Analisis() {
                 </label>
                 <select
                   value={formData.frecuenciaAhorro}
-                  onChange={(e) => setFormData({ ...formData, frecuenciaAhorro: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      frecuenciaAhorro: e.target.value,
+                    });
+                    setResultado(null);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                 >
                   <option value="Alta">Alta</option>
