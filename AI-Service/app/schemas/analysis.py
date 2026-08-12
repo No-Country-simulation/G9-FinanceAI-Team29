@@ -133,12 +133,6 @@ class Metricas(BaseModel):
     ratio_ahorro_ingreso: float
 
 
-class Wallet(BaseModel):
-    saldo_total: float
-    saldo_reservado: float
-    saldo_disponible: float
-
-
 class RecomendacionFinanciera(BaseModel):
     id: str
     tipo: str
@@ -166,7 +160,6 @@ class AnalisisResponse(BaseModel):
     fortalezas: list[str]
     oportunidades_mejora: list[str]
     metricas: Metricas
-    wallet: Wallet
     categorias_principales: list[CategoriaPrincipal]
     recomendaciones: list[RecomendacionFinanciera]
     modelo_version: str
