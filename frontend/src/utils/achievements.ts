@@ -29,6 +29,8 @@ const MATCHERS: { id: AchievementId; substring: string }[] = [
   { id: 'descanso', substring: 'descansa junto a la hoguera' },
   { id: 'isengard', substring: 'hobbits to isengard' },
   { id: 'mongolia', substring: 'de mongolia soy' },
+  { id: 'infinite_money', substring: 'infinite money glitch detectado' },
+  { id: 'ctrl_z_gastos', substring: 'intentando deshacer tus gastos' },
 ];
 
 export function detectarLogroEnRespuesta(answer: string): AchievementId | null {
