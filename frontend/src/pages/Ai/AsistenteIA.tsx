@@ -617,7 +617,7 @@ function MatrixPillSplash({ tipo, cerrando }: { tipo: "roja" | "azul"; cerrando:
 
   const contenido = (
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-500 ${cerrando ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+      className={`fixed inset-0 z-[999999] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-500 ${cerrando ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       style={{ background: `radial-gradient(ellipse at center, ${bgFrom} 0%, ${bgTo} 100%)` }}
     >
       {/* Partículas de lluvia tipo Matrix */}
@@ -1194,10 +1194,15 @@ export default function AsistenteIA() {
 
   // Lanza el splash de pantalla completa para la pastilla elegida y luego navega.
   const elegirPastilla = (eleccion: "roja" | "azul") => {
+    if (eleccion === "roja") {
+      // La pastilla roja redirige de inmediato: el splash sigue en pantalla
+      // completa dentro de /modo-matrix hasta que termine de cargar el análisis.
+      navigate("/modo-matrix", { state: { pastillaRojaSplash: true } });
+      return;
+    }
     setMatrixSplash({ tipo: eleccion, fase: "visible" });
-    const ruta = eleccion === "roja" ? "/modo-matrix" : "/";
     const cerrar = setTimeout(() => setMatrixSplash((prev) => prev ? { ...prev, fase: "cerrando" } : null), 1600);
-    const navegar = setTimeout(() => { navigate(ruta); setMatrixSplash(null); }, 2100);
+    const navegar = setTimeout(() => { navigate("/"); setMatrixSplash(null); }, 2100);
     return () => { clearTimeout(cerrar); clearTimeout(navegar); };
   };
 

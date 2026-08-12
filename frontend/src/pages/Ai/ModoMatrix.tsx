@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useLocation } from "react-router";
 import { createPortal } from "react-dom";
 import PageMeta from "../../components/common/PageMeta";
 import {
@@ -9,6 +9,7 @@ import {
 } from "../../services/api";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 import { speakText, stopSpeaking, isSpeechSupported } from "../../utils/speech";
 import type { AnalisisResponse, RecomendacionFinanciera } from "../../types/finance";
 import {
@@ -23,7 +24,7 @@ import {
   FileIcon,
 } from "../../icons";
 
-const MASCOT_EMPTY_SRC = "/images/mascot/finsight-bird-empty.png";
+const MASCOT_EMPTY_SRC = "/images/mascot/Finsight-bird-matrix-on.png";
 
 function ArrowUpIcon({ className = "size-4" }: { className?: string }) {
   return (
@@ -52,46 +53,52 @@ const evitarPorcentajeLiteral = (texto: string) =>
   texto.replace(/(\d+(?:[.,]\d+)?)\s*%/g, "$1 por ciento");
 
 function badgePrioridad(p: RecomendacionFinanciera["prioridad"]) {
-  if (p === "alta") return "border-l-error-500 bg-error-50 dark:bg-error-500/10";
-  if (p === "media") return "border-l-warning-500 bg-warning-50 dark:bg-warning-500/10";
-  return "border-l-brand-500 bg-brand-50 dark:bg-brand-500/10";
+  if (p === "alta") return "border-l-error-500 bg-error-500/10";
+  if (p === "media") return "border-l-warning-500 bg-warning-500/10";
+  return "border-l-error-800 bg-white/[0.03]";
 }
 
 function PriorityIcon({ p }: { p: RecomendacionFinanciera["prioridad"] }) {
-  if (p === "alta") return <AlertIcon className="size-4 shrink-0 text-error-500 mt-0.5" />;
-  if (p === "media") return <AlertIcon className="size-4 shrink-0 text-warning-500 mt-0.5" />;
-  return <InfoIcon className="size-4 shrink-0 text-brand-500 mt-0.5" />;
+  if (p === "alta") return <AlertIcon className="size-4 shrink-0 text-error-400 mt-0.5" />;
+  if (p === "media") return <AlertIcon className="size-4 shrink-0 text-warning-400 mt-0.5" />;
+  return <InfoIcon className="size-4 shrink-0 text-error-300 mt-0.5" />;
 }
 
 function getPerfilClasses(perfil: string) {
-  if (perfil === "Saludable") return "text-success-600 bg-success-50 dark:bg-success-500/10";
-  if (perfil === "En observación") return "text-warning-600 bg-warning-50 dark:bg-warning-500/10";
-  if (perfil === "En riesgo") return "text-error-600 bg-error-50 dark:bg-error-500/10";
-  return "text-gray-600 bg-gray-50 dark:bg-gray-500/10";
+  if (perfil === "Saludable") return "text-success-400 bg-success-500/10";
+  if (perfil === "En observación") return "text-warning-400 bg-warning-500/10";
+  if (perfil === "En riesgo") return "text-error-400 bg-error-500/10";
+  return "text-gray-300 bg-white/[0.06]";
 }
 
 function getAhorroClass(pct: number) {
-  if (pct >= 20) return "text-success-600";
-  if (pct >= 10) return "text-warning-600";
-  return "text-error-600";
+  if (pct >= 20) return "text-success-400";
+  if (pct >= 10) return "text-warning-400";
+  return "text-error-400";
 }
 
 function getRiesgoClass(nivel: string) {
-  if (nivel === "Bajo") return "text-success-600";
-  if (nivel === "Medio") return "text-warning-600";
-  return "text-error-600";
+  if (nivel === "Bajo") return "text-success-400";
+  if (nivel === "Medio") return "text-warning-400";
+  return "text-error-400";
 }
 
 const SIMBOLOS_LLUVIA = ["$", "Y", "E", "B", "S", "o", "0", "1", "%", "X", "M"];
 
-function FullPageMatrixRain() {
+// Fondo fijo oscuro con degradé rojo: el Modo Matrix siempre se ve igual,
+// sin importar si el resto de la app está en tema claro u oscuro.
+function FullPageMatrixBackground() {
   const particulas = Array.from({ length: 26 }, (_, i) => i);
   return (
     <div className="pointer-events-none fixed inset-0 overflow-hidden select-none z-0" aria-hidden>
+      <div
+        className="absolute inset-0"
+        style={{ background: "radial-gradient(ellipse 90% 60% at 50% -10%, rgba(127,29,29,0.35) 0%, rgba(3,7,18,1) 55%)" }}
+      />
       {particulas.map((i) => (
         <span
           key={i}
-          className="absolute font-mono font-bold opacity-20 dark:opacity-25"
+          className="absolute font-mono font-bold opacity-25"
           style={{
             top: "-5%",
             left: `${(i * 3.9) % 100}%`,
@@ -111,6 +118,54 @@ function FullPageMatrixRain() {
   );
 }
 
+// Splash de pantalla completa mostrado al entrar desde "Pastilla Roja".
+// Cubre toda la pantalla (incluido el header, z-index por encima de z-99999)
+// y desaparece con fade-out recién cuando termina de cargar el análisis.
+function PastillaRojaSplash({ cerrando }: { cerrando: boolean }) {
+  const particulas = Array.from({ length: 18 }, (_, i) => i);
+  return createPortal(
+    <div
+      className={`fixed inset-0 z-[999999] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-500 ${
+        cerrando ? "opacity-0 pointer-events-none" : "opacity-100"
+      }`}
+      style={{ background: "radial-gradient(ellipse at center, rgba(127,29,29,0.97) 0%, rgba(0,0,0,0.97) 100%)" }}
+    >
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {particulas.map((i) => (
+          <span
+            key={i}
+            className="absolute top-[-8%] text-xs font-mono font-bold select-none animate-[matrixRain_linear_infinite]"
+            style={{
+              left: `${(i * 5.8) % 100}%`,
+              color: `rgba(239,68,68,${0.3 + (i % 4) * 0.15})`,
+              animationDuration: `${1.8 + (i % 5) * 0.6}s`,
+              animationDelay: `${-(i % 7) * 0.4}s`,
+              fontSize: `${10 + (i % 3) * 2}px`,
+            }}
+          >
+            {["0", "1", "∑", "$", "¥", "€", "₿", "∞"][i % 8]}
+          </span>
+        ))}
+      </div>
+
+      <div className="absolute h-64 w-64 rounded-full blur-[80px] opacity-40" style={{ background: "rgba(239,68,68,0.55)" }} />
+
+      <div className="relative z-10 mb-6 flex h-16 w-8 flex-col overflow-hidden rounded-full border-2 border-white/30 shadow-[0_0_30px_rgba(239,68,68,0.55)]">
+        <div className="flex-1" style={{ background: "#dc2626" }} />
+        <div className="flex-1 bg-white/10" />
+      </div>
+
+      <p className="relative z-10 text-center font-mono text-4xl font-black tracking-[0.18em] text-[#fca5a5] drop-shadow-[0_0_16px_rgba(252,165,165,0.8)] sm:text-5xl animate-[fadeInUp_0.4s_ease_both]">
+        PASTILLA ROJA
+      </p>
+      <p className="relative z-10 mt-3 text-center text-sm font-mono tracking-widest text-[#fca5a5] opacity-70 animate-[fadeInUp_0.4s_0.15s_ease_both]">
+        Analizando tus finanzas…
+      </p>
+    </div>,
+    document.body,
+  );
+}
+
 function SalidaOverlay({ visible }: { visible: boolean }) {
   return createPortal(
     <div
@@ -126,13 +181,14 @@ function SalidaOverlay({ visible }: { visible: boolean }) {
   );
 }
 
-// Bloque placeholder visible con shimmer/pulse para tema claro y oscuro
+// Clases compartidas de las "cards" del Modo Matrix: siempre en tema oscuro
+// con acento rojo, sin depender del tema claro/oscuro del resto de la app.
+const MX_CARD = "rounded-2xl border border-error-900/30 bg-gray-950/60 p-6 shadow-[0_0_30px_-16px_rgba(239,68,68,0.5)] backdrop-blur-sm";
+const MX_SUBCARD = "rounded-lg border border-white/[0.06] bg-white/[0.03] p-4";
+
+// Bloque placeholder visible con shimmer/pulse sobre fondo oscuro
 function MxSkeletonBlock({ className = "" }: { className?: string }) {
-  return (
-    <div
-      className={`rounded bg-gray-200 dark:bg-white/10 animate-pulse ${className}`}
-    />
-  );
+  return <div className={`rounded bg-white/10 animate-pulse ${className}`} />;
 }
 
 function ModoMatrixSkeleton() {
@@ -141,10 +197,7 @@ function ModoMatrixSkeleton() {
       {/* 4 Stat Cards Skeletons */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6"
-          >
+          <div key={i} className={`${MX_CARD} p-5 md:p-6`}>
             <div className="space-y-3">
               <MxSkeletonBlock className="h-3.5 w-24" />
               <div className="flex items-center gap-2">
@@ -159,29 +212,29 @@ function ModoMatrixSkeleton() {
       {/* Main Grid: Perfil + Recomendaciones Skeletons */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left Column: Perfil Financiero Skeleton */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div className={MX_CARD}>
           <div className="space-y-4">
             <MxSkeletonBlock className="h-5 w-44" />
-            <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/60 space-y-2">
+            <div className={`${MX_SUBCARD} space-y-2`}>
               <MxSkeletonBlock className="h-3 w-20" />
               <MxSkeletonBlock className="h-7 w-32 rounded-full" />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/60 space-y-2">
+              <div className={`${MX_SUBCARD} space-y-2`}>
                 <MxSkeletonBlock className="h-3 w-16" />
                 <MxSkeletonBlock className="h-5 w-24" />
               </div>
-              <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/60 space-y-2">
+              <div className={`${MX_SUBCARD} space-y-2`}>
                 <MxSkeletonBlock className="h-3 w-16" />
                 <MxSkeletonBlock className="h-5 w-24" />
               </div>
             </div>
-            <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/60 space-y-2">
+            <div className={`${MX_SUBCARD} space-y-2`}>
               <MxSkeletonBlock className="h-3 w-28" />
               <MxSkeletonBlock className="h-5 w-16" />
               <MxSkeletonBlock className="h-2 w-full rounded-full" />
             </div>
-            <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-800 space-y-3">
+            <div className="rounded-lg border border-white/[0.06] p-4 space-y-3">
               <MxSkeletonBlock className="h-4 w-36" />
               {[0, 1, 2, 3].map((j) => (
                 <div key={j} className="space-y-1.5">
@@ -197,15 +250,12 @@ function ModoMatrixSkeleton() {
         </div>
 
         {/* Right Column: Recomendaciones Personalizadas Skeleton */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div className={MX_CARD}>
           <div className="space-y-4">
             <MxSkeletonBlock className="h-5 w-56" />
             <div className="space-y-3">
               {[0, 1, 2].map((j) => (
-                <div
-                  key={j}
-                  className="rounded-lg border-l-4 border-l-gray-300 bg-gray-50 p-4 dark:border-l-gray-700 dark:bg-gray-800/60 space-y-2"
-                >
+                <div key={j} className="rounded-lg border-l-4 border-l-error-900 bg-white/[0.03] p-4 space-y-2">
                   <div className="flex items-center gap-2">
                     <MxSkeletonBlock className="size-4 rounded-full" />
                     <MxSkeletonBlock className="h-3.5 w-24" />
@@ -216,7 +266,7 @@ function ModoMatrixSkeleton() {
                 </div>
               ))}
             </div>
-            <div className="mt-5 rounded-xl border border-brand-100 bg-brand-50/50 p-6 text-center dark:border-brand-500/20 dark:bg-brand-500/10 space-y-3 flex flex-col items-center">
+            <div className="mt-5 rounded-xl border border-error-900/40 bg-error-500/5 p-6 text-center space-y-3 flex flex-col items-center">
               <MxSkeletonBlock className="h-28 w-28 rounded-xl" />
               <MxSkeletonBlock className="h-4 w-60" />
               <MxSkeletonBlock className="h-9 w-36 rounded-lg" />
@@ -240,8 +290,8 @@ function StatCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-      <p className="mb-1 text-theme-xs text-gray-500 dark:text-gray-400">{label}</p>
+    <div className={`${MX_CARD} p-5 md:p-6`}>
+      <p className="mb-1 text-theme-xs uppercase tracking-wider text-gray-500">{label}</p>
       <div className="flex items-center gap-2">
         {icon}
         <p className={`text-lg font-bold ${colorClass}`}>{valor}</p>
@@ -250,13 +300,7 @@ function StatCard({
   );
 }
 
-const BAR_COLORS = [
-  "bg-brand-500",
-  "bg-error-500",
-  "bg-warning-500",
-  "bg-theme-purple-500",
-  "bg-blue-light-500",
-];
+const BAR_COLORS = ["bg-error-500", "bg-warning-500", "bg-error-700", "bg-warning-700", "bg-error-400"];
 
 function CatBar({
   cat,
@@ -273,10 +317,10 @@ function CatBar({
   return (
     <div>
       <div className="mb-1 flex justify-between text-theme-xs">
-        <span className="capitalize text-gray-700 dark:text-gray-300">{cat}</span>
-        <span className="font-medium text-gray-500 dark:text-gray-400">{fmtMoney(monto)}</span>
+        <span className="capitalize text-gray-300">{cat}</span>
+        <span className="font-medium text-gray-500">{fmtMoney(monto)}</span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
         <div
           className={`h-full rounded-full transition-all duration-700 ${BAR_COLORS[idx % BAR_COLORS.length]}`}
           style={{ width: `${pct}%` }}
@@ -289,14 +333,43 @@ function CatBar({
 export default function ModoMatrix() {
   const { usuarioId, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const vinoDePastillaRoja = (location.state as { pastillaRojaSplash?: boolean } | null)?.pastillaRojaSplash ?? false;
 
   const [analisis, setAnalisis] = useState<AnalisisResponse | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saliendo, setSaliendo] = useState(false);
   const [leyendoId, setLeyendoId] = useState<string | null>(null);
+  const [splashVisible, setSplashVisible] = useState(vinoDePastillaRoja);
+  const [splashCerrando, setSplashCerrando] = useState(false);
+
+  const { theme, setTheme } = useTheme();
+  const temaPrevioRef = useRef<typeof theme | null>(null);
+
+  // Modo Matrix siempre se ve en tema claro; al entrar forzamos "light" y al
+  // salir restauramos el tema que el usuario tenía antes de entrar.
+  useEffect(() => {
+    temaPrevioRef.current = theme;
+    if (theme !== "light") setTheme("light");
+    return () => {
+      if (temaPrevioRef.current && temaPrevioRef.current !== "light") {
+        setTheme(temaPrevioRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => stopSpeaking, []);
+
+  // El splash de "Pastilla Roja" desaparece recién cuando termina de cargar
+  // el análisis (autenticación + datos), no en un tiempo fijo.
+  useEffect(() => {
+    if (!splashVisible || authLoading || cargando) return;
+    setSplashCerrando(true);
+    const t = setTimeout(() => setSplashVisible(false), 500);
+    return () => clearTimeout(t);
+  }, [splashVisible, authLoading, cargando]);
 
   useEffect(() => {
     if (authLoading || !usuarioId) return;
@@ -403,14 +476,25 @@ export default function ModoMatrix() {
           75%  { transform: translate(-1px, 2px); }
         }
         .mx-glitch-hover:hover { animation: mxGlitch 0.2s linear infinite; }
+        @keyframes matrixRain {
+          0%   { transform: translateY(-10vh); opacity: 0; }
+          10%  { opacity: 1; }
+          90%  { opacity: 0.8; }
+          100% { transform: translateY(110vh); opacity: 0; }
+        }
+        @keyframes fadeInUp {
+          0%   { opacity: 0; transform: translateY(16px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
 
+      {splashVisible && <PastillaRojaSplash cerrando={splashCerrando} />}
       <SalidaOverlay visible={saliendo} />
-      <FullPageMatrixRain />
+      <FullPageMatrixBackground />
 
       <div className="relative z-10 space-y-6">
         {/* Banner de acceso exclusivo */}
-        <div className="relative overflow-hidden rounded-2xl bg-gray-900 px-6 py-5 dark:bg-gray-950">
+        <div className="relative overflow-hidden rounded-2xl border border-error-900/40 bg-gray-950 px-6 py-5 shadow-[0_0_40px_-18px_rgba(239,68,68,0.6)]">
           <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="mb-1 flex items-center gap-2">
@@ -440,17 +524,17 @@ export default function ModoMatrix() {
           <ModoMatrixSkeleton />
         ) : error ? (
           <div className="flex min-h-[40vh] items-center justify-center">
-            <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-error-50 dark:bg-error-500/10">
-                <AlertIcon className="size-7 text-error-500" />
+            <div className={`w-full max-w-md text-center ${MX_CARD} p-8`}>
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-error-500/10">
+                <AlertIcon className="size-7 text-error-400" />
               </div>
-              <h2 className="mb-2 text-lg font-semibold text-gray-800 dark:text-white/90">
+              <h2 className="mb-2 text-lg font-semibold text-white/90">
                 Sin datos disponibles
               </h2>
-              <p className="mb-6 text-theme-sm text-gray-500 dark:text-gray-400">{error}</p>
+              <p className="mb-6 text-theme-sm text-gray-400">{error}</p>
               <button
                 onClick={() => navigate("/importar-csv")}
-                className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-5 py-2.5 text-theme-sm font-medium text-white transition hover:bg-brand-600"
+                className="inline-flex items-center justify-center rounded-lg bg-error-600 px-5 py-2.5 text-theme-sm font-medium text-white transition hover:bg-error-500"
               >
                 Importar datos
               </button>
@@ -489,12 +573,12 @@ export default function ModoMatrix() {
             {/* Perfil + Recomendaciones */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {/* Perfil */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-                <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
+              <div className={MX_CARD}>
+                <h2 className="mb-4 text-lg font-semibold text-white/90">
                   Tu Perfil Financiero
                 </h2>
                 <div className="space-y-3">
-                  <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50">
+                  <div className={MX_SUBCARD}>
                     <p className="mb-1 text-theme-xs text-gray-500">Clasificación</p>
                     <span
                       className={`inline-flex items-center rounded-full px-3 py-1 text-theme-sm font-semibold ${getPerfilClasses(
@@ -505,25 +589,25 @@ export default function ModoMatrix() {
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50">
+                    <div className={MX_SUBCARD}>
                       <p className="mb-1 text-theme-xs text-gray-500">Ingresos</p>
-                      <p className="text-base font-bold text-success-600">
+                      <p className="text-base font-bold text-success-400">
                         {fmtMoney(analisis.totalIngresos)}
                       </p>
                     </div>
-                    <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50">
+                    <div className={MX_SUBCARD}>
                       <p className="mb-1 text-theme-xs text-gray-500">Gastos</p>
-                      <p className="text-base font-bold text-error-600">
+                      <p className="text-base font-bold text-error-400">
                         {fmtMoney(analisis.totalGastos)}
                       </p>
                     </div>
                   </div>
-                  <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50">
+                  <div className={MX_SUBCARD}>
                     <p className="mb-1 text-theme-xs text-gray-500">Ahorro estimado</p>
                     <p className={`text-base font-bold ${getAhorroClass(analisis.porcentajeAhorro)}`}>
                       {analisis.porcentajeAhorro.toFixed(1)}%
                     </p>
-                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/[0.08]">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${
                           analisis.porcentajeAhorro >= 20
@@ -539,8 +623,8 @@ export default function ModoMatrix() {
                     </div>
                   </div>
                   {topCategorias.length > 0 && (
-                    <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-                      <p className="mb-3 text-theme-xs font-semibold text-gray-700 dark:text-gray-300">
+                    <div className="rounded-lg border border-white/[0.06] p-4">
+                      <p className="mb-3 text-theme-xs font-semibold text-gray-300">
                         Gasto por categoría
                       </p>
                       <div className="space-y-3">
@@ -560,8 +644,8 @@ export default function ModoMatrix() {
               </div>
 
               {/* Recomendaciones */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-                <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
+              <div className={MX_CARD}>
+                <h2 className="mb-4 text-lg font-semibold text-white/90">
                   Recomendaciones Personalizadas
                 </h2>
                 {analisis.recomendaciones.length > 0 ? (
@@ -574,27 +658,27 @@ export default function ModoMatrix() {
                         <div className="flex items-start gap-3">
                           <PriorityIcon p={rec.prioridad} />
                           <div className="min-w-0 flex-1">
-                            <p className="text-theme-xs font-semibold text-gray-500 dark:text-gray-400">
+                            <p className="text-theme-xs font-semibold text-gray-400">
                               {rec.prioridad === "alta"
                                 ? "Prioridad Alta"
                                 : rec.prioridad === "media"
                                   ? "Prioridad Media"
                                   : "Sugerencia"}
                             </p>
-                            <h3 className="mt-0.5 text-theme-sm font-semibold text-gray-800 dark:text-white/90">
+                            <h3 className="mt-0.5 text-theme-sm font-semibold text-white/90">
                               {rec.titulo}
                             </h3>
-                            <p className="mt-1 text-theme-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                            <p className="mt-1 text-theme-xs text-gray-400 line-clamp-2">
                               {rec.diagnostico}
                             </p>
-                            <p className="mt-2 text-theme-xs text-gray-700 dark:text-gray-300">
+                            <p className="mt-2 text-theme-xs text-gray-300">
                               <strong>Acción:</strong> {rec.accion}
                             </p>
                             <div className="mt-2.5 flex flex-wrap items-center gap-3">
                               <button
                                 type="button"
                                 onClick={() => preguntarleAFinsi(rec)}
-                                className="inline-flex items-center gap-1.5 text-theme-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                                className="inline-flex items-center gap-1.5 text-theme-xs font-medium text-error-400 hover:text-error-300"
                               >
                                 <ChatIcon className="size-3.5" />
                                 Preguntar a Finsi sobre esto
@@ -603,7 +687,7 @@ export default function ModoMatrix() {
                                 <button
                                   type="button"
                                   onClick={() => leerRecomendacion(rec)}
-                                  className="inline-flex items-center gap-1.5 text-theme-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                                  className="inline-flex items-center gap-1.5 text-theme-xs font-medium text-error-400 hover:text-error-300"
                                 >
                                   {leyendoId === rec.id ? '⏹️ Detener lectura' : '🔊 Que Finsi lo lea'}
                                 </button>
@@ -621,20 +705,20 @@ export default function ModoMatrix() {
                       alt="Finsi"
                       className="h-32 w-auto object-contain mb-3"
                     />
-                    <p className="text-theme-sm font-medium text-gray-500">
+                    <p className="text-theme-sm font-medium text-gray-400">
                       No hay recomendaciones disponibles
                     </p>
                   </div>
                 )}
 
                 {/* Card Mascota Finsi */}
-                <div className="mt-5 flex flex-col items-center gap-2 rounded-xl bg-brand-50 p-4 text-center dark:bg-brand-500/10">
+                <div className="mt-5 flex flex-col items-center gap-2 rounded-xl border border-error-900/30 bg-error-500/5 p-4 text-center">
                   <img
                     src={MASCOT_EMPTY_SRC}
                     alt="Finsi, el asistente financiero"
                     className="h-32 w-auto object-contain sm:h-36"
                   />
-                  <p className="text-theme-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-theme-sm text-gray-400">
                     ¿Quieres un plan más detallado y a tu medida?
                   </p>
                   <button
@@ -646,7 +730,7 @@ export default function ModoMatrix() {
                         },
                       })
                     }
-                    className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white transition hover:bg-brand-600"
+                    className="inline-flex items-center gap-2 rounded-lg bg-error-600 px-4 py-2 text-theme-sm font-medium text-white transition hover:bg-error-500"
                   >
                     <ChatIcon className="size-4" />
                     Hablar con Finsi
@@ -656,24 +740,24 @@ export default function ModoMatrix() {
             </div>
 
             {/* Accesos rápidos */}
-            <div className="flex flex-wrap gap-3 border-t border-gray-200 pt-4 dark:border-gray-800">
+            <div className="flex flex-wrap gap-3 border-t border-error-900/30 pt-4">
               <button
                 onClick={() => navigate("/recomendaciones")}
-                className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white transition hover:bg-brand-600"
+                className="inline-flex items-center gap-2 rounded-lg bg-error-600 px-4 py-2 text-theme-sm font-medium text-white transition hover:bg-error-500"
               >
                 <TaskIcon className="size-4" />
                 Ver todas las recomendaciones
               </button>
               <button
                 onClick={() => navigate("/transacciones")}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-theme-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.06]"
+                className="inline-flex items-center gap-2 rounded-lg border border-error-900/40 px-4 py-2 text-theme-sm font-medium text-gray-300 transition hover:bg-white/[0.06]"
               >
                 <ListIcon className="size-4" />
                 Ver transacciones
               </button>
               <button
                 onClick={() => navigate("/analisis")}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-theme-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.06]"
+                className="inline-flex items-center gap-2 rounded-lg border border-error-900/40 px-4 py-2 text-theme-sm font-medium text-gray-300 transition hover:bg-white/[0.06]"
               >
                 <FileIcon className="size-4" />
                 Análisis detallado

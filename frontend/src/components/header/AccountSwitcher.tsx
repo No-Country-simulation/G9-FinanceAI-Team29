@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useGamification } from '../../context/GamificationContext';
 import { obtenerPerfilCompleto } from '../../services/api';
 import { confirmarCierreSesion } from '../../utils/alerts';
+import { useEsModoMatrix } from '../../hooks/useEsModoMatrix';
 
 /** Mensajes chistosos para quien le hace clic rápido al correo de admin. */
 const ADMIN_EASTER_EGGS = [
@@ -23,6 +24,7 @@ const USER_ID_PATTERN = /^USR\d{4}$/;
  * representativos o buscar cualquier usuario por su ID USRxxxx.
  */
 export default function AccountSwitcher() {
+  const enModoMatrix = useEsModoMatrix();
   const {
     email,
     isAdmin,
@@ -188,7 +190,11 @@ export default function AccountSwitcher() {
             onChange={handlePerfilChange}
             title="Cambiar de perfil o buscar usuario"
             aria-label="Cambiar de perfil o buscar usuario"
-            className="h-11 min-w-0 max-w-[10.5rem] rounded-lg border border-gray-300 bg-transparent px-3 text-center text-theme-xs font-medium text-gray-600 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 sm:max-w-none sm:px-4"
+            className={`h-11 min-w-0 max-w-[10.5rem] rounded-lg border bg-transparent px-3 text-center text-theme-xs font-medium focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 sm:max-w-none sm:px-4 ${
+              enModoMatrix
+                ? "border-error-900/40 text-error-400 focus:border-error-500"
+                : "border-gray-300 text-gray-600 focus:border-brand-500"
+            }`}
           >
             {cuentas.map((cuenta) => (
               <option
@@ -207,12 +213,14 @@ export default function AccountSwitcher() {
           {mostrarBuscador && (
             <form
               onSubmit={handleBuscarUsuario}
-              className="absolute right-0 top-full z-50 mt-2 w-[290px] rounded-xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-700 dark:bg-gray-900"
+              className={`absolute right-0 top-full z-50 mt-2 w-[290px] rounded-xl border p-3 shadow-theme-lg dark:border-gray-700 dark:bg-gray-900 ${
+                enModoMatrix ? "border-error-900/40 bg-gray-950" : "border-gray-200 bg-white"
+              }`}
             >
               <div className="mb-1.5 flex items-center justify-between gap-3">
                 <label
                   htmlFor="admin-user-search"
-                  className="block text-theme-xs font-medium text-gray-700 dark:text-gray-300"
+                  className={`block text-theme-xs font-medium dark:text-gray-300 ${enModoMatrix ? "!text-gray-300" : "text-gray-700"}`}
                 >
                   Buscar por ID de usuario
                 </label>
@@ -222,7 +230,9 @@ export default function AccountSwitcher() {
                   onClick={cerrarBuscador}
                   aria-label="Cerrar buscador"
                   title="Cerrar"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-lg leading-none text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+                  className={`inline-flex h-7 w-7 items-center justify-center rounded-lg text-lg leading-none transition dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200 ${
+                    enModoMatrix ? "!text-error-400 hover:!bg-error-950/40 hover:!text-error-300" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  }`}
                 >
                   ×
                 </button>
@@ -242,19 +252,23 @@ export default function AccountSwitcher() {
                   placeholder="USR0001"
                   maxLength={7}
                   autoFocus
-                  className="h-10 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-white"
+                  className={`h-10 min-w-0 flex-1 rounded-lg border px-3 text-sm outline-none dark:border-gray-700 dark:bg-gray-950 dark:text-white ${
+                    enModoMatrix ? "border-error-900/40 bg-gray-900 text-white focus:border-error-500" : "border-gray-300 bg-white text-gray-900 focus:border-brand-500"
+                  }`}
                 />
 
                 <button
                   type="submit"
                   disabled={buscandoUsuario}
-                  className="h-10 rounded-lg bg-brand-500 px-3 text-theme-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`h-10 rounded-lg px-3 text-theme-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    enModoMatrix ? "bg-error-600 hover:bg-error-500" : "bg-brand-500 hover:bg-brand-600"
+                  }`}
                 >
                   {buscandoUsuario ? 'Buscando…' : 'Buscar'}
                 </button>
               </div>
 
-              <p className="mt-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
+              <p className={`mt-1.5 text-theme-xs dark:text-gray-400 ${enModoMatrix ? "!text-error-400/70" : "text-gray-500"}`}>
                 Ejemplo: USR0123
               </p>
 
@@ -277,12 +291,14 @@ export default function AccountSwitcher() {
             type="button"
             onClick={handleAdminEmailClick}
             title="¡Eres admin!"
-            className="text-theme-xs font-semibold text-success-600 transition hover:text-success-700 dark:text-success-400 dark:hover:text-success-300"
+            className={`text-theme-xs font-semibold transition dark:text-success-400 dark:hover:text-success-300 ${
+              enModoMatrix ? "!text-success-400 hover:!text-success-300" : "text-success-600 hover:text-success-700"
+            }`}
           >
             {email}
           </button>
         ) : (
-          <p className="text-theme-xs font-medium text-gray-700 dark:text-gray-300">
+          <p className={`text-theme-xs font-medium dark:text-gray-300 ${enModoMatrix ? "!text-gray-300" : "text-gray-700"}`}>
             {email}
           </p>
         )}
@@ -305,7 +321,11 @@ export default function AccountSwitcher() {
       <button
         type="button"
         onClick={handleLogout}
-        className="hidden shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-theme-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03] sm:inline-block"
+        className={`hidden shrink-0 rounded-lg border px-3 py-1.5 text-theme-sm font-medium transition dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03] sm:inline-block ${
+          enModoMatrix
+            ? "border-error-800 text-error-400 hover:bg-error-950/40"
+            : "border-gray-200 text-gray-600 hover:bg-gray-50"
+        }`}
       >
         Salir
       </button>

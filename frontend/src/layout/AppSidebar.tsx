@@ -80,6 +80,8 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered, closeMobileSidebar } =
     useSidebar();
   const location = useLocation();
+  // Modo Matrix: en tema claro, la barra lateral también se tiñe de rojo.
+  const enModoMatrix = location.pathname === "/modo-matrix";
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
@@ -145,6 +147,13 @@ const AppSidebar: React.FC = () => {
     });
   };
 
+  // Modo Matrix: fuerza (con !important) los colores azules del menú a rojo,
+  // por encima de las clases utilitarias compartidas menu-item-*.
+  const mxActive = enModoMatrix ? " !bg-error-500/15 !text-error-400" : "";
+  const mxInactive = enModoMatrix ? " !text-gray-300 hover:!bg-error-950/40 hover:!text-error-300" : "";
+  const mxIconActive = enModoMatrix ? " !text-error-400" : "";
+  const mxIconInactive = enModoMatrix ? " !text-gray-500 group-hover:!text-error-300" : "";
+
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => (
@@ -155,8 +164,8 @@ const AppSidebar: React.FC = () => {
               data-tour={nav.name === "Dashboard" ? "nav-dashboard-menu" : undefined}
               className={`menu-item group ${
                 openSubmenu?.type === menuType && openSubmenu?.index === index
-                  ? "menu-item-active"
-                  : "menu-item-inactive"
+                  ? `menu-item-active${mxActive}`
+                  : `menu-item-inactive${mxInactive}`
               } cursor-pointer ${
                 !isExpanded && !isHovered
                   ? "lg:justify-center"
@@ -166,8 +175,8 @@ const AppSidebar: React.FC = () => {
               <span
                 className={`menu-item-icon-size  ${
                   openSubmenu?.type === menuType && openSubmenu?.index === index
-                    ? "menu-item-icon-active"
-                    : "menu-item-icon-inactive"
+                    ? `menu-item-icon-active${mxIconActive}`
+                    : `menu-item-icon-inactive${mxIconInactive}`
                 }`}
               >
                 {nav.icon}
@@ -180,7 +189,7 @@ const AppSidebar: React.FC = () => {
                   className={`ml-auto w-5 h-5 transition-transform duration-200 ${
                     openSubmenu?.type === menuType &&
                     openSubmenu?.index === index
-                      ? "rotate-180 text-brand-500"
+                      ? `rotate-180 ${enModoMatrix ? "!text-error-400" : "text-brand-500"}`
                       : ""
                   }`}
                 />
@@ -209,14 +218,14 @@ const AppSidebar: React.FC = () => {
                 }
                 onClick={() => isMobileOpen && closeMobileSidebar()}
                 className={`menu-item group ${
-                  isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
+                  isActive(nav.path) ? `menu-item-active${mxActive}` : `menu-item-inactive${mxInactive}`
                 }`}
               >
                 <span
                   className={`menu-item-icon-size ${
                     isActive(nav.path)
-                      ? "menu-item-icon-active"
-                      : "menu-item-icon-inactive"
+                      ? `menu-item-icon-active${mxIconActive}`
+                      : `menu-item-icon-inactive${mxIconInactive}`
                   }`}
                 >
                   {nav.icon}
@@ -253,8 +262,8 @@ const AppSidebar: React.FC = () => {
                       onClick={() => isMobileOpen && closeMobileSidebar()}
                       className={`menu-dropdown-item ${
                         isActive(subItem.path)
-                          ? "menu-dropdown-item-active"
-                          : "menu-dropdown-item-inactive"
+                          ? `menu-dropdown-item-active${mxActive}`
+                          : `menu-dropdown-item-inactive${mxInactive}`
                       }`}
                     >
                       {subItem.name}
@@ -295,7 +304,8 @@ const AppSidebar: React.FC = () => {
 
   return (
     <aside
-      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
+      className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 dark:bg-gray-900 dark:border-gray-800 h-screen transition-all duration-300 ease-in-out z-50 border-r
+        ${enModoMatrix ? "bg-gray-950 border-error-900/40 text-gray-200" : "bg-white border-gray-200 text-gray-900"}
         ${
           isExpanded || isMobileOpen
             ? "w-[290px]"
@@ -315,26 +325,36 @@ const AppSidebar: React.FC = () => {
       >
         <Link to="/">
           {isExpanded || isHovered ? (
-            <>
+            enModoMatrix ? (
               <img
-                src="/images/logo/logo.png"
+                src="/images/logo/logo_red.png"
                 alt="FinSightAI"
                 width={150}
                 height={40}
-                className="h-10 w-auto object-contain dark:hidden"
+                className="h-10 w-auto object-contain"
               />
-              <img
-                src="/images/logo/logo_white.png"
-                alt=""
-                width={150}
-                height={40}
-                className="hidden h-10 w-auto object-contain dark:block"
-                aria-hidden="true"
-              />
-            </>
+            ) : (
+              <>
+                <img
+                  src="/images/logo/logo.png"
+                  alt="FinSightAI"
+                  width={150}
+                  height={40}
+                  className="h-10 w-auto object-contain dark:hidden"
+                />
+                <img
+                  src="/images/logo/logo_white.png"
+                  alt=""
+                  width={150}
+                  height={40}
+                  className="hidden h-10 w-auto object-contain dark:block"
+                  aria-hidden="true"
+                />
+              </>
+            )
           ) : (
             <img
-              src="/logo_crop.png"
+              src={enModoMatrix ? "/images/logo/logo_red_crop.png" : "/logo_crop.png"}
               alt="Logo"
               width={32}
               height={32}

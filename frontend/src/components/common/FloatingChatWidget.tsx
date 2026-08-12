@@ -7,6 +7,7 @@ import { speakText, stopSpeaking, isSpeechSupported } from "../../utils/speech";
 import { playSendSound, playReceiveSound, playErrorSound, startTypingSound, stopTypingSound } from "../../utils/sound";
 import { renderMensajeAsistente } from "../../utils/renderMensajeAsistente";
 import { setAgentTabStatus } from "../../utils/tabTitle";
+import { useEsModoMatrix } from "../../hooks/useEsModoMatrix";
 import {
   esErrorSinDatos,
   MENSAJE_SIN_DATOS,
@@ -97,6 +98,7 @@ function PersonaHablandoIcon({ className }: { className?: string }) {
 export default function FloatingChatWidget() {
   const { usuarioId, email } = useAuth();
   const navigate = useNavigate();
+  const enModoMatrix = useEsModoMatrix();
   const [abierto, setAbierto] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [value, setValue] = useState("");
@@ -233,13 +235,13 @@ export default function FloatingChatWidget() {
     <>
       {/* Panel de chat */}
       <div
-        className={`fixed bottom-24 right-5 z-99999 flex w-[calc(100vw-2.5rem)] max-w-90 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-lg transition-all duration-200 ease-in-out dark:border-gray-800 dark:bg-gray-900 sm:right-6 ${
-          abierto ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0"
-        }`}
+        className={`fixed bottom-24 right-5 z-99999 flex w-[calc(100vw-2.5rem)] max-w-90 flex-col overflow-hidden rounded-2xl border shadow-theme-lg transition-all duration-200 ease-in-out dark:border-gray-800 dark:bg-gray-900 sm:right-6 ${
+          enModoMatrix ? "border-error-900/40 bg-gray-950" : "border-gray-200 bg-white"
+        } ${abierto ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0"}`}
         style={{ height: "min(32rem, 70vh)" }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-2 bg-brand-500 px-4 py-3.5">
+        <div className={`flex items-center justify-between gap-2 px-4 py-3.5 ${enModoMatrix ? "bg-error-700" : "bg-brand-500"}`}>
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white">
               <ChatIcon className="size-4.5" />
@@ -422,7 +424,11 @@ export default function FloatingChatWidget() {
         </div>
 
         {/* Input */}
-        <div className="flex items-center gap-2 border-t border-gray-200 bg-white p-2.5 dark:border-gray-800 dark:bg-gray-900">
+        <div
+          className={`flex items-center gap-2 border-t p-2.5 dark:border-gray-800 dark:bg-gray-900 ${
+            enModoMatrix ? "border-error-900/40 bg-gray-950" : "border-gray-200 bg-white"
+          }`}
+        >
           <input
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -433,13 +439,19 @@ export default function FloatingChatWidget() {
               }
             }}
             placeholder="Escribe tu mensaje..."
-            className="w-full flex-1 rounded-full border border-gray-200 bg-gray-50 px-3.5 py-2 text-theme-xs text-gray-800 placeholder:text-gray-400 focus:outline-hidden dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30"
+            className={`w-full flex-1 rounded-full border px-3.5 py-2 text-theme-xs focus:outline-hidden dark:border-gray-700 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 ${
+              enModoMatrix
+                ? "border-error-900/40 bg-white/[0.03] text-white/90 placeholder:text-error-400/50"
+                : "border-gray-200 bg-gray-50 text-gray-800 placeholder:text-gray-400"
+            }`}
           />
           <button
             onClick={handleSubmit}
             disabled={!value.trim() || enviando}
             aria-label="Enviar mensaje"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              enModoMatrix ? "bg-error-600 hover:bg-error-500" : "bg-brand-500 hover:bg-brand-600"
+            }`}
           >
             <PaperPlaneIcon className="size-4" />
           </button>
@@ -450,7 +462,9 @@ export default function FloatingChatWidget() {
       <button
         onClick={() => setAbierto((prev) => !prev)}
         aria-label={abierto ? "Cerrar asistente" : "Abrir asistente"}
-        className="fixed bottom-5 right-5 z-99999 flex h-14 w-14 items-center justify-center rounded-full bg-brand-500 text-white shadow-theme-lg transition-all duration-200 hover:scale-105 hover:bg-brand-600 sm:right-6"
+        className={`fixed bottom-5 right-5 z-99999 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-theme-lg transition-all duration-200 hover:scale-105 sm:right-6 ${
+          enModoMatrix ? "bg-error-600 hover:bg-error-500" : "bg-brand-500 hover:bg-brand-600"
+        }`}
       >
         <span className={`absolute transition-all duration-200 ${abierto ? "rotate-90 opacity-0" : "rotate-0 opacity-100"}`}>
           <ChatIcon className="size-6" />
