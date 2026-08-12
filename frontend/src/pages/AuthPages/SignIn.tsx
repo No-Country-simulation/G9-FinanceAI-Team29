@@ -7,7 +7,7 @@ export default function SignIn() {
     <>
       <PageMeta
         title="Registrarse | FinSightAI"
-        description="This is React.js SignIn Tables Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
+        description="Iniciá sesión en FinSightAI y tomá el control de tu salud financiera."
       />
       <AuthLayout showSideBranding={false}>
         <SignInForm />

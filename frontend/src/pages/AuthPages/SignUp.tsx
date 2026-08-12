@@ -7,7 +7,7 @@ export default function SignUp() {
     <>
       <PageMeta
         title="Crear Cuenta | FinSightAI"
-        description="This is React.js SignUp Tables Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
+        description="Creá tu cuenta en FinSightAI y empezá a organizar tus finanzas."
       />
       <AuthLayout showSideBranding={false}>
         <SignUpForm />

@@ -1,0 +1,89 @@
+# docker-compose de FinSightAI — versión OCI (auto-hospedado)
+# Levanta: frontend (nginx) + backend (Spring) + ai-service (FastAPI) + caddy (proxy + TLS).
+# Postgres se agrega en la fase de migración de auth/DB (por ahora el backend usa la BD externa).
+#
+# Uso:
+#   docker compose up -d --build
+#
+# Requisitos (cada uno con su .env, NO commiteado):
+#   - Backend/backend/.env      → DB_PASS, SUPABASE_SERVICE_ROLE_KEY, SERVICE_TOKEN, ...
+#   - AI-Service/.env           → GROQ_API_KEY, SERVICE_TOKEN, ...
+#   - frontend/.env             → VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (para el build)
+#   - frontend/.env.production   → VITE_API_URL=/api, VITE_AI_URL=/ai (same-origin, ya incluido)
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: finsight
+      POSTGRES_USER: finsight
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-finsight_dev}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finsight -d finsight"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    expose:
+      - "5432"
+
+  backend:
+    build:
+      context: ./Backend/backend
+    env_file:
+      - ./Backend/backend/.env
+    environment:
+      # Apuntamos el backend al Postgres propio (override de los defaults de Supabase).
+      DB_URL: "jdbc:postgresql://postgres:5432/finsight"
+      DB_USER: "finsight"
+      DB_PASS: "${POSTGRES_PASSWORD:-finsight_dev}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    expose:
+      - "8081"
+
+  ai-service:
+    build:
+      context: ./AI-Service
+    env_file:
+      - ./AI-Service/.env
+    environment:
+      # Dentro de la red de compose, el backend se alcanza por su nombre de servicio.
+      BACKEND_URL: "http://backend:8081/api"
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Local: http://localhost (sin TLS). Producción: seteá SITE_ADDRESS=tudominio.com (Caddy hace HTTPS solo).
+      SITE_ADDRESS: "${SITE_ADDRESS:-http://localhost}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+      - ai-service
+
+volumes:
+  caddy_data:
+  caddy_config:
+  pgdata:

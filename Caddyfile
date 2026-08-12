@@ -1,0 +1,22 @@
+# Reverse proxy de FinSightAI.
+# SITE_ADDRESS: "http://localhost" en local (sin TLS) o "tudominio.com" en producción (Caddy hace HTTPS solo).
+
+{$SITE_ADDRESS:http://localhost} {
+	# /api/* → backend Spring (mantiene el prefijo /api, que el backend espera).
+	handle /api/* {
+		reverse_proxy backend:8081
+	}
+
+	# /ai/* → AI-Service FastAPI (le saca el /ai; el servicio sirve /agent/chat, etc.).
+	handle /ai/* {
+		uri strip_prefix /ai
+		reverse_proxy ai-service:8000
+	}
+
+	# Todo lo demás → frontend (SPA en nginx).
+	handle {
+		reverse_proxy frontend:80
+	}
+
+	encode gzip zstd
+}

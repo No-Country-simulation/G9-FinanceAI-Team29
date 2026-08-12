@@ -25,6 +25,11 @@ public class Usuario {
     @Column(name = "auth_user_id", length = 36)
     private String authUserId;
 
+    // Hash bcrypt de la contraseña (auth propio, reemplaza a Supabase). Nullable:
+    // los usuarios existentes migran su hash; los nuevos lo setean al registrarse.
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
     @Column(name = "ingreso_mensual", precision = 12, scale = 2)
     private BigDecimal ingresoMensual;
 
@@ -130,6 +135,14 @@ public class Usuario {
 
     public void setAuthUserId(String authUserId) {
         this.authUserId = authUserId;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public BigDecimal getIngresoMensual() {
