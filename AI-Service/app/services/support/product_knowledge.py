@@ -72,14 +72,24 @@ class ProductKnowledgeResponder:
                 "quienes son twenty nine devs",
                 "twentyninedevs",
                 "twenty nine devs",
-            ),
-            content=(
-                "TwentyNineDevs es el equipo de desarrolladores que creó "
-                "FinSightAI y también me creó a mí, Finsi. Trabajaron en conjunto "
-                "para desarrollar esta aplicación y sus funciones de inteligencia "
-                "artificial."
-            ),
-        ),
+
+        # Typos frecuentes
+                "que es twentynindevs",
+                "que es twenty nin devs",
+                "quienes son twentynindevs",
+                "quienes son twenty nin devs",
+                "twentynindevs",
+                "twenty nin devs",
+                "que es twentyninvedevs",
+                "quienes son twentynindevs"
+    ),
+           content=(
+               "TwentyNineDevs es el equipo de desarrolladores que creó "
+               "FinSightAI y también me creó a mí, Finsi. Trabajaron en conjunto "
+               "para desarrollar esta aplicación y sus funciones de inteligencia "
+               "artificial."
+    ),
+),
         ProductKnowledgeRule(
             topic="password_requirements",
             terms=(

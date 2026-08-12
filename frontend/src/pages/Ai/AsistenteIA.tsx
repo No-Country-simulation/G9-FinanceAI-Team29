@@ -135,7 +135,7 @@ function puedeMostrarExplicameMas(texto: string): boolean {
   return !respuestasInteractivas;
 }
 
-type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | "wololo1" | "wololo2" | "descanso" | "rickroll" | "isengard" | "albion" | "hello_world" | null;
+type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | "wololo1" | "wololo2" | "descanso" | "rickroll" | "isengard" | "albion" | "hello_world" | "mongolia" | "infinite_money" | "ctrl_z_gastos" | null;
 
 function detectarEasterEggVisual(texto: string): EasterEggVisual {
   if (texto.includes("!audio[general-kenobi]") || /\bGeneral Kenobi\./i.test(texto)) {
@@ -181,6 +181,21 @@ function detectarEasterEggVisual(texto: string): EasterEggVisual {
   if (texto.includes("!audio[hello-world]")) {
     return "hello_world";
   }
+
+  if (
+  texto.includes("!audio[mongolia]") ||
+  /DE MONGOLIA SOY!/i.test(texto)
+) {
+  return "mongolia";
+}
+
+  if (texto.includes("!audio[infinite-money]")) {
+  return "infinite_money";
+}
+
+if (texto.includes("!audio[ctrl-z-gastos]")) {
+  return "ctrl_z_gastos";
+}
 
   return null;
 }
@@ -255,6 +270,26 @@ const EASTER_EGG_VISUAL_ASSETS: Record<
     durationMs: 9900,
     border: "border-lime-400/60",
   },
+  mongolia: {
+    src: "/images/task/mongol.webp",
+    poster: "/images/task/mongol-poster.webp",
+    durationMs: 17000,
+    border: "border-sky-300/60",
+},
+  infinite_money: {
+  src: "/images/task/infinite-money.webp",
+  poster: "/images/task/infinite-money-poster.webp",
+  durationMs: 10000,
+  border: "border-emerald-300/60",
+},
+
+ctrl_z_gastos: {
+  src: "/images/task/ctrl-z-gastos.webp",
+  poster: "/images/task/ctrl-z-gastos-poster.webp",
+  durationMs: 10000,
+  border: "border-red-300/60",
+},
+
 };
 
 
@@ -412,7 +447,7 @@ function EasterEggVisual({
   }, [messageId, isHistory]);
 
   return (
-    <div className={`relative -mx-4 -mt-3 mb-3 overflow-hidden border-b bg-[#101828] ${border}`}>
+    <div className={`relative mb-3 overflow-hidden rounded-xl border bg-[#101828] ${border}`}>
       <img
         src={mostrarPoster ? poster : src}
         alt=""
@@ -1501,15 +1536,13 @@ export default function AsistenteIA() {
                           normalizarPreguntaParaComparar(MENSAJE_EXPLICAME_MAS) &&
                         puedeMostrarExplicameMas(message.text) && (
                           <div className="mt-2 flex w-full justify-start">
-                            <button
-                              type="button"
-                              onClick={() => void handleSubmit(MENSAJE_EXPLICAME_MAS)}
-                              disabled={enviando}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-theme-xs font-medium text-brand-600 transition hover:border-brand-300 hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-brand-800 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
-                            >
-                              <span aria-hidden="true">✨</span>
-                              Explícame más
-                            </button>
+                          <button
+                               type="button"
+                               onClick={() => void handleSubmit(MENSAJE_EXPLICAME_MAS)}
+                               disabled={enviando}
+                               className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50" >
+                                Explícame más
+                           </button>
                           </div>
                         )}
 

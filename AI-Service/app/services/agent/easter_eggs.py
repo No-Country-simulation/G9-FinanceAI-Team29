@@ -174,10 +174,61 @@ class EasterEggResponder:
         "sabes algun chiste",
     }
 
+    _INFINITE_MONEY_TRIGGERS = {
+           "infinite money glitch",
+           "glitch de dinero infinito",
+           "truco de dinero infinito",
+           "truco para tener dinero infinito",
+    }
+
     _MONGOLIA_SOUNDS = (
         "/images/task/tecnoMongol.mp3",
         "/images/task/canticoMongol.mp3",
     )
+
+    _CTRL_Z_GASTOS_TRIGGERS = {
+    # Forma principal
+        "ctrl z mis gastos",
+        "ctrl+z mis gastos",
+
+    # Variantes naturales
+        "ctrl z a mis gastos",
+        "ctrl+z a mis gastos",
+        "hacer ctrl z a mis gastos",
+        "hacer ctrl+z a mis gastos",
+        "puedo hacer ctrl z a mis gastos",
+        "puedo hacer ctrl+z a mis gastos",
+
+    # Sin espacios / tipeo rápido
+        "ctrlz mis gastos",
+        "ctrlz a mis gastos",
+
+    # Typos frecuentes de ctrl
+        "crtl z mis gastos",
+        "crtl+z mis gastos",
+        "crtl z a mis gastos",
+        "crtl+z a mis gastos",
+
+        "ctrrl z mis gastos",
+        "ctrrl+z mis gastos",
+
+    # Typos frecuentes de gastos
+        "ctrl z mis gasto",
+        "ctrl+z mis gasto",
+        "ctrl z mis gastso",
+        "ctrl+z mis gastso",
+        "ctrl z mis gaastos",
+        "ctrl+z mis gaastos",
+
+    # Mezclas
+        "crtl z mis gasto",
+        "crtl+z mis gasto",
+        "ctrlz mis gasto",
+        "deshacer mis gastos",
+        "desacer mis gastos",
+    }
+
+    
 
     @classmethod
     def match(cls, text: str) -> EasterEgg | None:
@@ -371,9 +422,27 @@ class EasterEggResponder:
                 response=(
                     f"DE MONGOLIA SOY! {bandera}\n\n"
                     f"Монголчууд мандтугай, бид бүгдээрээ Монголчууд {bandera}\n\n"
-                    "![Mongolia](/images/task/mongol.webp)\n\n"
                     f"!audio[mongolia]({sonido})"
                 ),
+            )
+        if normalized in cls._INFINITE_MONEY_TRIGGERS:
+           return EasterEgg(
+                key="infinite_money",
+                response=(
+                    "💸 Infinite money glitch detectado...\n\n"
+                    "❌ Parece que ya lo parchearon.\n\n"
+                    "!audio[infinite-money](/images/task/infinite-money.mp3)"
+               ),
+            )
+
+        if normalized in cls._CTRL_Z_GASTOS_TRIGGERS:
+            return EasterEgg(
+                key="ctrl_z_gastos",
+                response=(
+                    "⌨️ Intentando deshacer tus gastos...\n\n"
+                    "❌ Parece que la vida real no tiene Ctrl+Z.\n\n"
+                    "!audio[ctrl-z-gastos](/images/task/ctrl-z-gastos.mp3)"
+               ),
             )
 
         return None
