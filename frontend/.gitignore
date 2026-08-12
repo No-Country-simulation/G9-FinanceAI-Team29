@@ -13,6 +13,8 @@ dist-ssr
 *.local
 
 .env
+.env.example
+
 
 # Fotos originales del equipo sin procesar (pesan mucho, no van al repo).
 # Procesar con `npm run team-photos` -> genera public/team/*.webp
