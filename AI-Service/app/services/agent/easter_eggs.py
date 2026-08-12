@@ -15,6 +15,10 @@ class EasterEgg:
 class EasterEggResponder:
     """Respuestas ocultas, deterministas y aisladas del flujo financiero."""
 
+    _EXIT_TRIGGERS = {
+        "exit",
+    }
+
     _YAHOO_TRIGGERS = {
         "nietzsche y nihilismo",
         "nietzsche y el nihilismo",
@@ -98,6 +102,12 @@ class EasterEggResponder:
         "cansada",
         "cansadoo",
         "cansadaa",
+        "estoy cansado",
+        "estoy cansada",
+        "quiero descansar",
+        "necesito descansar",
+        "necesito un descanso",
+        "quiero un descanso",
     }
 
     _ISENGARD_TRIGGERS = {
@@ -236,6 +246,12 @@ class EasterEggResponder:
         if not normalized:
             return None
 
+        if normalized in cls._EXIT_TRIGGERS:
+            return EasterEgg(
+                key="exit",
+                response="👋 ¡Chau! Cerrando sesión…\n\n[[finsi-logout]]",
+            )
+
         if normalized in cls._YAHOO_TRIGGERS:
             return EasterEgg(
                 key="yahoo_respuestas",
@@ -308,10 +324,7 @@ class EasterEggResponder:
 
             return EasterEgg(key="wololo", response=response)
 
-        if normalized in cls._DESCANSO_TRIGGERS or any(
-            cls._contains_word(normalized, trigger)
-            for trigger in ("cansado", "cansada", "descansar", "descanso")
-        ):
+        if normalized in cls._DESCANSO_TRIGGERS:
             return EasterEgg(
                 key="descanso",
                 response=(

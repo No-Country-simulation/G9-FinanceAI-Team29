@@ -8,6 +8,9 @@ const ESQUEMAS_PERMITIDOS = /^(https?:|mailto:|\/)/i;
 /** Debe coincidir exactamente con la respuesta del easter egg "hello_world" en el backend. */
 const MARCADOR_TERMINAL_DEMO = "[[finsi-terminal-demo]]";
 
+/** Debe coincidir con la respuesta del easter egg "exit" en el backend. */
+const MARCADOR_LOGOUT = "[[finsi-logout]]";
+
 /**
  * Marcador interno que usa Finsi para conservar contexto financiero
  * entre mensajes. Debe mantenerse en el texto original, pero nunca
@@ -196,6 +199,16 @@ export function renderMensajeAsistente(text: string, messageId?: number) {
         )}
       </>
     );
+  }
+
+  if (textoVisible.includes(MARCADOR_LOGOUT)) {
+    // El logout lo dispara AsistenteIA (solo con el mensaje fresco, no en el
+    // historial). Acá solo ocultamos el marcador y mostramos el texto.
+    const resto = textoVisible
+      .replace(MARCADOR_LOGOUT, "")
+      .trim();
+
+    return <>{resto && renderMensajeAsistente(resto, messageId)}</>;
   }
 
   const lineas = textoVisible.split("\n");

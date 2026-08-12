@@ -672,7 +672,7 @@ function MatrixPillSplash({ tipo, cerrando }: { tipo: "roja" | "azul"; cerrando:
 }
 
 export default function AsistenteIA() {
-  const { usuarioId, email, session } = useAuth();
+  const { usuarioId, email, session, signOut } = useAuth();
   const { registrarEvento, desbloquearLogro } = useGamification();
   const location = useLocation();
   const navigate = useNavigate();
@@ -736,6 +736,33 @@ export default function AsistenteIA() {
       clearTimeout(ocultar);
     };
   }, [messages]);
+
+  // Easter egg "exit": suena el bark-fart y cierra la sesión. Solo con el
+  // mensaje fresco (no en el historial) y una única vez por mensaje.
+  const logoutHechoRef = useRef<number | null>(null);
+  useEffect(() => {
+    const ultimoMensaje = messages[messages.length - 1];
+
+    if (
+      !ultimoMensaje ||
+      ultimoMensaje.role !== "assistant" ||
+      ultimoMensaje.isHistory ||
+      logoutHechoRef.current === ultimoMensaje.id ||
+      !ultimoMensaje.text.includes("[[finsi-logout]]")
+    ) {
+      return;
+    }
+
+    logoutHechoRef.current = ultimoMensaje.id;
+
+    const audio = new Audio("/images/task/bark-fart.mp3");
+    const salir = () => {
+      void signOut();
+    };
+    audio.addEventListener("ended", salir, { once: true });
+    audio.addEventListener("error", salir, { once: true });
+    void audio.play().catch(salir);
+  }, [messages, signOut]);
 
   const nombreBienvenida = useMemo(() => {
     const metadata = session?.user.user_metadata;
