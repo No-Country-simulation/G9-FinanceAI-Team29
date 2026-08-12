@@ -10,7 +10,18 @@ import { useAuth } from "../../context/AuthContext";
 import { useGamification } from "../../context/GamificationContext";
 import { detectarLogroEnRespuesta } from "../../utils/achievements";
 import { speakText, stopSpeaking, isSpeechSupported } from "../../utils/speech";
-import { playSendSound, playReceiveSound, playErrorSound, startTypingSound, stopTypingSound } from "../../utils/sound";
+import {
+  playSendSound,
+  playReceiveSound,
+  playErrorSound,
+  startTypingSound,
+  stopTypingSound,
+  playMatrixHoverRoja,
+  playMatrixHoverAzul,
+  playMatrixLoadingOpen,
+  startMatrixLoadingMusic,
+  stopMatrixLoadingMusic,
+} from "../../utils/sound";
 import { renderMensajeAsistente } from "../../utils/renderMensajeAsistente";
 import { setAgentTabStatus } from "../../utils/tabTitle";
 import { detenerOtrosEasterEggs, registrarEasterEgg } from "../../utils/easterEggPlayback";
@@ -567,7 +578,13 @@ function obtenerMensajePensando(prompt: string): string {
 // ─── Matrix Pill Choice ───────────────────────────────────────────────────────
 // Muestra debajo del video del easter egg la pregunta "¿Cuál eliges?"
 // con un botón rojo (ver análisis financiero) y uno azul (resumen financiero).
-function MatrixPillChoice({ onElegir }: { onElegir: (e: "roja" | "azul") => void }) {
+function MatrixPillChoice({
+  onElegir,
+  sonidoActivo,
+}: {
+  onElegir: (e: "roja" | "azul") => void;
+  sonidoActivo: boolean;
+}) {
   return (
     <div className="mt-4 flex flex-col items-center gap-3 animate-[fadeInUp_0.5s_ease_both]">
       <p className="text-center text-theme-sm font-semibold tracking-wide text-violet-200 drop-shadow-[0_0_8px_rgba(167,139,250,0.6)]">
@@ -577,6 +594,7 @@ function MatrixPillChoice({ onElegir }: { onElegir: (e: "roja" | "azul") => void
         {/* Pastilla Roja — ver análisis de finanzas */}
         <button
           onClick={() => onElegir("roja")}
+          onMouseEnter={() => sonidoActivo && playMatrixHoverRoja()}
           className="group relative overflow-hidden rounded-full px-6 py-2.5 text-theme-sm font-semibold text-white shadow-[0_0_18px_rgba(239,68,68,0.55)] transition-all duration-200 hover:scale-105 hover:shadow-[0_0_28px_rgba(239,68,68,0.8)] active:scale-95"
           style={{ background: "linear-gradient(135deg, #dc2626 0%, #b91c1c 60%, #7f1d1d 100%)" }}
           aria-label="Pastilla roja: ver análisis financiero"
@@ -588,6 +606,7 @@ function MatrixPillChoice({ onElegir }: { onElegir: (e: "roja" | "azul") => void
         {/* Pastilla Azul — ir al resumen financiero */}
         <button
           onClick={() => onElegir("azul")}
+          onMouseEnter={() => sonidoActivo && playMatrixHoverAzul()}
           className="group relative overflow-hidden rounded-full px-6 py-2.5 text-theme-sm font-semibold text-white shadow-[0_0_18px_rgba(59,130,246,0.55)] transition-all duration-200 hover:scale-105 hover:shadow-[0_0_28px_rgba(59,130,246,0.8)] active:scale-95"
           style={{ background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 60%, #1e3a8a 100%)" }}
           aria-label="Pastilla azul: ir al resumen financiero"
@@ -801,6 +820,7 @@ export default function AsistenteIA() {
   useEffect(() => () => {
     stopSpeaking();
     stopTypingSound();
+    stopMatrixLoadingMusic();
   }, []);
 
   useEffect(() => {
@@ -1196,14 +1216,27 @@ export default function AsistenteIA() {
   const elegirPastilla = (eleccion: "roja" | "azul") => {
     if (eleccion === "roja") {
       // La pastilla roja redirige de inmediato: el splash sigue en pantalla
-      // completa dentro de /modo-matrix hasta que termine de cargar el análisis.
+      // completa dentro de /modo-matrix hasta que termine de cargar el análisis
+      // (esa pantalla se encarga de su propio sonido de carga).
       navigate("/modo-matrix", { state: { pastillaRojaSplash: true } });
       return;
     }
+    if (sonidoActivo) {
+      playMatrixLoadingOpen();
+      startMatrixLoadingMusic();
+    }
     setMatrixSplash({ tipo: eleccion, fase: "visible" });
     const cerrar = setTimeout(() => setMatrixSplash((prev) => prev ? { ...prev, fase: "cerrando" } : null), 1600);
-    const navegar = setTimeout(() => { navigate("/"); setMatrixSplash(null); }, 2100);
-    return () => { clearTimeout(cerrar); clearTimeout(navegar); };
+    const navegar = setTimeout(() => {
+      stopMatrixLoadingMusic();
+      navigate("/");
+      setMatrixSplash(null);
+    }, 2100);
+    return () => {
+      clearTimeout(cerrar);
+      clearTimeout(navegar);
+      stopMatrixLoadingMusic();
+    };
   };
 
   return (
@@ -1582,7 +1615,7 @@ export default function AsistenteIA() {
                       {message.role === "assistant" &&
                         message.id === ultimoMensajeAsistenteId &&
                         easterVisual === "matrix" && (
-                          <MatrixPillChoice onElegir={elegirPastilla} />
+                          <MatrixPillChoice onElegir={elegirPastilla} sonidoActivo={sonidoActivo} />
                         )}
                       {message.role === "assistant" &&
                         message.id === ultimoMensajeAsistenteId &&

@@ -11,6 +11,18 @@ import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { speakText, stopSpeaking, isSpeechSupported } from "../../utils/speech";
+import {
+  playMatrixLoadingOpen,
+  startMatrixLoadingMusic,
+  stopMatrixLoadingMusic,
+  startMatrixAmbient,
+  stopMatrixAmbient,
+  setMatrixAmbientMuted,
+  setMatrixAmbientDucking,
+  startMatrixChoiceIdle,
+  stopMatrixChoiceIdle,
+  setMatrixChoiceIdleMuted,
+} from "../../utils/sound";
 import type { AnalisisResponse, RecomendacionFinanciera } from "../../types/finance";
 import {
   DollarLineIcon,
@@ -24,7 +36,22 @@ import {
   FileIcon,
 } from "../../icons";
 
-const MASCOT_EMPTY_SRC = "/images/mascot/Finsight-bird-matrix-on.png";
+const MASCOT_EMPTY_SRC = "/images/mascot/finsi_matrix_red.png";
+
+// Preview en hover de la mascota "voz activada": webp animado (silencioso,
+// generado a partir del video original) + audio de voz por separado — así
+// evitamos las restricciones de autoplay con sonido que tienen los <video>
+// en los navegadores. Se muestran ambos solo mientras el mouse está encima.
+const MASCOT_VOICE_ON_SRC = "/images/mascot/matrix-voice-on.webp";
+// Clip de "espera": últimos 0.5s del video original + una pausa sostenida en
+// el último frame (mascota ofreciendo las dos pastillas), en loop. Se
+// muestra recién después de que termina la primera vuelta completa, para no
+// repetir el diálogo entero de nuevo — sin re-editar el video fuente.
+const MASCOT_VOICE_ON_OUTRO_SRC = "/images/mascot/matrix-voice-on-outro.webp";
+const MASCOT_VOICE_ON_AUDIO = "/images/mascot/matrix-voice-on.mp3";
+const MASCOT_LOGO_RED_SRC = "/images/logo/logo_red.png";
+// Guiño a "Sigue al conejo blanco" de Matrix, llevado al terreno financiero.
+const MASCOT_MATRIX_QUOTE = "Sigue el rastro del dinero, no el del conejo blanco.";
 
 function ArrowUpIcon({ className = "size-4" }: { className?: string }) {
   return (
@@ -83,35 +110,61 @@ function getRiesgoClass(nivel: string) {
   return "text-error-400";
 }
 
-const SIMBOLOS_LLUVIA = ["$", "Y", "E", "B", "S", "o", "0", "1", "%", "X", "M"];
+const SIMBOLOS_LLUVIA = ["$", "Y", "E", "B", "S", "o", "0", "1", "%", "X", "M", "¥", "€", "∞", "∑", "₿"];
 
 // Fondo fijo oscuro con degradé rojo: el Modo Matrix siempre se ve igual,
-// sin importar si el resto de la app está en tema claro u oscuro.
+// sin importar si el resto de la app está en tema claro u oscuro. Dos capas
+// de lluvia (trasera tenue y densa + delantera brillante) dan sensación de
+// profundidad, tipo "digital rain" de la película.
 function FullPageMatrixBackground() {
-  const particulas = Array.from({ length: 26 }, (_, i) => i);
+  const capaTrasera = Array.from({ length: 46 }, (_, i) => i);
+  const capaDelantera = Array.from({ length: 26 }, (_, i) => i);
   return (
     <div className="pointer-events-none fixed inset-0 overflow-hidden select-none z-0" aria-hidden>
       <div
         className="absolute inset-0"
         style={{ background: "radial-gradient(ellipse 90% 60% at 50% -10%, rgba(127,29,29,0.35) 0%, rgba(3,7,18,1) 55%)" }}
       />
-      {particulas.map((i) => (
+
+      {capaTrasera.map((i) => (
         <span
-          key={i}
-          className="absolute font-mono font-bold opacity-25"
+          key={`b-${i}`}
+          className="absolute font-mono font-bold opacity-15"
           style={{
             top: "-5%",
-            left: `${(i * 3.9) % 100}%`,
+            left: `${(i * 2.2) % 100}%`,
             color: "#ef4444",
-            fontSize: `${10 + (i % 4) * 2}px`,
+            fontSize: `${9 + (i % 3) * 2}px`,
             animationName: "mxRain",
-            animationDuration: `${2.2 + (i % 6) * 0.7}s`,
-            animationDelay: `${-(i % 8) * 0.55}s`,
+            animationDuration: `${3 + (i % 7) * 0.6}s`,
+            animationDelay: `${-(i % 11) * 0.5}s`,
             animationTimingFunction: "linear",
             animationIterationCount: "infinite",
           }}
         >
           {SIMBOLOS_LLUVIA[i % SIMBOLOS_LLUVIA.length]}
+        </span>
+      ))}
+
+      {capaDelantera.map((i) => (
+        <span
+          key={`f-${i}`}
+          className="absolute font-mono font-bold"
+          style={{
+            top: "-5%",
+            left: `${(i * 3.9 + 1.6) % 100}%`,
+            color: "#f87171",
+            opacity: 0.4 + (i % 4) * 0.12,
+            fontSize: `${13 + (i % 4) * 3}px`,
+            textShadow: "0 0 8px rgba(239,68,68,0.65)",
+            animationName: "mxRain",
+            animationDuration: `${1.6 + (i % 6) * 0.5}s`,
+            animationDelay: `${-(i % 8) * 0.4}s`,
+            animationTimingFunction: "linear",
+            animationIterationCount: "infinite",
+          }}
+        >
+          {SIMBOLOS_LLUVIA[(i * 3 + 2) % SIMBOLOS_LLUVIA.length]}
         </span>
       ))}
     </div>
@@ -184,7 +237,8 @@ function SalidaOverlay({ visible }: { visible: boolean }) {
 // Clases compartidas de las "cards" del Modo Matrix: siempre en tema oscuro
 // con acento rojo, sin depender del tema claro/oscuro del resto de la app.
 const MX_CARD = "rounded-2xl border border-error-900/30 bg-gray-950/60 p-6 shadow-[0_0_30px_-16px_rgba(239,68,68,0.5)] backdrop-blur-sm";
-const MX_SUBCARD = "rounded-lg border border-white/[0.06] bg-white/[0.03] p-4";
+const MX_SUBCARD =
+  "rounded-lg border border-error-900/25 bg-gradient-to-br from-white/[0.05] to-white/[0.015] p-4 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-error-700/50 hover:shadow-[0_10px_28px_-16px_rgba(239,68,68,0.55)]";
 
 // Bloque placeholder visible con shimmer/pulse sobre fondo oscuro
 function MxSkeletonBlock({ className = "" }: { className?: string }) {
@@ -290,17 +344,29 @@ function StatCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className={`${MX_CARD} p-5 md:p-6`}>
-      <p className="mb-1 text-theme-xs uppercase tracking-wider text-gray-500">{label}</p>
+    <div
+      className={`${MX_CARD} group p-5 transition-all duration-300 ease-out hover:-translate-y-1.5 hover:border-error-700/50 hover:shadow-[0_16px_40px_-14px_rgba(239,68,68,0.55)] md:p-6`}
+    >
+      <p className="mb-1 text-theme-xs uppercase tracking-wider text-gray-500 transition-colors duration-300 group-hover:text-gray-300">
+        {label}
+      </p>
       <div className="flex items-center gap-2">
-        {icon}
-        <p className={`text-lg font-bold ${colorClass}`}>{valor}</p>
+        <span className="transition-transform duration-300 group-hover:scale-110">{icon}</span>
+        <p className={`text-lg font-bold ${colorClass} transition-transform duration-300 group-hover:scale-105`}>
+          {valor}
+        </p>
       </div>
     </div>
   );
 }
 
-const BAR_COLORS = ["bg-error-500", "bg-warning-500", "bg-error-700", "bg-warning-700", "bg-error-400"];
+const BAR_COLORS = [
+  "bg-error-500 text-error-500",
+  "bg-warning-500 text-warning-500",
+  "bg-error-700 text-error-700",
+  "bg-warning-700 text-warning-700",
+  "bg-error-400 text-error-400",
+];
 
 function CatBar({
   cat,
@@ -315,18 +381,224 @@ function CatBar({
 }) {
   const pct = maximo > 0 ? (monto / maximo) * 100 : 0;
   return (
-    <div>
-      <div className="mb-1 flex justify-between text-theme-xs">
-        <span className="capitalize text-gray-300">{cat}</span>
-        <span className="font-medium text-gray-500">{fmtMoney(monto)}</span>
+    <div className="group cursor-default">
+      <div className="mb-1.5 flex items-center justify-between text-theme-xs">
+        <span className="capitalize text-gray-300 transition-colors duration-200 group-hover:text-white">
+          {cat}
+        </span>
+        <span className="flex items-center">
+          <span className="font-medium text-gray-500 transition-colors duration-200 group-hover:text-gray-300">
+            {fmtMoney(monto)}
+          </span>
+          <span className="ml-0 max-w-0 overflow-hidden whitespace-nowrap rounded bg-white/10 text-[10px] font-semibold text-gray-400 opacity-0 transition-all duration-300 ease-out group-hover:ml-1.5 group-hover:max-w-[3rem] group-hover:px-1.5 group-hover:py-0.5 group-hover:opacity-100">
+            {pct.toFixed(0)}%
+          </span>
+        </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+      <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-white/[0.06] transition-[height] duration-300 group-hover:h-3.5">
         <div
-          className={`h-full rounded-full transition-all duration-700 ${BAR_COLORS[idx % BAR_COLORS.length]}`}
-          style={{ width: `${pct}%` }}
-        />
+          className={`mx-cat-bar-fill relative h-full rounded-full ${BAR_COLORS[idx % BAR_COLORS.length]} transition-[filter] duration-300 group-hover:brightness-125`}
+          style={{
+            width: `${pct}%`,
+            animationDelay: `${idx * 90}ms`,
+          }}
+        >
+          <span className="mx-cat-bar-shimmer pointer-events-none absolute inset-0" />
+        </div>
       </div>
     </div>
+  );
+}
+
+// Duración del loop del video (10.005s) y su transcripción en cues con
+// tiempo de inicio/fin (ms), usadas para mostrar el subtítulo vigente en una
+// caja separada del video, no quemado en los frames.
+const MASCOT_VOICE_ON_DURATION_MS = 10005;
+const MASCOT_CAPTIONS: { start: number; end: number; text: string }[] = [
+  { start: 0, end: 2900, text: "¡Hola! Ya que has decidido tomar la pastilla roja..." },
+  { start: 2900, end: 5900, text: "¿Deseas venir a hablar conmigo y revisar tus finanzas" },
+  { start: 5900, end: 8400, text: "como un experto? Anda, yo sé que quieres." },
+];
+// Se muestra en la caja de subtítulos una vez que termina el diálogo (y
+// mientras dura el clip de espera) para que no quede vacía.
+const MASCOT_VOICE_ON_IDLE_TEXT = "¿Vamos a ver tus finanzas?";
+
+// Mensaje que dispara el mismo resumen financiero narrado que responde el
+// asistente cuando el usuario escribe "dame un resumen financiero" (y
+// similares), envuelto en el tono retador de Modo Matrix.
+const MASCOT_RESUMEN_PROMPT = "Veamos las finanzas como un experto. Dame un resumen financiero.";
+
+// Flecha curva tipo "dibujada a mano" que señala la mascota, para dar la
+// pista visual de que es interactiva (hover). El trazo punteado + tilde de
+// flecha se dibujan con currentColor para heredar el rojo de Modo Matrix.
+function ClickHintArrow({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 50 70" fill="none" aria-hidden="true" className={className}>
+      <path
+        d="M40 6 C 14 8, 8 34, 15 54"
+        stroke="currentColor"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeDasharray="7 7"
+      />
+      <path
+        d="M5 44 L15 54 L27 47"
+        stroke="currentColor"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// Mascota estática de siempre; al pasar el mouse por encima aparece, en
+// grande y centrado en pantalla, el video (webp animado) con su voz, el
+// subtítulo del instante actual en su propia caja, y dos botones para
+// aceptar (va a Finsi con el resumen financiero) o cerrar y quedarse en
+// Modo Matrix. Se corta apenas el mouse se va, sin dejar audio de fondo.
+function MascotHoverPreview({
+  sonidoActivo,
+  musicaSilenciada,
+}: {
+  sonidoActivo: boolean;
+  musicaSilenciada: boolean;
+}) {
+  const navigate = useNavigate();
+  const [hover, setHover] = useState(false);
+  const [cicloCompleto, setCicloCompleto] = useState(false);
+  const [subtitulo, setSubtitulo] = useState("");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // El zumbido ambiental de Modo Matrix baja de volumen de forma gradual
+  // mientras se ve el video (no de golpe), y vuelve a subir igual al cerrarlo.
+  useEffect(() => {
+    setMatrixAmbientDucking(hover);
+    return () => setMatrixAmbientDucking(false);
+  }, [hover]);
+
+  // Una vez que termina el diálogo y arranca el loop de espera (mascota
+  // ofreciendo las pastillas), suena un pulso suave alternando rojo/azul en
+  // vez de quedar en silencio total.
+  useEffect(() => {
+    if (!hover || !cicloCompleto || !sonidoActivo) {
+      stopMatrixChoiceIdle();
+      return;
+    }
+    startMatrixChoiceIdle();
+    return () => stopMatrixChoiceIdle();
+  }, [hover, cicloCompleto, sonidoActivo]);
+
+  useEffect(() => {
+    setMatrixChoiceIdleMuted(musicaSilenciada);
+  }, [musicaSilenciada]);
+
+  useEffect(() => {
+    if (!hover) {
+      setSubtitulo("");
+      setCicloCompleto(false);
+      return;
+    }
+
+    if (sonidoActivo) {
+      const audio = new Audio(MASCOT_VOICE_ON_AUDIO);
+      audioRef.current = audio;
+      audio.muted = musicaSilenciada;
+      audio.volume = 0.9;
+      audio.play().catch(() => {});
+    }
+
+    // El webp animado no expone su tiempo de reproducción, así que
+    // sincronizamos los subtítulos por reloj propio. Al llegar al final de
+    // la primera vuelta (10.005s) dejamos de repetir el diálogo entero: se
+    // pasa al clip de espera (últimos 0.5s + pausa) sin volver a arrancar
+    // desde "¡Hola!".
+    const inicio = Date.now();
+    const idIntervalo = setInterval(() => {
+      const transcurrido = Date.now() - inicio;
+      if (transcurrido >= MASCOT_VOICE_ON_DURATION_MS) {
+        setSubtitulo(MASCOT_VOICE_ON_IDLE_TEXT);
+        return;
+      }
+      const cue = MASCOT_CAPTIONS.find((c) => transcurrido >= c.start && transcurrido < c.end);
+      setSubtitulo(cue?.text ?? MASCOT_VOICE_ON_IDLE_TEXT);
+    }, 100);
+
+    const idFinPrimeraVuelta = setTimeout(() => setCicloCompleto(true), MASCOT_VOICE_ON_DURATION_MS);
+
+    return () => {
+      clearInterval(idIntervalo);
+      clearTimeout(idFinPrimeraVuelta);
+      audioRef.current?.pause();
+      audioRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hover, sonidoActivo]);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.muted = musicaSilenciada;
+  }, [musicaSilenciada]);
+
+  return (
+    <>
+      <img
+        src={MASCOT_EMPTY_SRC}
+        alt="Finsi, el asistente financiero"
+        draggable={false}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        className="h-32 w-auto cursor-pointer object-contain transition-transform duration-300 hover:scale-105 sm:h-36"
+      />
+      {hover &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[99999] flex flex-col items-center justify-center gap-4 bg-gray-950/80 backdrop-blur-sm animate-[fadeInUp_0.25s_ease_both]"
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => setHover(false)}
+          >
+            <div className="rounded-xl bg-white/95 px-4 py-2 shadow-[0_0_20px_-4px_rgba(239,68,68,0.6)]">
+              <img
+                src={MASCOT_LOGO_RED_SRC}
+                alt="FinSightAI"
+                draggable={false}
+                className="h-8 w-auto object-contain sm:h-10"
+              />
+            </div>
+            <p className="mx-glitch-hover px-4 text-center font-mono text-sm font-bold uppercase tracking-[0.15em] text-error-400 drop-shadow-[0_0_10px_rgba(239,68,68,0.75)] sm:text-base">
+              {MASCOT_MATRIX_QUOTE}
+            </p>
+            <img
+              src={cicloCompleto ? MASCOT_VOICE_ON_OUTRO_SRC : MASCOT_VOICE_ON_SRC}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              className="max-h-[60vh] max-w-[90vw] w-auto rounded-2xl object-contain shadow-[0_0_70px_-10px_rgba(239,68,68,0.65)]"
+            />
+            <div className="min-h-[3.5rem] max-w-[90vw] rounded-xl border border-error-800/50 bg-gray-950/95 px-6 py-3 text-center sm:max-w-lg">
+              <p className="font-outfit text-base font-semibold text-white sm:text-lg">
+                {subtitulo}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigate("/asistente-ia", { state: { autoPrompt: MASCOT_RESUMEN_PROMPT } })}
+                className="inline-flex items-center gap-2 rounded-lg bg-error-600 px-5 py-2.5 text-theme-sm font-semibold text-white shadow-[0_0_20px_-6px_rgba(239,68,68,0.8)] transition hover:bg-error-500"
+              >
+                Sí, vamos
+              </button>
+              <button
+                type="button"
+                onClick={() => setHover(false)}
+                className="inline-flex items-center gap-2 rounded-lg border border-error-800/60 px-5 py-2.5 text-theme-sm font-semibold text-gray-300 transition hover:bg-white/[0.06]"
+              >
+                No, gracias
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
@@ -343,6 +615,7 @@ export default function ModoMatrix() {
   const [leyendoId, setLeyendoId] = useState<string | null>(null);
   const [splashVisible, setSplashVisible] = useState(vinoDePastillaRoja);
   const [splashCerrando, setSplashCerrando] = useState(false);
+  const [musicaSilenciada, setMusicaSilenciada] = useState(false);
 
   const { theme, setTheme } = useTheme();
   const temaPrevioRef = useRef<typeof theme | null>(null);
@@ -362,14 +635,49 @@ export default function ModoMatrix() {
 
   useEffect(() => stopSpeaking, []);
 
+  const sonidoActivo = localStorage.getItem("asistenteSonidoActivo") !== "false";
+
+  // Al aparecer el splash de "Pastilla Roja" suena la apertura y arranca el
+  // "soundtrack" retro-consola de fondo mientras carga el análisis.
+  useEffect(() => {
+    if (!splashVisible || !sonidoActivo) return;
+    playMatrixLoadingOpen();
+    startMatrixLoadingMusic();
+    return () => stopMatrixLoadingMusic();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [splashVisible]);
+
   // El splash de "Pastilla Roja" desaparece recién cuando termina de cargar
   // el análisis (autenticación + datos), no en un tiempo fijo.
   useEffect(() => {
     if (!splashVisible || authLoading || cargando) return;
     setSplashCerrando(true);
+    stopMatrixLoadingMusic();
     const t = setTimeout(() => setSplashVisible(false), 500);
     return () => clearTimeout(t);
   }, [splashVisible, authLoading, cargando]);
+
+  // Zumbido ambiental de fondo mientras se permanece viendo el análisis de
+  // la sección (no solo durante la carga): se detiene al salir o desmontar.
+  useEffect(() => {
+    const mostrandoContenido = !authLoading && !cargando && !error && !!analisis && !splashVisible;
+    if (!mostrandoContenido || !sonidoActivo) {
+      stopMatrixAmbient();
+      return;
+    }
+    setMusicaSilenciada(false);
+    startMatrixAmbient();
+    return () => stopMatrixAmbient();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, cargando, error, analisis, splashVisible]);
+
+  const alternarMusica = () => {
+    setMusicaSilenciada((prev) => {
+      const siguiente = !prev;
+      setMatrixAmbientMuted(siguiente);
+      return siguiente;
+    });
+  };
 
   useEffect(() => {
     if (authLoading || !usuarioId) return;
@@ -412,6 +720,7 @@ export default function ModoMatrix() {
 
   function salir() {
     setSaliendo(true);
+    stopMatrixAmbient();
     setTimeout(() => navigate("/"), 900);
   }
 
@@ -486,6 +795,36 @@ export default function ModoMatrix() {
           0%   { opacity: 0; transform: translateY(16px); }
           100% { opacity: 1; transform: translateY(0); }
         }
+        @keyframes mxGrow {
+          0%   { transform: scaleX(0); }
+          100% { transform: scaleX(1); }
+        }
+        @keyframes mxGlowPulse {
+          0%, 100% { box-shadow: 0 0 4px -1px currentColor; }
+          50%      { box-shadow: 0 0 16px 2px currentColor; }
+        }
+        .mx-cat-bar-fill {
+          transform-origin: left center;
+          animation:
+            mxGrow 0.8s cubic-bezier(0.16, 1, 0.3, 1) both,
+            mxGlowPulse 2.4s ease-in-out infinite;
+        }
+        @keyframes mxShimmer {
+          0%   { transform: translateX(-120%); }
+          100% { transform: translateX(220%); }
+        }
+        .mx-cat-bar-shimmer {
+          width: 40%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+          animation: mxShimmer 2.2s ease-in-out infinite;
+        }
+        @keyframes mxHintNudge {
+          0%, 100% { transform: translate(0, 0) rotate(8deg); }
+          50%      { transform: translate(-4px, -5px) rotate(3deg); }
+        }
+        .mx-hint-arrow {
+          animation: mxHintNudge 1.7s ease-in-out infinite;
+        }
       `}</style>
 
       {splashVisible && <PastillaRojaSplash cerrando={splashCerrando} />}
@@ -510,13 +849,27 @@ export default function ModoMatrix() {
                 Elegiste la pastilla roja. Aquí está el análisis completo sin filtros.
               </p>
             </div>
-            <button
-              onClick={salir}
-              className="mx-glitch-hover inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-error-800 px-4 py-2 text-theme-xs font-semibold text-error-400 transition hover:bg-error-950/40"
-            >
-              <AngleLeftIcon className="size-4" />
-              Salir de la Matrix
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              {sonidoActivo && (
+                <button
+                  onClick={alternarMusica}
+                  title={musicaSilenciada ? "Activar música de fondo" : "Silenciar música de fondo"}
+                  aria-label={musicaSilenciada ? "Activar música de fondo" : "Silenciar música de fondo"}
+                  aria-pressed={musicaSilenciada}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-error-800/60 px-3 py-2 text-theme-xs font-semibold text-error-400 transition hover:bg-error-950/40"
+                >
+                  <span aria-hidden>{musicaSilenciada ? "🔇" : "🔊"}</span>
+                  <span className="hidden sm:inline">{musicaSilenciada ? "Música silenciada" : "Música activa"}</span>
+                </button>
+              )}
+              <button
+                onClick={salir}
+                className="mx-glitch-hover inline-flex items-center gap-1.5 rounded-xl border border-error-800 px-4 py-2 text-theme-xs font-semibold text-error-400 transition hover:bg-error-950/40"
+              >
+                <AngleLeftIcon className="size-4" />
+                Salir de la Matrix
+              </button>
+            </div>
           </div>
         </div>
 
@@ -578,10 +931,10 @@ export default function ModoMatrix() {
                   Tu Perfil Financiero
                 </h2>
                 <div className="space-y-3">
-                  <div className={MX_SUBCARD}>
+                  <div className={`${MX_SUBCARD} animate-[fadeInUp_0.5s_ease_both]`} style={{ animationDelay: "0ms" }}>
                     <p className="mb-1 text-theme-xs text-gray-500">Clasificación</p>
                     <span
-                      className={`inline-flex items-center rounded-full px-3 py-1 text-theme-sm font-semibold ${getPerfilClasses(
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-theme-sm font-semibold shadow-[0_0_16px_-4px_currentColor] transition-transform duration-300 hover:scale-105 ${getPerfilClasses(
                         analisis.perfilFinanciero
                       )}`}
                     >
@@ -589,41 +942,47 @@ export default function ModoMatrix() {
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className={MX_SUBCARD}>
+                    <div className={`${MX_SUBCARD} animate-[fadeInUp_0.5s_ease_both]`} style={{ animationDelay: "70ms" }}>
                       <p className="mb-1 text-theme-xs text-gray-500">Ingresos</p>
                       <p className="text-base font-bold text-success-400">
                         {fmtMoney(analisis.totalIngresos)}
                       </p>
                     </div>
-                    <div className={MX_SUBCARD}>
+                    <div className={`${MX_SUBCARD} animate-[fadeInUp_0.5s_ease_both]`} style={{ animationDelay: "120ms" }}>
                       <p className="mb-1 text-theme-xs text-gray-500">Gastos</p>
                       <p className="text-base font-bold text-error-400">
                         {fmtMoney(analisis.totalGastos)}
                       </p>
                     </div>
                   </div>
-                  <div className={MX_SUBCARD}>
+                  <div className={`${MX_SUBCARD} animate-[fadeInUp_0.5s_ease_both]`} style={{ animationDelay: "170ms" }}>
                     <p className="mb-1 text-theme-xs text-gray-500">Ahorro estimado</p>
                     <p className={`text-base font-bold ${getAhorroClass(analisis.porcentajeAhorro)}`}>
                       {analisis.porcentajeAhorro.toFixed(1)}%
                     </p>
                     <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/[0.08]">
                       <div
-                        className={`h-full rounded-full transition-all duration-700 ${
+                        className={`mx-cat-bar-fill relative h-full rounded-full ${
                           analisis.porcentajeAhorro >= 20
-                            ? "bg-success-500"
+                            ? "bg-success-500 text-success-500"
                             : analisis.porcentajeAhorro >= 10
-                              ? "bg-warning-500"
-                              : "bg-error-500"
+                              ? "bg-warning-500 text-warning-500"
+                              : "bg-error-500 text-error-500"
                         }`}
                         style={{
                           width: `${Math.max(0, Math.min(100, analisis.porcentajeAhorro))}%`,
+                          animationDelay: "220ms",
                         }}
-                      />
+                      >
+                        <span className="mx-cat-bar-shimmer pointer-events-none absolute inset-0" />
+                      </div>
                     </div>
                   </div>
                   {topCategorias.length > 0 && (
-                    <div className="rounded-lg border border-white/[0.06] p-4">
+                    <div
+                      className={`${MX_SUBCARD} animate-[fadeInUp_0.5s_ease_both]`}
+                      style={{ animationDelay: "260ms" }}
+                    >
                       <p className="mb-3 text-theme-xs font-semibold text-gray-300">
                         Gasto por categoría
                       </p>
@@ -713,11 +1072,15 @@ export default function ModoMatrix() {
 
                 {/* Card Mascota Finsi */}
                 <div className="mt-5 flex flex-col items-center gap-2 rounded-xl border border-error-900/30 bg-error-500/5 p-4 text-center">
-                  <img
-                    src={MASCOT_EMPTY_SRC}
-                    alt="Finsi, el asistente financiero"
-                    className="h-32 w-auto object-contain sm:h-36"
-                  />
+                  <div className="flex flex-col items-center">
+                    <div className="mx-hint-arrow relative text-error-400">
+                      <ClickHintArrow className="h-9 w-7 sm:h-10 sm:w-8" />
+                      <span className="absolute left-full top-0 ml-1.5 whitespace-nowrap font-outfit text-[11px] font-bold uppercase tracking-wide drop-shadow-[0_0_6px_rgba(239,68,68,0.7)] sm:text-xs">
+                        Cliquea para más
+                      </span>
+                    </div>
+                    <MascotHoverPreview sonidoActivo={sonidoActivo} musicaSilenciada={musicaSilenciada} />
+                  </div>
                   <p className="text-theme-sm text-gray-400">
                     ¿Quieres un plan más detallado y a tu medida?
                   </p>
