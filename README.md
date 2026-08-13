@@ -189,8 +189,8 @@ El microservicio de Machine Learning expone los siguientes endpoints:
 - ✅ Integración con Spring Boot.
 - ✅ Desarrollo del Frontend.
 - ✅ Integración con Supabase.
-- ⬜ Despliegue en Oracle Cloud Infrastructure (OCI).
-- ⬜ Despliegue del Frontend.
+- ✅ Despliegue en Oracle Cloud Infrastructure (OCI).
+- ✅ Despliegue del Frontend.
 - ⬜ Presentación final del proyecto.
 
 ---
