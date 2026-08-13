@@ -1,6 +1,5 @@
 package com.financeai.config;
 
-import com.financeai.repository.UsuarioRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,14 +28,11 @@ public class OwnershipInterceptor implements HandlerInterceptor {
 
     private static final String PREFIJO = "/api/usuarios/";
 
-    private final UsuarioRepository usuarioRepository;
     private final List<String> adminEmails;
 
     public OwnershipInterceptor(
-            UsuarioRepository usuarioRepository,
             @Value("${app.admin-emails:demo.admin@finsight.com}") String adminEmails
     ) {
-        this.usuarioRepository = usuarioRepository;
         this.adminEmails = Arrays.stream(adminEmails.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
@@ -76,11 +72,8 @@ public class OwnershipInterceptor implements HandlerInterceptor {
                 return true; // admin → acceso total
             }
 
-            String miUsuarioId = usuarioRepository.findByAuthUserId(jwt.getSubject())
-                    .map(u -> u.getId())
-                    .orElse(null);
-
-            if (usuarioIdPath.equals(miUsuarioId)) {
+            // El sub de nuestro token ES el usuarioId (USR####), no un UUID de Supabase.
+            if (usuarioIdPath.equals(jwt.getSubject())) {
                 return true;
             }
         }

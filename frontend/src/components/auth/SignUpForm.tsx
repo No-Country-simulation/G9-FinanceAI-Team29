@@ -4,7 +4,6 @@ import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
-import { crearUsuario } from "../../services/api";
 import { mostrarError, mostrarExito } from "../../utils/alerts";
 import AuthLegalFooter from "./AuthLegalFooter";
 import PasswordStrengthMeter from "./PasswordStrengthMeter";
@@ -13,6 +12,9 @@ import AuthBrandWithMascot from "./AuthBrandWithMascot";
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 const PASSWORD_HINT =
   "Mínimo 8 caracteres, con al menos una mayúscula, una minúscula, un número y un símbolo.";
+
+const API_BASE =
+  import.meta.env.VITE_API_URL ?? "http://localhost:8081/api";
 
 export default function SignUpForm() {
   const navigate = useNavigate();
@@ -67,7 +69,9 @@ export default function SignUpForm() {
     setLoading(true);
 
     try {
-      const respuestaRegistro = await fetch("/api/register", {
+      // Registro contra NUESTRO backend: crea el usuario con la contraseña
+      // hasheada (bcrypt) y devuelve su usuarioId (USR####). Sin Supabase.
+      const respuestaRegistro = await fetch(`${API_BASE}/auth/v2/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -79,42 +83,23 @@ export default function SignUpForm() {
       });
       const datosRegistro = await respuestaRegistro.json().catch(() => ({}));
 
-      if (!respuestaRegistro.ok || !datosRegistro?.authUserId) {
+      if (!respuestaRegistro.ok) {
         throw new Error(datosRegistro?.mensaje ?? "No se pudo crear la cuenta.");
       }
 
-      const authUserId = datosRegistro.authUserId as string;
-
-      const perfil = await crearUsuario({
-        nombre: nombreLimpio,
-        apellido: apellidoLimpio,
-        email: emailLimpio,
-        authUserId,
-      });
-
-      // AuthContext busca el usuario del backend usando el UUID de Supabase.
-      localStorage.setItem(
-        `finsight.usuarioId.${authUserId}`,
-        perfil.usuarioId,
-      );
-
-      // La cuenta se crea sin confirmar (nunca hay sesión activa todavía):
-      // el usuario tiene que confirmar el correo antes de poder iniciar sesión.
       await mostrarExito(
         "¡Cuenta creada!",
-        "Revisa tu correo para confirmar tu cuenta antes de iniciar sesión.",
+        "Tu cuenta se creó correctamente. Ya podés iniciar sesión.",
       );
       navigate("/signin");
     } catch (err) {
       const mensajeError = err instanceof Error ? err.message : String(err);
-      console.error("[SignUp] Supabase auth error:", mensajeError, err);
+      console.error("[SignUp] Error de registro:", mensajeError, err);
 
       let texto = mensajeError;
-      if (/user already registered|already registered|ya existe una cuenta/i.test(mensajeError)) {
+      if (/ya existe|already registered/i.test(mensajeError)) {
         texto = "Ese correo ya está registrado. Intenta iniciar sesión.";
-      } else if (/password should be at least/i.test(mensajeError)) {
-        texto = "La contraseña es muy corta. Debe tener al menos 6 caracteres.";
-      } else if (/invalid email/i.test(mensajeError)) {
+      } else if (/invalid email|formato válido/i.test(mensajeError)) {
         texto = "El correo ingresado no es válido.";
       }
 

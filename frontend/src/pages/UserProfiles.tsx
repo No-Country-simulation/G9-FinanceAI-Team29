@@ -9,8 +9,12 @@ import { Modal } from '../components/ui/modal';
 import { useModal } from '../hooks/useModal';
 import { useAuth } from '../context/AuthContext';
 import { usePerfilData } from '../context/PerfilDataContext';
-import { actualizarPerfil, darDeBajaCuenta } from '../services/api';
-import { supabase } from '../services/supabase';
+import {
+  actualizarPerfil,
+  cambiarPassword as cambiarPasswordBackend,
+  darDeBajaCuenta,
+} from '../services/api';
+import { setAvatar } from '../services/authSession';
 import UserAvatar from '../components/common/UserAvatar';
 import LevelCard from '../components/gamificacion/LevelCard';
 import { useGamification } from '../context/GamificationContext';
@@ -235,10 +239,7 @@ export default function UserProfiles() {
       await actualizarPerfil(usuarioId, { nombre, apellido, email: correo });
 
       if (avatarSeleccionado !== avatarIcon) {
-        const { error } = await supabase.auth.updateUser({
-          data: { avatar_icon: avatarSeleccionado },
-        });
-        if (error) throw error;
+        setAvatar(avatarSeleccionado);
       }
 
       actualizarPerfilLocal({ nombre, apellido, email: correo });
@@ -347,27 +348,14 @@ export default function UserProfiles() {
       return cambiarPassword();
     }
 
-    const correoActual = perfil?.email ?? email;
-
-    if (!correoActual) {
-      await Swal.fire('No se pudo verificar', 'No encontramos el correo de tu cuenta para validar la contraseña actual.', 'error');
-      return;
-    }
-
-    const { error: errorVerificacion } = await supabase.auth.signInWithPassword({
-      email: correoActual,
-      password: resultado.value.actual,
-    });
-
-    if (errorVerificacion) {
-      await Swal.fire('No se pudo cambiar', 'La contraseña actual no es correcta.', 'error');
-      return;
-    }
-
-    const { error } = await supabase.auth.updateUser({ password: resultado.value.nueva });
-
-    if (error) {
-      await Swal.fire('No se pudo cambiar', error.message, 'error');
+    try {
+      await cambiarPasswordBackend(resultado.value.actual, resultado.value.nueva);
+    } catch (error) {
+      await Swal.fire(
+        'No se pudo cambiar',
+        error instanceof Error ? error.message : 'La contraseña actual no es correcta.',
+        'error',
+      );
       return;
     }
 
@@ -386,13 +374,7 @@ export default function UserProfiles() {
 
     if (!confirmacion.isConfirmed) return;
 
-    const { error } = await supabase.auth.signOut({ scope: 'global' });
-
-    if (error) {
-      await Swal.fire('No se pudo completar', error.message, 'error');
-      return;
-    }
-
+    await signOut();
     window.location.assign('/signin');
   };
 

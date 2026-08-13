@@ -1,5 +1,6 @@
 package com.financeai.controller;
 
+import com.financeai.dto.AuthChangePasswordRequest;
 import com.financeai.dto.AuthLoginRequest;
 import com.financeai.dto.AuthRegisterRequest;
 import com.financeai.model.Usuario;
@@ -8,6 +9,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -54,7 +58,29 @@ public class AuthController {
             String token = authService.login(request.email(), request.password());
             return ResponseEntity.ok(Map.of("token", token));
 
-        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("mensaje", e.getMessage()));
+        }
+    }
+
+    /** Cambio de contraseña del usuario autenticado (el usuarioId sale del sub del token). */
+    @PostMapping("/change-password")
+    public ResponseEntity<?> cambiarPassword(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody AuthChangePasswordRequest request) {
+
+        if (jwt == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("mensaje", "No autenticado."));
+        }
+
+        try {
+            authService.cambiarPassword(
+                    jwt.getSubject(), request.passwordActual(), request.passwordNueva());
+            return ResponseEntity.ok(Map.of("mensaje", "Contraseña actualizada."));
+
+        } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("mensaje", e.getMessage()));
         }

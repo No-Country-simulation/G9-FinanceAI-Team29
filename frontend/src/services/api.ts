@@ -10,7 +10,7 @@ import {
   EventoCalendarioInput,
 } from '../types/finance';
 import { NotFoundError } from './errors';
-import { supabase } from './supabase';
+import { getToken } from './authSession';
 
 const API_BASE =
   import.meta.env.VITE_API_URL ?? 'http://localhost:8081/api';
@@ -18,33 +18,18 @@ const AI_BASE =
   import.meta.env.VITE_AI_URL ?? 'http://localhost:8000';
 
 /**
- * fetch para el backend: adjunta el JWT de Supabase (Authorization: Bearer)
- * cuando hay sesión activa. Un único lugar → todas las llamadas al backend
- * quedan autenticadas sin repetir código en cada función.
+ * fetch para el backend: adjunta NUESTRO JWT (Authorization: Bearer) cuando hay
+ * sesión activa. Un único lugar → todas las llamadas al backend quedan
+ * autenticadas sin repetir código en cada función.
  */
 export async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  const conAuth = (token?: string): RequestInit => {
-    const headers = new Headers(init.headers);
-    if (token) {
-      headers.set('Authorization', `Bearer ${token}`);
-    }
-    return { ...init, headers };
-  };
-
-  const { data } = await supabase.auth.getSession();
-  let response = await fetch(url, conAuth(data.session?.access_token));
-
-  // Si el token venció o estaba refrescándose (401 transitorio al iniciar sesión),
-  // lo renovamos y reintentamos UNA vez antes de dar el error al usuario.
-  if (response.status === 401) {
-    const { data: renovada } = await supabase.auth.refreshSession();
-    const token = renovada.session?.access_token;
-    if (token) {
-      response = await fetch(url, conAuth(token));
-    }
+  const headers = new Headers(init.headers);
+  const token = getToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
   }
 
-  return response;
+  return fetch(url, { ...init, headers });
 }
 
 function exigirUsuarioId(usuarioId: string): string {
@@ -696,6 +681,26 @@ export async function actualizarPerfil(
   if (!response.ok) {
     const detalle = await response.text();
     throw new Error(detalle || 'No se pudo actualizar el perfil.');
+  }
+}
+
+/**
+ * Cambia la contraseña del usuario autenticado. El backend verifica la actual
+ * (el usuarioId sale del token, no se envía).
+ */
+export async function cambiarPassword(
+  passwordActual: string,
+  passwordNueva: string,
+): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/auth/v2/change-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ passwordActual, passwordNueva }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.mensaje ?? 'No se pudo cambiar la contraseña.');
   }
 }
 

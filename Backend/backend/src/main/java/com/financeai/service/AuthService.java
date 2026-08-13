@@ -65,6 +65,21 @@ public class AuthService {
         return jwtService.generarToken(usuario.getId(), usuario.getEmail());
     }
 
+    /** Cambia la contraseña verificando primero la actual. */
+    @Transactional
+    public void cambiarPassword(String usuarioId, String passwordActual, String passwordNueva) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas."));
+
+        if (usuario.getPasswordHash() == null
+                || !passwordEncoder.matches(passwordActual, usuario.getPasswordHash())) {
+            throw new BadCredentialsException("La contraseña actual no es correcta.");
+        }
+
+        usuario.setPasswordHash(passwordEncoder.encode(passwordNueva));
+        usuarioRepository.save(usuario);
+    }
+
     private String generarSiguienteId() {
         Integer maximo = usuarioRepository.obtenerMaximoNumeroUsuario();
         int siguiente = (maximo == null ? 0 : maximo) + 1;

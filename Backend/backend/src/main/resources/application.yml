@@ -6,15 +6,8 @@ spring:
   application:
     name: financeai-backend
 
-  # --- Seguridad: valida el JWT de Supabase (firma ES256) contra su JWKS público ---
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          jwk-set-uri: ${SUPABASE_URL:https://wfypvyfhpworindwllsz.supabase.co}/auth/v1/.well-known/jwks.json
-          # Supabase firma con ES256; sin esto, Spring espera RS256 por defecto y rechaza el token.
-          jws-algorithms:
-            - ES256
+  # --- Seguridad: el backend valida su PROPIO JWT (RS256) con la clave pública de JwtService.
+  #     El JwtDecoder se define en JwtDecoderConfig (reemplaza al JWKS de Supabase). ---
 
 #conexion local
 #  datasource:

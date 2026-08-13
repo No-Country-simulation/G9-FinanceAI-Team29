@@ -62,6 +62,7 @@ public class SecurityConfig {
             // (JWT de usuario o X-Service-Token). El chequeo de DUEÑO lo hace
             // OwnershipInterceptor sobre /api/usuarios/{usuarioId}/**.
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/v2/change-password").authenticated()    // requiere token válido
                 .requestMatchers("/api/auth/**").permitAll()                       // login + registro
                 .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()     // crear perfil (registro)
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html",
