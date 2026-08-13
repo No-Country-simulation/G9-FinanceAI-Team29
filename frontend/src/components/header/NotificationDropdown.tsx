@@ -165,9 +165,6 @@ export default function NotificationDropdown() {
             <h5 className={`text-lg font-semibold dark:text-gray-200 ${enModoMatrix ? "!text-white/90" : "text-gray-800"}`}>
               Notificaciones
             </h5>
-            <p className={`text-xs dark:text-gray-400 ${enModoMatrix ? "!text-error-400/80" : "text-gray-500"}`}>
-              Perfil {usuarioId}
-            </p>
           </div>
           <button
             type="button"

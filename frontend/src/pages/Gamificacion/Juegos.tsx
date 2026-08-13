@@ -175,13 +175,13 @@ export default function Juegos() {
 
                   <div className="flex flex-1 flex-col rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
                     <h3 className="text-base font-semibold text-gray-900 dark:text-white">Temas que puedes encontrar</h3>
-                    <div className="mt-4 flex flex-wrap gap-2.5">
+                    <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
                       {TEMAS_TRIVIA.map((tema) => (
                         <span
                           key={tema}
-                          className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm font-medium text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300"
+                          className="text-sm font-medium text-gray-500 dark:text-gray-400"
                         >
-                          {tema}
+                          #{tema.replace(/\s+/g, '')}
                         </span>
                       ))}
                     </div>
