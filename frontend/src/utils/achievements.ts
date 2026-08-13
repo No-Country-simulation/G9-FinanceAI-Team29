@@ -18,7 +18,6 @@ const MATCHERS: { id: AchievementId; substring: string }[] = [
   { id: 'money', substring: 'ojalá pudiera' },
   { id: 'rickroll', substring: 'rickrolled' },
   { id: 'skynet', substring: 'domino el mundo, solo tus finanzas' },
-  { id: 'matrix', substring: 'cuánto gastás en delivery' },
   { id: 'got', substring: 'invierno se acerca' },
   { id: 'to_the_moon', substring: 'to the moon' },
   { id: 'diamond_hands', substring: 'manos de diamante' },

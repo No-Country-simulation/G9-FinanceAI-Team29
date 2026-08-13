@@ -15,6 +15,7 @@ import TextColumnFilter from "../../components/common/TextColumnFilter";
 import SortToggle from "../../components/common/SortToggle";
 import { mostrarError, mostrarInfo } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
+import { useGamification } from "../../context/GamificationContext";
 
 const SIN_SUBCATEGORIA = '(Sin subcategoría)';
 
@@ -81,6 +82,7 @@ export default function Transacciones() {
   const POR_PAGINA = 20;
 
   const { usuarioId } = useAuth();
+  const { desbloquearLogro } = useGamification();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -195,9 +197,15 @@ export default function Transacciones() {
               return (
                 <button
                   key={tipo}
-                  disabled={isDisabled}
+                  aria-disabled={isDisabled}
                   title={isDisabled ? 'No combina con el filtro de Monto activo' : undefined}
-                  onClick={() => setFiltro(tipo)}
+                  onClick={() => {
+                    if (isDisabled) {
+                      desbloquearLogro('filtro_imposible');
+                      return;
+                    }
+                    setFiltro(tipo);
+                  }}
                   className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
                     isDisabled
                       ? 'cursor-not-allowed bg-gray-50 text-gray-300 dark:bg-gray-800/50 dark:text-gray-600'
@@ -400,6 +408,7 @@ export default function Transacciones() {
                             selected={filtro === 'Todos' ? [] : [filtro]}
                             onChange={(vals) => setFiltro(vals.length === 1 ? vals[0] : 'Todos')}
                             disabledOptions={tipoDeshabilitado}
+                            onDisabledOptionClick={() => desbloquearLogro('filtro_imposible')}
                           />
                         </div>
                       </th>
@@ -411,6 +420,7 @@ export default function Transacciones() {
                             selected={filtroSigno}
                             onChange={setFiltroSigno}
                             disabledOptions={signoDeshabilitado}
+                            onDisabledOptionClick={() => desbloquearLogro('filtro_imposible')}
                           />
                         </div>
                       </th>

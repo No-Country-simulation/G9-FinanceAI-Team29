@@ -37,7 +37,7 @@ const TABS_POR_HASH: Record<string, Tab> = {
 export default function Juegos() {
   const location = useLocation();
   const [tab, setTab] = useState<Tab>(() => TABS_POR_HASH[location.hash] ?? 'trivia');
-  const { loading, challenges, streak, bestStreak, dailyStreak, bestDailyStreak, trivia, logros } = useGamification();
+  const { loading, challenges, streak, bestStreak, dailyStreak, bestDailyStreak, trivia, logros, desbloquearLogro } = useGamification();
 
   return (
     <>
@@ -96,7 +96,11 @@ export default function Juegos() {
                   </div>
                 )}
                 <div id="logros" className="scroll-mt-24">
-                  <AchievementsList catalogo={logros.catalogo} desbloqueados={logros.desbloqueados} />
+                  <AchievementsList
+                    catalogo={logros.catalogo}
+                    desbloqueados={logros.desbloqueados}
+                    onPistaCompleta={() => desbloquearLogro('logro_persistente')}
+                  />
                 </div>
               </div>
             )}

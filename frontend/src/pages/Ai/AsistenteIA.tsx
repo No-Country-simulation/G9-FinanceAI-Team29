@@ -38,7 +38,10 @@ import TeamAuroraBackdrop from "../../components/team/TeamAuroraBackdrop";
 
 type PasoInteractivo = "sin-datos" | "otra-consulta" | "support-help" | "team-info" | null;
 
-const REGEX_RESPUESTA_CREADOR = /twentyninedevs es el equipo de desarrolladores que cre[oó] finsightai/i;
+const REGEX_RESPUESTA_CREADOR =
+  /(twentyninedevs es el equipo de desarrolladores que cre[oó] finsightai|fui creado por twentyninedevs)/i;
+const REGEX_PREGUNTA_ECONOMIA =
+  /\b(inflaci[oó]n|deflaci[oó]n|pbi|producto bruto|oferta y demanda|tasa de inter[eé]s|tasas? de inter[eé]s|pol[ií]tica monetaria|banco central|econom[ií]a|macroeconom[ií]a|microeconom[ií]a|mercado burs[aá]til|bolsa de valores|devaluaci[oó]n|recesi[oó]n|pib\b)/i;
 const MENSAJE_CON_QUE_SEGUIMOS = "¿Con qué seguimos?";
 
 interface Message {
@@ -56,6 +59,7 @@ interface ChatGuardado {
 }
 
 const CHATS_STORAGE_KEY = (usuarioId: string) => `finsight:asistente:chats:${usuarioId}`;
+const DISCLAIMER_STORAGE_KEY = (usuarioId: string) => `finsight:asistente:disclaimer-aceptado:${usuarioId}`;
 const MAX_CHATS_GUARDADOS = 20;
 const MASCOTA_SRC = "/images/mascot/finsight-bird-v2.png";
 
@@ -89,6 +93,11 @@ const MENSAJE_EXPLICAME_MAS = "Explícame más";
 
 const MENSAJE_DESCANSO =
   "🔥 Llevas un rato por aquí. Descansa junto a la hoguera.\n\n!audio[descanso](/images/task/descanso.mp3)";
+
+// Logro "charlas_con_finsi": 5 idas y vueltas (mensaje + respuesta) dentro del
+// mismo chat. numeroMensajeUsuario ya cuenta la posición del mensaje actual
+// dentro de `messages`, así que se reinicia solo al abrir un chat nuevo.
+const MENSAJES_SEGUIDOS_LOGRO_FINSI = 5;
 
 function puedeMostrarExplicameMas(texto: string): boolean {
   const limpio = texto.trim();
@@ -727,6 +736,9 @@ export default function AsistenteIA() {
   const autoPromptEnviadoRef = useRef(false);
   const mensajesScrollRef = useRef<HTMLDivElement>(null);
   const { isOpen: equipoModalAbierto, openModal: abrirEquipoModal, closeModal: cerrarEquipoModal } = useModal();
+  const [disclaimerAceptado, setDisclaimerAceptado] = useState(
+    () => localStorage.getItem(DISCLAIMER_STORAGE_KEY(usuarioId)) === "true"
+  );
   const [gotSplash, setGotSplash] = useState<"visible" | "cerrando" | null>(null);
   const gotSplashMostradoRef = useRef<number | null>(null);
   const [matrixSplash, setMatrixSplash] = useState<{ tipo: "roja" | "azul"; fase: "visible" | "cerrando" } | null>(null);
@@ -794,6 +806,7 @@ export default function AsistenteIA() {
 
   useEffect(() => {
     setChatsGuardados(cargarChatsGuardados(usuarioId));
+    setDisclaimerAceptado(localStorage.getItem(DISCLAIMER_STORAGE_KEY(usuarioId)) === "true");
     if (!mensajesTraidos && !autoPromptTraido) {
       setMessages([]);
       setChatActualId(null);
@@ -801,6 +814,7 @@ export default function AsistenteIA() {
       navigate(location.pathname, { replace: true, state: null });
       if (autoPromptTraido && !autoPromptEnviadoRef.current) {
         autoPromptEnviadoRef.current = true;
+        desbloquearLogro('pregunta_finsi_contextual');
         handleSubmit(autoPromptTraido);
       }
     }
@@ -874,7 +888,16 @@ export default function AsistenteIA() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  const toggleVoz = () => setVozActiva((prev) => !prev);
+  const aceptarDisclaimer = () => {
+    localStorage.setItem(DISCLAIMER_STORAGE_KEY(usuarioId), "true");
+    setDisclaimerAceptado(true);
+  };
+
+  const toggleVoz = () => setVozActiva((prev) => {
+    const siguiente = !prev;
+    desbloquearLogro(siguiente ? 'narrador_activado' : 'narrador_desactivado');
+    return siguiente;
+  });
   const toggleSonido = () => setSonidoActivo((prev) => !prev);
 
   const handleSubmit = async (
@@ -905,6 +928,8 @@ export default function AsistenteIA() {
       { id: prev.length + 1, role: "user", text: prompt },
     ]);
 
+    if (REGEX_PREGUNTA_ECONOMIA.test(prompt)) desbloquearLogro('pregunta_economia');
+
     if (esPreguntaRepetida) {
       setAgentTabStatus("💬 El agente está escribiendo...");
       if (sonidoActivo) playSendSound();
@@ -929,6 +954,8 @@ export default function AsistenteIA() {
       if (sonidoActivo) playReceiveSound();
       if (vozActiva) speakText("You just got Rickrolled. Classic.");
       desbloquearLogro("rickroll");
+      registrarEvento("mensaje_asistente");
+      if (numeroMensajeUsuario >= MENSAJES_SEGUIDOS_LOGRO_FINSI) desbloquearLogro("charlas_con_finsi");
       return;
     }
 
@@ -974,6 +1001,7 @@ export default function AsistenteIA() {
         setPasoPendiente("team-info");
       }
       registrarEvento("mensaje_asistente");
+      if (numeroMensajeUsuario >= MENSAJES_SEGUIDOS_LOGRO_FINSI) desbloquearLogro("charlas_con_finsi");
       const logroDetectado = detectarLogroEnRespuesta(answer);
       if (logroDetectado) desbloquearLogro(logroDetectado);
       setAgentTabStatus("✅ El agente ha respondido", 2000);
@@ -1082,6 +1110,7 @@ export default function AsistenteIA() {
   const responderConocerEquipo = () => {
     setPasoPendiente(null);
     abrirEquipoModal();
+    desbloquearLogro('equipo_descubierto');
   };
 
   const responderNoConocerEquipo = () => {
@@ -1215,12 +1244,14 @@ export default function AsistenteIA() {
   // Lanza el splash de pantalla completa para la pastilla elegida y luego navega.
   const elegirPastilla = (eleccion: "roja" | "azul") => {
     if (eleccion === "roja") {
+      desbloquearLogro("matrix");
       // La pastilla roja redirige de inmediato: el splash sigue en pantalla
       // completa dentro de /modo-matrix hasta que termine de cargar el análisis
       // (esa pantalla se encarga de su propio sonido de carga).
       navigate("/modo-matrix", { state: { pastillaRojaSplash: true } });
       return;
     }
+    desbloquearLogro("pastilla_azul");
     if (sonidoActivo) {
       playMatrixLoadingOpen();
       startMatrixLoadingMusic();
@@ -1733,6 +1764,36 @@ export default function AsistenteIA() {
         className="m-4 max-w-[92vw] sm:max-w-[640px] lg:max-w-[880px] xl:max-w-[1040px]"
       >
         <TeamModalContent />
+      </Modal>
+
+      <Modal
+        isOpen={!disclaimerAceptado}
+        onClose={() => {}}
+        showCloseButton={false}
+        className="m-4 max-w-[92vw] sm:max-w-[560px]"
+      >
+        <div className="p-6 sm:p-8">
+          <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
+            Antes de comenzar: aviso sobre tus conversaciones
+          </h3>
+          <div className="space-y-3 text-theme-sm text-gray-600 dark:text-gray-300">
+            <p>
+              Los chats del <strong>Asistente de IA</strong> se guardan de forma local en este dispositivo (en el almacenamiento del navegador que estás usando).
+            </p>
+            <p>
+              Por razones de seguridad, <strong>no podrás acceder a este historial desde otro equipo o navegador</strong>: cada dispositivo guarda sus propias conversaciones de forma independiente.
+            </p>
+            <p>
+              <strong>Descargo de responsabilidad:</strong> Finsi es un asistente basado en inteligencia artificial y puede cometer errores u ofrecer información incompleta. Sus respuestas son orientativas y no reemplazan el asesoramiento financiero, legal o fiscal profesional. Verifica siempre los datos importantes antes de tomar decisiones.
+            </p>
+          </div>
+          <button
+            onClick={aceptarDisclaimer}
+            className="mt-6 w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+          >
+            Entendido, continuar
+          </button>
+        </div>
       </Modal>
     </>
   );

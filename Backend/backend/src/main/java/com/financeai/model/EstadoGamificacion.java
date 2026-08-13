@@ -51,6 +51,9 @@ public class EstadoGamificacion {
     @Column(name = "puntos", nullable = false)
     private int puntos;
 
+    @Column(name = "mensajes_asistente", nullable = false)
+    private int mensajesAsistente;
+
     @Column(name = "actualizado_at", nullable = false)
     private LocalDateTime actualizadoAt;
 
@@ -83,5 +86,7 @@ public class EstadoGamificacion {
     public void setUltimaSubidaNivel(LocalDateTime ultimaSubidaNivel) { this.ultimaSubidaNivel = ultimaSubidaNivel; }
     public int getPuntos() { return puntos; }
     public void setPuntos(int puntos) { this.puntos = puntos; }
+    public int getMensajesAsistente() { return mensajesAsistente; }
+    public void setMensajesAsistente(int mensajesAsistente) { this.mensajesAsistente = mensajesAsistente; }
     public LocalDateTime getActualizadoAt() { return actualizadoAt; }
 }

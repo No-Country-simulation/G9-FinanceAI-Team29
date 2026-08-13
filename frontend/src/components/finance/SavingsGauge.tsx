@@ -4,12 +4,11 @@ interface SavingsGaugeProps {
   totalGastos: number;
 }
 
-const money = new Intl.NumberFormat('es-CL', {
-  style: 'currency',
-  currency: 'USD',
+const moneyFormatter = new Intl.NumberFormat('es-CL', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+const money = { format: (value: number) => `$${moneyFormatter.format(value)}` };
 
 export default function SavingsGauge({
   porcentajeAhorro,

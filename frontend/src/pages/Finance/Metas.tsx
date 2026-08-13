@@ -13,7 +13,7 @@ const emptyForm: GoalInput = { nombre: '', descripcion: '', categoria: 'AHORRO',
 
 export default function Metas() {
   const { usuarioId } = useAuth();
-  const { registrarEvento } = useGamification();
+  const { registrarEvento, desbloquearLogro } = useGamification();
   const { isTourActive } = useOnboarding();
   const navigate = useNavigate();
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -58,7 +58,13 @@ export default function Metas() {
     try {
       setSaving(true); setError('');
       if (editing) await actualizarMeta(editing, form, usuarioId); else await crearMeta(form, usuarioId);
-      if (!editing) registrarEvento('meta_creada');
+      if (!editing) {
+        registrarEvento('meta_creada');
+        if (sessionStorage.getItem('finsight:meta-desde-analisis') === 'true') {
+          sessionStorage.removeItem('finsight:meta-desde-analisis');
+          desbloquearLogro('meta_por_analisis');
+        }
+      }
       setForm(emptyForm); setEditing(null); await load();
     } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo guardar la meta'); }
     finally { setSaving(false); }
@@ -79,8 +85,9 @@ export default function Metas() {
     if (amount == null) return;
 
     try {
-      await agregarAhorroMeta(goal.id, amount, usuarioId);
+      const actualizada = await agregarAhorroMeta(goal.id, amount, usuarioId);
       registrarEvento('ahorro_meta');
+      if (actualizada.progreso >= 100 && goal.progreso < 100) desbloquearLogro('meta_cumplida');
       await load();
       await mostrarExito('Ahorro agregado', `Se sumaron ${formatMoney(amount)} a tu meta.`);
     } catch (e) {

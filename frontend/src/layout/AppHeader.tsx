@@ -547,9 +547,9 @@ const AppHeader: React.FC = () => {
           } w-full items-center justify-between gap-2 px-3 py-2.5 shadow-theme-md lg:flex lg:w-auto lg:justify-end lg:gap-4 lg:px-0 lg:py-4 lg:shadow-none`}
         >
           <div className="flex flex-1 items-center justify-start gap-1.5 2xsm:gap-2 lg:flex-none lg:gap-3">
-            {/* <!-- Dark Mode Toggler --> */}
-            <ThemeToggleButton />
-            {/* <!-- Dark Mode Toggler --> */}
+            {/* <!-- Dark Mode Toggler: oculto en Modo Matrix para que el
+            usuario no pueda salir del tema oscuro que esa sección requiere --> */}
+            {!enModoMatrix && <ThemeToggleButton />}
             <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
             <AccountSwitcher />

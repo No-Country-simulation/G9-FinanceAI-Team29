@@ -123,6 +123,7 @@ public class GamificacionService {
         estado.setBestLevelSeen(request.bestLevelSeen());
         estado.setUltimaSubidaNivel(request.ultimaSubidaNivel());
         estado.setPuntos(request.puntos());
+        estado.setMensajesAsistente(request.mensajesAsistente());
         return toResponse(estadoGamificacionRepository.save(estado));
     }
 
@@ -190,7 +191,8 @@ public class GamificacionService {
         return new EstadoGamificacionResponse(
             estado.getWeekKey(), estado.getChallengesBaseline(), estado.getStreak(), estado.getBestStreak(),
             estado.getLastActiveDate(), estado.getDailyStreak(), estado.getBestDailyStreak(),
-            estado.getBestLevelSeen(), estado.getUltimaSubidaNivel(), estado.getPuntos()
+            estado.getBestLevelSeen(), estado.getUltimaSubidaNivel(), estado.getPuntos(),
+            estado.getMensajesAsistente()
         );
     }
 }

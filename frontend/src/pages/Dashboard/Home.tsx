@@ -36,6 +36,7 @@ import {
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { mostrarError } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
+import { usePerfilData } from "../../context/PerfilDataContext";
 import WelcomeSplash from "../../components/common/WelcomeSplash";
 import DashboardSkeleton from "../../components/finance/DashboardSkeleton";
 
@@ -50,6 +51,7 @@ export default function Home() {
   const [mostrarDetalles, setMostrarDetalles] = useState(false);
 
   const { usuarioId, loading: authLoading, email, session } = useAuth();
+  const { perfil: perfilCompleto } = usePerfilData();
   const location = useLocation();
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -441,6 +443,8 @@ if (authLoading) {
             perfil={perfil}
             analisis={analisis}
             loading={loading}
+            nombre={perfilCompleto?.nombre}
+            apellido={perfilCompleto?.apellido}
           />
         </div>
 

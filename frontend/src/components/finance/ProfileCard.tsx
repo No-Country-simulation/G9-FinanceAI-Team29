@@ -7,12 +7,16 @@ interface ProfileCardProps {
   perfil: PerfilUsuario | null;
   analisis: AnalisisResponse | null;
   loading: boolean;
+  nombre?: string | null;
+  apellido?: string | null;
 }
 
 export default function ProfileCard({
   perfil,
   analisis,
   loading,
+  nombre,
+  apellido,
 }: ProfileCardProps) {
   if (loading) {
     return (
@@ -66,6 +70,9 @@ export default function ProfileCard({
     perfil?.perfilFinanciero ??
     'Sin clasificar';
 
+  const nombreCompleto =
+    `${nombre ?? ''} ${apellido ?? ''}`.trim() || perfil?.usuarioId || '—';
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full flex flex-col">
       <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-4">
@@ -85,11 +92,11 @@ export default function ProfileCard({
       <div className="space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            ID Usuario
+            Usuario
           </span>
 
           <span className="font-medium text-gray-800 dark:text-white/90">
-            {perfil?.usuarioId}
+            {nombreCompleto}
           </span>
         </div>
 

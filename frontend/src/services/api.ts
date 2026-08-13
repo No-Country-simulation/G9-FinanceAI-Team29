@@ -818,6 +818,7 @@ export interface EstadoGamificacionDTO {
   bestLevelSeen: number;
   ultimaSubidaNivel: string | null;
   puntos: number;
+  mensajesAsistente: number;
 }
 
 export async function obtenerEstadoGamificacion(usuarioId: string): Promise<EstadoGamificacionDTO | null> {

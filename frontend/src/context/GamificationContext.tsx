@@ -60,6 +60,12 @@ const PUNTOS_POR_EVENTO: Record<EventoGamificacion, number> = {
 
 const PUNTOS_POR_LOGRO = 25;
 
+// No incluye 'coleccionista_secretos' (categoría 'hito'): completar los especiales
+// es justamente lo que lo desbloquea, así que no puede depender de sí mismo.
+const ESPECIALES_IDS: AchievementId[] = ACHIEVEMENTS_CATALOG
+  .filter((a) => a.categoria === 'especial')
+  .map((a) => a.id);
+
 const LOGRO_DE_HITO: Partial<Record<EventoGamificacion, AchievementId>> = {
   meta_creada: 'primera_meta',
   csv_importado: 'primer_csv',
@@ -89,6 +95,7 @@ interface GamificationState {
   bestLevelSeen: number;
   ultimaSubidaNivel: string | null;
   puntos: number;
+  mensajesAsistente: number;
   logrosDesbloqueados: AchievementId[];
   trivia: {
     lastPlayedDate: string | null;
@@ -111,6 +118,7 @@ function persistEstado(usuarioId: string, state: GamificationState) {
     bestLevelSeen: state.bestLevelSeen,
     ultimaSubidaNivel: state.ultimaSubidaNivel,
     puntos: state.puntos,
+    mensajesAsistente: state.mensajesAsistente,
   };
   guardarEstadoGamificacion(usuarioId, dto).catch((error) =>
     console.error('No se pudo sincronizar el progreso con Supabase:', error),
@@ -210,10 +218,18 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     if (!usuarioId) return;
     setState((actual) => {
       if (!actual || actual.logrosDesbloqueados.includes(id)) return actual;
+      const nuevosLogros = [...actual.logrosDesbloqueados, id];
+      // "Coleccionista de secretos": se otorga solo, sin depender del componente que
+      // llame a desbloquearLogro, en cuanto el nuevo logro completa todos los especiales.
+      const faltaColeccionista = !nuevosLogros.includes('coleccionista_secretos');
+      const completoTodosLosEspeciales = ESPECIALES_IDS.every((eid) => nuevosLogros.includes(eid));
+      if (id !== 'coleccionista_secretos' && faltaColeccionista && completoTodosLosEspeciales) {
+        nuevosLogros.push('coleccionista_secretos');
+      }
       return {
         ...actual,
-        logrosDesbloqueados: [...actual.logrosDesbloqueados, id],
-        puntos: actual.puntos + PUNTOS_POR_LOGRO,
+        logrosDesbloqueados: nuevosLogros,
+        puntos: actual.puntos + PUNTOS_POR_LOGRO * (nuevosLogros.length - actual.logrosDesbloqueados.length),
       };
     });
   }, [usuarioId]);
@@ -300,6 +316,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
             bestLevelSeen: estadoRemoto.bestLevelSeen,
             ultimaSubidaNivel: estadoRemoto.ultimaSubidaNivel,
             puntos: estadoRemoto.puntos,
+            mensajesAsistente: estadoRemoto.mensajesAsistente,
           }
         : {
             weekKey,
@@ -312,6 +329,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
             bestLevelSeen: 0,
             ultimaSubidaNivel: null as string | null,
             puntos: 0,
+            mensajesAsistente: 0,
           };
 
       if (stored.weekKey === weekKey && estadoRemoto) {
@@ -351,6 +369,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
         bestLevelSeen: stored.bestLevelSeen,
         ultimaSubidaNivel: stored.ultimaSubidaNivel,
         puntos: stored.puntos,
+        mensajesAsistente: stored.mensajesAsistente,
         logrosDesbloqueados: logrosRemotos,
         trivia: triviaRemota,
       };
@@ -412,6 +431,9 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       const actualizado: GamificationState = {
         ...actual,
         puntos: actual.puntos + PUNTOS_POR_EVENTO[tipo],
+        mensajesAsistente: tipo === 'mensaje_asistente'
+          ? actual.mensajesAsistente + 1
+          : actual.mensajesAsistente,
       };
       persistEstado(usuarioId, actualizado);
       return actualizado;
@@ -479,7 +501,10 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
         console.error('No se pudo sincronizar la trivia con Supabase:', error),
       );
     }
-  }, [usuarioId, state]);
+    if (huboRachaCompleta && total > 0) {
+      desbloquearLogro('trivia_perfecta');
+    }
+  }, [usuarioId, state, desbloquearLogro]);
 
   const subioNivelRecientemente = useMemo(() => {
     if (!state?.ultimaSubidaNivel) return false;

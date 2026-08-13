@@ -9,6 +9,7 @@ import { exportToPdf } from "../../utils/export/exportPdf";
 import { captureNodeAsImage } from "../../utils/export/captureChart";
 import { fetchLogoBase64 } from "../../utils/export/theme";
 import { mostrarError } from "../../utils/alerts";
+import { useGamification } from "../../context/GamificationContext";
 import type { CellValue, ExportColumn, ExportKpi, RowColorFn } from "../../utils/export/types";
 
 interface ExportMenuProps {
@@ -47,6 +48,7 @@ export default function ExportMenu({
   const [isOpen, setIsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const { desbloquearLogro } = useGamification();
 
   const handleExportDashboard = async () => {
     if (!onExportDashboard) return;
@@ -54,6 +56,7 @@ export default function ExportMenu({
     setExporting(true);
     try {
       await onExportDashboard();
+      desbloquearLogro('exportar_dashboard');
     } catch (err) {
       console.error(err);
       mostrarError("No se pudo generar el dashboard", "Intenta nuevamente en unos segundos.");
@@ -89,6 +92,8 @@ export default function ExportMenu({
       if (format === "csv") exportToCsv(payload);
       else if (format === "xlsx") await exportToXlsx(payload);
       else await exportToPdf(payload);
+
+      desbloquearLogro(format === "csv" ? 'exportar_csv' : format === "xlsx" ? 'exportar_excel' : 'exportar_pdf');
     } catch (err) {
       console.error(err);
       mostrarError("No se pudo generar el archivo", "Intenta nuevamente en unos segundos.");

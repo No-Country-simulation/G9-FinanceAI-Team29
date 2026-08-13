@@ -10,6 +10,7 @@ import {
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import { useGamification } from "../../context/GamificationContext";
 import { speakText, stopSpeaking, isSpeechSupported } from "../../utils/speech";
 import {
   playMatrixLoadingOpen,
@@ -214,6 +215,80 @@ function PastillaRojaSplash({ cerrando }: { cerrando: boolean }) {
       <p className="relative z-10 mt-3 text-center text-sm font-mono tracking-widest text-[#fca5a5] opacity-70 animate-[fadeInUp_0.4s_0.15s_ease_both]">
         Analizando tus finanzas…
       </p>
+    </div>,
+    document.body,
+  );
+}
+
+// Pantalla mostrada a quien intenta entrar a /modo-matrix sin haber elegido
+// la pastilla roja (URL directa, recarga o "atrás" luego de haber salido).
+// Reemplaza toda la página (sin header/sidebar de por medio, vía portal) con
+// lluvia de Matrix en verde clásico —a propósito distinta del rojo del modo
+// real— y la mascota, para que se sienta como un "acceso denegado" del universo.
+function IntrusoMatrix({ onVolver }: { onVolver: () => void }) {
+  const gotas = Array.from({ length: 60 }, (_, i) => i);
+  return createPortal(
+    <div className="fixed inset-0 z-[999999] flex flex-col items-center justify-center overflow-hidden bg-black">
+      <style>{`
+        @keyframes mxIntrusoRain {
+          0%   { transform: translateY(-10vh); opacity: 0; }
+          10%  { opacity: 1; }
+          90%  { opacity: 0.8; }
+          100% { transform: translateY(110vh); opacity: 0; }
+        }
+        @keyframes mxIntrusoPulse {
+          0%, 100% { opacity: 0.85; }
+          50%      { opacity: 1; }
+        }
+      `}</style>
+      <div className="pointer-events-none absolute inset-0 overflow-hidden select-none" aria-hidden>
+        {gotas.map((i) => (
+          <span
+            key={i}
+            className="absolute font-mono font-bold"
+            style={{
+              top: "-5%",
+              left: `${(i * 1.7) % 100}%`,
+              color: "#22c55e",
+              opacity: 0.25 + (i % 5) * 0.15,
+              fontSize: `${10 + (i % 4) * 3}px`,
+              textShadow: "0 0 8px rgba(34,197,94,0.65)",
+              animationName: "mxIntrusoRain",
+              animationDuration: `${1.6 + (i % 8) * 0.5}s`,
+              animationDelay: `${-(i % 12) * 0.4}s`,
+              animationTimingFunction: "linear",
+              animationIterationCount: "infinite",
+            }}
+          >
+            {SIMBOLOS_LLUVIA[(i * 5 + 3) % SIMBOLOS_LLUVIA.length]}
+          </span>
+        ))}
+      </div>
+
+      <div className="relative z-10 flex flex-col items-center gap-5 px-6 text-center">
+        <img
+          src={MASCOT_EMPTY_SRC}
+          alt="Finsi"
+          draggable={false}
+          className="h-40 w-auto object-contain drop-shadow-[0_0_30px_rgba(34,197,94,0.45)] sm:h-52"
+        />
+        <p
+          className="max-w-xl font-mono text-lg font-bold uppercase tracking-[0.08em] text-[#4ade80] drop-shadow-[0_0_14px_rgba(74,222,128,0.75)] sm:text-2xl"
+          style={{ animation: "mxIntrusoPulse 2.2s ease-in-out infinite" }}
+        >
+          ¿Qué estás buscando aquí, amigo?
+        </p>
+        <p className="max-w-md font-mono text-sm text-[#86efac]/80 sm:text-base">
+          Las dimensiones de la Matrix no corren de la misma manera por este lado del espacio-tiempo.
+        </p>
+        <button
+          type="button"
+          onClick={onVolver}
+          className="mt-2 inline-flex items-center gap-2 rounded-lg border border-[#22c55e]/50 px-5 py-2.5 font-mono text-sm font-semibold text-[#4ade80] transition hover:bg-[#22c55e]/10"
+        >
+          Volver a mi realidad
+        </button>
+      </div>
     </div>,
     document.body,
   );
@@ -465,6 +540,7 @@ function MascotHoverPreview({
   musicaSilenciada: boolean;
 }) {
   const navigate = useNavigate();
+  const { desbloquearLogro } = useGamification();
   const [hover, setHover] = useState(false);
   const [cicloCompleto, setCicloCompleto] = useState(false);
   const [subtitulo, setSubtitulo] = useState("");
@@ -582,7 +658,10 @@ function MascotHoverPreview({
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => navigate("/asistente-ia", { state: { autoPrompt: MASCOT_RESUMEN_PROMPT } })}
+                onClick={() => {
+                  desbloquearLogro("rastro_del_dinero");
+                  navigate("/asistente-ia", { state: { autoPrompt: MASCOT_RESUMEN_PROMPT } });
+                }}
                 className="inline-flex items-center gap-2 rounded-lg bg-error-600 px-5 py-2.5 text-theme-sm font-semibold text-white shadow-[0_0_20px_-6px_rgba(239,68,68,0.8)] transition hover:bg-error-500"
               >
                 Sí, vamos
@@ -604,9 +683,39 @@ function MascotHoverPreview({
 
 export default function ModoMatrix() {
   const { usuarioId, loading: authLoading } = useAuth();
+  const { desbloquearLogro, loading: logrosLoading } = useGamification();
   const navigate = useNavigate();
   const location = useLocation();
-  const vinoDePastillaRoja = (location.state as { pastillaRojaSplash?: boolean } | null)?.pastillaRojaSplash ?? false;
+  // Acceso "easter egg" de un solo uso: solo entra quien vino de elegir la
+  // pastilla roja en esa navegación puntual. Se captura una sola vez al
+  // montar (no se recalcula en renders futuros) y luego se limpia el state
+  // de la entrada de historial, así que recargar la página, volver con
+  // "atrás"/"adelante" o tipear la URL directo ya no cuela — el navegador
+  // conserva el state de history incluso tras un F5, por eso hace falta
+  // vaciarlo explícitamente en vez de solo revisarlo.
+  const [accesoValido] = useState(
+    () => (location.state as { pastillaRojaSplash?: boolean } | null)?.pastillaRojaSplash === true
+  );
+  const vinoDePastillaRoja = accesoValido;
+
+  useEffect(() => {
+    if (accesoValido) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Encontrar la pantalla de "intruso" es en sí mismo un easter egg: solo la
+  // ve quien intenta colarse a Modo Matrix sin el pase válido. El logro se
+  // guarda en Supabase y recién existe en memoria una vez que termina de
+  // cargar el estado de gamificación, así que hay que esperar a que
+  // `logrosLoading` sea false antes de desbloquearlo (si se llama antes,
+  // desbloquearLogro es un no-op porque su estado todavía es null).
+  useEffect(() => {
+    if (!accesoValido && !logrosLoading) {
+      desbloquearLogro("intruso_matrix");
+    }
+  }, [accesoValido, logrosLoading, desbloquearLogro]);
 
   const [analisis, setAnalisis] = useState<AnalisisResponse | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -620,18 +729,21 @@ export default function ModoMatrix() {
   const { theme, setTheme } = useTheme();
   const temaPrevioRef = useRef<typeof theme | null>(null);
 
-  // Modo Matrix siempre se ve en tema claro; al entrar forzamos "light" y al
-  // salir restauramos el tema que el usuario tenía antes de entrar.
+  // Modo Matrix siempre se ve en tema oscuro (los elementos compartidos del
+  // layout como el avatar del usuario solo lucen con sus colores correctos
+  // en dark); al entrar forzamos "dark" y al salir restauramos el tema que
+  // el usuario tenía antes de entrar.
   useEffect(() => {
+    if (!accesoValido) return;
     temaPrevioRef.current = theme;
-    if (theme !== "light") setTheme("light");
+    if (theme !== "dark") setTheme("dark");
     return () => {
-      if (temaPrevioRef.current && temaPrevioRef.current !== "light") {
+      if (temaPrevioRef.current && temaPrevioRef.current !== "dark") {
         setTheme(temaPrevioRef.current);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [accesoValido]);
 
   useEffect(() => stopSpeaking, []);
 
@@ -680,7 +792,7 @@ export default function ModoMatrix() {
   };
 
   useEffect(() => {
-    if (authLoading || !usuarioId) return;
+    if (!accesoValido || authLoading || !usuarioId) return;
 
     const ctrl = new AbortController();
     let isCancelled = false;
@@ -716,7 +828,7 @@ export default function ModoMatrix() {
       isCancelled = true;
       ctrl.abort();
     };
-  }, [usuarioId, authLoading]);
+  }, [usuarioId, authLoading, accesoValido]);
 
   function salir() {
     setSaliendo(true);
@@ -763,6 +875,10 @@ export default function ModoMatrix() {
   const maxCategoria = topCategorias[0]?.[1] ?? 1;
 
   const estaCargando = authLoading || cargando;
+
+  if (!accesoValido) {
+    return <IntrusoMatrix onVolver={() => navigate("/", { replace: true })} />;
+  }
 
   return (
     <>

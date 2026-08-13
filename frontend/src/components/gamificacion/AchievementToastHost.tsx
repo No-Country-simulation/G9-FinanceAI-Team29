@@ -29,9 +29,15 @@ export default function AchievementToastHost() {
       className="animate-achievement-toast fixed inset-x-3 top-20 z-999999 flex w-[calc(100vw-1.5rem)] max-w-sm items-center gap-3 rounded-xl border border-gray-700 bg-gray-900/95 p-4 shadow-theme-lg backdrop-blur lg:inset-x-auto lg:top-auto lg:bottom-6 lg:right-6 lg:w-[calc(100vw-3rem)]"
       role="status"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-500/20 text-2xl">
+      <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-brand-500/20 text-2xl">
         {celebracion.emojiImg ? (
-          <img src={celebracion.emojiImg} alt="" className="h-6 w-6 rounded-sm object-contain" />
+          <img
+            src={celebracion.emojiImg}
+            alt=""
+            className={`rounded-sm object-contain ${
+              celebracion.emojiImg.includes('unmask.gif') ? 'h-16 w-16' : 'h-14 w-14'
+            }`}
+          />
         ) : (
           celebracion.emoji
         )}

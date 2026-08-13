@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
 import { useOnboarding } from "../../context/OnboardingContext";
+import { useGamification } from "../../context/GamificationContext";
 import { useEsModoMatrix } from "../../hooks/useEsModoMatrix";
 import { isSpeechSupported, speakText, stopSpeaking } from "../../utils/speech";
 import {
@@ -211,6 +212,7 @@ export default function OnboardingTour() {
     closeMobileSidebar,
   } = useSidebar();
   const { setIsTourActive } = useOnboarding();
+  const { desbloquearLogro } = useGamification();
   const enModoMatrix = useEsModoMatrix();
   const authId = session?.user.id ?? "guest";
   const [welcomeOpen, setWelcomeOpen] = useState(false);
@@ -250,8 +252,12 @@ export default function OnboardingTour() {
   const finish = useCallback(
     (completed = false) => {
       stopSpeaking();
-      if (completed) playTourComplete();
-      else playDismiss();
+      if (completed) {
+        playTourComplete();
+        desbloquearLogro('tour_completado');
+      } else {
+        playDismiss();
+      }
       setActive(false);
       setWelcomeOpen(false);
       saveCompletedTour(authId);
@@ -259,7 +265,7 @@ export default function OnboardingTour() {
       window.setTimeout(() => previousFocusRef.current?.focus(), 0);
       navigate("/");
     },
-    [authId, closeMobileSidebar, navigate],
+    [authId, closeMobileSidebar, navigate, desbloquearLogro],
   );
 
   const start = () => {
