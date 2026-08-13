@@ -10,6 +10,14 @@ import dotenv from 'dotenv';
 // tal cual, sin este servidor.
 dotenv.config();
 
+// @supabase/supabase-js instancia un RealtimeClient apenas se llama
+// createClient(), aunque la función nunca use Realtime. Ese cliente exige un
+// WebSocket global nativo, que Node trae recién desde la v22. Mismo stub que
+// usa vite-plugins/api-dev-middleware.ts para poder correr en Node 20 en la VM.
+if (typeof globalThis.WebSocket === 'undefined') {
+  globalThis.WebSocket = class {} as unknown as typeof WebSocket;
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.resolve(__dirname, '..', 'dist');
 const apiDir = path.resolve(__dirname, '..', 'api');
