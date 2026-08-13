@@ -548,15 +548,15 @@ const AppHeader: React.FC = () => {
         >
           <div className="flex flex-1 items-center justify-start gap-1.5 2xsm:gap-2 lg:flex-none lg:gap-3">
             {/* <!-- Dark Mode Toggler --> */}
-            <ThemeToggleButton enModoMatrix={enModoMatrix} />
+            <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
-            <NotificationDropdown enModoMatrix={enModoMatrix} />
+            <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
-            <AccountSwitcher enModoMatrix={enModoMatrix} />
+            <AccountSwitcher />
           </div>
           {/* <!-- User Area --> */}
           <div className="flex items-center gap-2">
-            <UserDropdown enModoMatrix={enModoMatrix} />
+            <UserDropdown />
             <button
               onClick={handleLogout}
               aria-label="Cerrar sesión"

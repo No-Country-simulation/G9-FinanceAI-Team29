@@ -180,7 +180,7 @@ function renderConNegritas(text: string, messageId?: number) {
  * Renderiza negritas, enlaces Markdown y viñetas del texto plano
  * de un mensaje del asistente, sin utilizar un parser completo.
  */
-export function renderMensajeAsistente(text: string, messageId?: number) {
+export function renderMensajeAsistente(text: string, messageId?: number): ReactNode {
   const textoVisible = limpiarMetadataInterna(text);
 
   if (textoVisible.includes(MARCADOR_TERMINAL_DEMO)) {
