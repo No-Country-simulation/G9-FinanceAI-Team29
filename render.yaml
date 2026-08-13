@@ -1,5 +1,5 @@
 # Blueprint de Render para FinanceAI (Team29)
-# Uso: en Render -> New -> Blueprint -> conectar este repo -> rama "frontend".
+# Uso: en Render -> New -> Blueprint -> conectar este repo -> rama "main".
 # Crea los DOS servicios de golpe. Las variables marcadas "sync: false"
 # NO se guardan en el repo: Render te las pide al crear el Blueprint.
 #
@@ -18,7 +18,7 @@ services:
     name: finance-ai-service
     runtime: docker
     plan: free
-    branch: frontend
+    branch: main
     rootDir: AI-Service
     dockerfilePath: ./Dockerfile
     dockerContext: .
@@ -48,7 +48,7 @@ services:
     name: finance-backend
     runtime: docker
     plan: free
-    branch: frontend
+    branch: main
     rootDir: Backend/backend
     dockerfilePath: ./Dockerfile
     dockerContext: .
