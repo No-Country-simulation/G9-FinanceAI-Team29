@@ -18,7 +18,7 @@ import java.util.List;
  *
  * <p>En los endpoints {@code /api/usuarios/{usuarioId}/**} un usuario solo puede
  * acceder a SU propio perfil: el {@code usuarioId} del path debe coincidir con el
- * usuario derivado de su JWT (claim {@code sub} = authUserId).
+ * {@code sub} de su JWT (que ES el usuarioId USR####, ya no un UUID de Supabase).
  *
  * <p>Excepciones (acceso total): el AI-Service (autoridad {@code ROLE_SERVICE}) y
  * los administradores (email del token dentro de {@code app.admin-emails}).
