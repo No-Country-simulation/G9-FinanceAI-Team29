@@ -21,15 +21,37 @@ const AI_BASE =
  * fetch para el backend: adjunta NUESTRO JWT (Authorization: Bearer) cuando hay
  * sesión activa. Un único lugar → todas las llamadas al backend quedan
  * autenticadas sin repetir código en cada función.
+ *
+ * Red de seguridad: ante un error transitorio (típico justo después del login,
+ * mientras la sesión se propaga, o con el backend recién levantado) re-leemos el
+ * token y reintentamos UNA vez. Cubre el 401 (token propagándose) y el 502/503/504
+ * (backend/proxy arrancando). Solo en métodos idempotentes (GET/PUT/DELETE) para no
+ * duplicar escrituras — un POST nunca se reintenta.
  */
+const ESTADOS_REINTENTABLES = new Set([401, 502, 503, 504]);
+
 export async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  const token = getToken();
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
+  const construir = (): RequestInit => {
+    const headers = new Headers(init.headers);
+    const token = getToken();
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+    return { ...init, headers };
+  };
+
+  let response = await fetch(url, construir());
+
+  const metodo = (init.method ?? 'GET').toUpperCase();
+  const esIdempotente =
+    metodo === 'GET' || metodo === 'PUT' || metodo === 'DELETE';
+
+  if (esIdempotente && ESTADOS_REINTENTABLES.has(response.status)) {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    response = await fetch(url, construir());
   }
 
-  return fetch(url, { ...init, headers });
+  return response;
 }
 
 function exigirUsuarioId(usuarioId: string): string {
