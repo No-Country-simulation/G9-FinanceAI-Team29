@@ -1,22 +1,30 @@
 from contextlib import asynccontextmanager
 import logging
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from app.api.agent import router as agent_router
-from app.api.analysis import router as analysis_router
-from app.api.category import router as category_router
-from app.api.csv_import import router as csv_import_router
-from app.api.goals import router as goals_router
-from app.api.health import router as health_router
 from app.config import settings
 
-
+# Logging y sincronización de modelos ANTES de importar los routers: prediction.py /
+# profile.py cargan los .joblib al importarse, así que el download de Object Storage
+# tiene que correr primero (si está configurado; si no, se usan los empaquetados).
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
+
+from app.model_sync import ensure_models  # noqa: E402
+
+ensure_models()
+
+from fastapi import FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+
+from app.api.agent import router as agent_router  # noqa: E402
+from app.api.analysis import router as analysis_router  # noqa: E402
+from app.api.category import router as category_router  # noqa: E402
+from app.api.csv_import import router as csv_import_router  # noqa: E402
+from app.api.goals import router as goals_router  # noqa: E402
+from app.api.health import router as health_router  # noqa: E402
+
 
 logger = logging.getLogger(__name__)
 

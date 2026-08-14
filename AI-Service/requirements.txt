@@ -15,6 +15,9 @@ pandas==2.2.3
 scikit-learn==1.6.1
 joblib==1.4.2
 
+# Cliente S3-compatible para bajar los modelos .joblib de Object Storage (OCI/MinIO).
+boto3==1.35.99
+
 pytest==9.1.1
 httpx==0.28.1
 pytest-asyncio==1.4.0
