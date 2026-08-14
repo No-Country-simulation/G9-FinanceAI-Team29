@@ -63,6 +63,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/v2/change-password").authenticated()    // requiere token válido
                 .requestMatchers("/api/auth/**").permitAll()                       // registro + login + reset
+                .requestMatchers("/api/calendario-ics").permitAll()                // feed .ics público (protegido por token en la URL)
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html",
                                  "/v3/api-docs/**", "/error").permitAll()
                 .requestMatchers("/actuator/health").permitAll()                   // health-check público

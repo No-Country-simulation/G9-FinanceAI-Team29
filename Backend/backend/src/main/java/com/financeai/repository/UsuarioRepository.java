@@ -19,6 +19,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, String> {
 
     Optional<Usuario> findByEmailIgnoreCase(String email);
 
+    Optional<Usuario> findByIcsToken(String icsToken);
+
     @Query(
             value = """
                     SELECT COALESCE(

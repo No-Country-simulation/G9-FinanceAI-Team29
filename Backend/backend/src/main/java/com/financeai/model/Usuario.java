@@ -27,6 +27,10 @@ public class Usuario {
     @Column(name = "password_hash", length = 100)
     private String passwordHash;
 
+    // Token secreto del feed .ics del calendario (webcal). Se genera on-demand.
+    @Column(name = "ics_token", length = 36)
+    private String icsToken;
+
     @Column(name = "ingreso_mensual", precision = 12, scale = 2)
     private BigDecimal ingresoMensual;
 
@@ -124,6 +128,14 @@ public class Usuario {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getIcsToken() {
+        return icsToken;
+    }
+
+    public void setIcsToken(String icsToken) {
+        this.icsToken = icsToken;
     }
 
     public String getPasswordHash() {
