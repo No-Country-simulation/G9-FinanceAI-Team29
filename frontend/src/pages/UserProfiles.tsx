@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import Swal from 'sweetalert2';
 import PageBreadcrumb from '../components/common/PageBreadCrumb';
 import PageMeta from '../components/common/PageMeta';
@@ -13,8 +13,9 @@ import {
   actualizarPerfil,
   cambiarPassword as cambiarPasswordBackend,
   darDeBajaCuenta,
+  subirAvatar,
 } from '../services/api';
-import { setAvatar } from '../services/authSession';
+import { setAvatar, setAvatarUrl } from '../services/authSession';
 import UserAvatar from '../components/common/UserAvatar';
 import LevelCard from '../components/gamificacion/LevelCard';
 import { useGamification } from '../context/GamificationContext';
@@ -203,6 +204,8 @@ export default function UserProfiles() {
   const [apellido, setApellido] = useState('');
   const [correo, setCorreo] = useState('');
   const [avatarSeleccionado, setAvatarSeleccionado] = useState<string | null>(null);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const nombreCompleto = useMemo(() => {
     const valor = `${perfil?.nombre ?? ''} ${perfil?.apellido ?? ''}`.trim();
@@ -221,7 +224,37 @@ export default function UserProfiles() {
     setNombre(perfil.nombre ?? '');
     setApellido(perfil.apellido ?? '');
     setCorreo(perfil.email ?? '');
+    // La foto vive en el backend: la reflejamos en la sesión para que se vea en toda la app.
+    if (perfil.avatarUrl) {
+      setAvatarUrl(perfil.avatarUrl);
+    }
   }, [perfil]);
+
+  const handleSubirFoto = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      await Swal.fire('Archivo inválido', 'Elegí una imagen (PNG, JPG, WEBP).', 'error');
+      return;
+    }
+
+    setSubiendoFoto(true);
+    try {
+      const url = await subirAvatar(usuarioId, file);
+      setAvatarUrl(url);
+      await refreshSession();
+      await Swal.fire('Foto actualizada', 'Tu foto de perfil ya está activa.', 'success');
+    } catch (err) {
+      await Swal.fire(
+        'No se pudo subir',
+        err instanceof Error ? err.message : 'Error inesperado.',
+        'error',
+      );
+    } finally {
+      setSubiendoFoto(false);
+    }
+  };
 
   const abrirEdicion = () => {
     setNombre(perfil?.nombre ?? '');
@@ -517,10 +550,27 @@ export default function UserProfiles() {
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex flex-col items-center gap-5 xl:flex-row">
-              <UserAvatar
-                className="h-20 w-20 border border-gray-200 dark:border-gray-700"
-                emojiClassName="text-4xl"
-              />
+              <div className="flex flex-col items-center gap-2">
+                <UserAvatar
+                  className="h-20 w-20 border border-gray-200 dark:border-gray-700"
+                  emojiClassName="text-4xl"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={subiendoFoto}
+                  className="text-xs font-medium text-brand-500 hover:text-brand-600 disabled:opacity-60"
+                >
+                  {subiendoFoto ? 'Subiendo…' : 'Subir foto'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleSubirFoto}
+                  className="hidden"
+                />
+              </div>
               <div className="text-center xl:text-left">
                 <h4 className="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">{nombreCompleto}</h4>
                 <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">

@@ -49,6 +49,9 @@ interface AuthContextValue {
   /** Emoji elegido como foto de perfil (guardado localmente). Null si no eligió ninguno. */
   avatarIcon: string | null;
 
+  /** URL de la foto de perfil subida a Object Storage. Null = usa el emoji. */
+  avatarUrl: string | null;
+
   /** Solo cambia el perfil inspeccionado por una cuenta admin. */
   setUsuarioId: (id: string) => void;
 
@@ -84,6 +87,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const avatarIcon =
     typeof session?.user.user_metadata.avatar_icon === 'string'
       ? session.user.user_metadata.avatar_icon
+      : null;
+
+  const avatarUrl =
+    typeof session?.user.user_metadata.avatar_url === 'string'
+      ? session.user.user_metadata.avatar_url
       : null;
 
   const email = session?.user.email?.toLowerCase() ?? null;
@@ -201,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         usuarioId,
         avatarIcon,
+        avatarUrl,
         setUsuarioId: cambiarUsuarioId,
         cuentas: CUENTAS_DEMO,
         loading,

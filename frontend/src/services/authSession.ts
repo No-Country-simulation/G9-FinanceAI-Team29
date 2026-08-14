@@ -11,6 +11,7 @@
 
 const TOKEN_KEY = 'finsight.token';
 const AVATAR_KEY = 'finsight.avatarIcon';
+const AVATAR_URL_KEY = 'finsight.avatarUrl';
 
 export interface JwtClaims {
   sub: string;
@@ -110,6 +111,19 @@ export function setAvatar(icono: string | null): void {
   notify();
 }
 
+export function getAvatarUrl(): string | null {
+  return localStorage.getItem(AVATAR_URL_KEY);
+}
+
+export function setAvatarUrl(url: string | null): void {
+  if (url) {
+    localStorage.setItem(AVATAR_URL_KEY, url);
+  } else {
+    localStorage.removeItem(AVATAR_URL_KEY);
+  }
+  notify();
+}
+
 /** Construye la sesión actual a partir del token guardado (o null si no hay). */
 export function getSession(): AppSession | null {
   const token = getToken();
@@ -123,7 +137,7 @@ export function getSession(): AppSession | null {
     user: {
       id: claims.sub,
       email: claims.email ?? null,
-      user_metadata: { avatar_icon: getAvatar() },
+      user_metadata: { avatar_icon: getAvatar(), avatar_url: getAvatarUrl() },
     },
   };
 }

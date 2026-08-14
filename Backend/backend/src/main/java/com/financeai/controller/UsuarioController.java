@@ -8,10 +8,13 @@ import com.financeai.model.EstadoUsuario;
 import com.financeai.model.Usuario;
 import com.financeai.repository.RecomendacionRepository;
 import com.financeai.repository.UsuarioRepository;
+import com.financeai.service.ObjectStorageService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -25,13 +28,16 @@ public class UsuarioController {
 
     private final UsuarioRepository usuarioRepository;
     private final RecomendacionRepository recomendacionRepository;
+    private final ObjectStorageService storageService;
 
     public UsuarioController(
             UsuarioRepository usuarioRepository,
-            RecomendacionRepository recomendacionRepository
+            RecomendacionRepository recomendacionRepository,
+            ObjectStorageService storageService
     ) {
         this.usuarioRepository = usuarioRepository;
         this.recomendacionRepository = recomendacionRepository;
+        this.storageService = storageService;
     }
 
     @GetMapping("/{id}")
@@ -126,6 +132,49 @@ public class UsuarioController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /** Sube la foto de perfil del usuario a Object Storage y guarda su URL pública. */
+    @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> subirAvatar(
+            @PathVariable String id,
+            @RequestParam("archivo") MultipartFile archivo
+    ) {
+        if (!storageService.estaHabilitado()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("mensaje", "La subida de fotos no está disponible (Object Storage no configurado)."));
+        }
+        if (archivo == null || archivo.isEmpty()) {
+            return badRequest("No se recibió ninguna imagen.");
+        }
+        String contentType = archivo.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            return badRequest("El archivo debe ser una imagen.");
+        }
+
+        return usuarioRepository.findById(id)
+                .<ResponseEntity<?>>map(usuario -> {
+                    try {
+                        String url = storageService.subirAvatar(
+                                id, archivo.getBytes(), contentType, extensionDe(contentType));
+                        usuario.setAvatarUrl(url);
+                        usuarioRepository.save(usuario);
+                        return ResponseEntity.ok(Map.of("avatarUrl", url));
+                    } catch (Exception e) {
+                        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                                .body(Map.of("mensaje", "No se pudo subir la imagen: " + e.getMessage()));
+                    }
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    private String extensionDe(String contentType) {
+        return switch (contentType) {
+            case "image/png" -> "png";
+            case "image/webp" -> "webp";
+            case "image/gif" -> "gif";
+            default -> "jpg";
+        };
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> darDeBaja(@PathVariable String id) {
         return usuarioRepository.findById(id)
@@ -163,6 +212,7 @@ public class UsuarioController {
                     perfil.put("nombre", usuario.getNombre());
                     perfil.put("apellido", usuario.getApellido());
                     perfil.put("email", usuario.getEmail());
+                    perfil.put("avatarUrl", usuario.getAvatarUrl());
                     perfil.put("estado", usuario.getEstado().name());
                     perfil.put("ultimaActividad", usuario.getUltimaActividad());
                     perfil.put("fechaEliminacion", usuario.getFechaEliminacion());

@@ -238,6 +238,20 @@ class EasterEggResponder:
         "desacer mis gastos",
     }
 
+    _MEJORES_PRECIOS_TRIGGERS = {
+        "como consigo mejores precios",
+        "como puedo conseguir mejores precios",
+        "donde consigo mejores precios",
+        "como encuentro mejores precios",
+        "como conseguir mejores precios",
+        "como consigo precios mas baratos",
+        "como encuentro precios mas baratos",
+        "donde encuentro precios mas baratos",
+        "como puedo pagar menos",
+        "como ahorro en mis compras",
+        "como puedo ahorrar en mis compras",
+    }
+
     
 
     @classmethod
@@ -457,6 +471,21 @@ class EasterEggResponder:
                     "!audio[ctrl-z-gastos](/images/task/ctrl-z-gastos.mp3)"
                ),
             )
+
+        if normalized in cls._MEJORES_PRECIOS_TRIGGERS:
+            return EasterEgg(
+                key="finsi_walking",
+                response=(
+                    "Caminando la calle, pero con estilo... 😎\n\n"
+                    "Nah, hablando en serio: tratá de buscar ofertas y comparar precios, "
+                    "tanto en tiendas online como en locales físicos. A veces el mismo "
+                    "producto puede tener diferencias importantes de precio según dónde "
+                    "lo compres.\n\n"
+                    "!audio[finsi-walking](/images/task/finsi-walking.mp3)"
+        ),
+    )
+        
+        
 
         return None
 

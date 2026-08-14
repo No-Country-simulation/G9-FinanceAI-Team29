@@ -78,6 +78,13 @@
             <version>1.78.1</version>
         </dependency>
 
+        <!-- Cliente S3 (AWS SDK v2) para subir avatares a Object Storage (OCI/MinIO, S3-compatible). -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.28.29</version>
+        </dependency>
+
         <!-- Lee un archivo .env local (en Backend/backend/) y expone sus valores como
              propiedades de Spring, igual que el frontend y el AI-Service. Así el equipo
              ya no necesita setear las variables a mano en cada terminal.

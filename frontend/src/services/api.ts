@@ -601,6 +601,7 @@ export interface PerfilCompleto {
   nombre?: string | null;
   apellido?: string | null;
   email?: string | null;
+  avatarUrl?: string | null;
   ingresoMensual?: number | null;
   deudaMensual?: number | null;
   nivelEndeudamiento?: number | null;
@@ -626,6 +627,26 @@ export async function obtenerPerfilCompleto(
   }
 
   return response.json();
+}
+
+/** Sube la foto de perfil (multipart) y devuelve la URL pública guardada. */
+export async function subirAvatar(usuarioId: string, archivo: File): Promise<string> {
+  const id = exigirUsuarioId(usuarioId);
+  const formData = new FormData();
+  formData.append('archivo', archivo);
+
+  const response = await apiFetch(
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/avatar`,
+    { method: 'POST', body: formData },
+  );
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.mensaje ?? 'No se pudo subir la foto de perfil.');
+  }
+
+  const data = await response.json();
+  return data.avatarUrl as string;
 }
 
 export async function actualizarPerfil(

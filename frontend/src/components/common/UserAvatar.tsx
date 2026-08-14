@@ -12,7 +12,7 @@ export default function UserAvatar({
   emojiClassName = 'text-xl',
   status = 'online',
 }: UserAvatarProps) {
-  const { avatarIcon } = useAuth();
+  const { avatarIcon, avatarUrl } = useAuth();
   const enModoMatrix = useEsModoMatrix();
 
   return (
@@ -22,7 +22,9 @@ export default function UserAvatar({
           enModoMatrix ? "bg-error-500/15" : "bg-brand-50 dark:bg-brand-500/10"
         }`}
       >
-        {avatarIcon ? (
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
+        ) : avatarIcon ? (
           <span className={emojiClassName} aria-hidden="true">
             {avatarIcon}
           </span>

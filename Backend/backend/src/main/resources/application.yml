@@ -74,6 +74,15 @@ app:
   recordatorios:
     cron: ${RECORDATORIOS_CRON:0 0 9 * * *}
     zone: ${RECORDATORIOS_ZONE:America/Argentina/Buenos_Aires}
+  # Object Storage (S3-compatible: OCI / MinIO) para avatares. Sin config → sin subida.
+  storage:
+    s3:
+      endpoint: ${STORAGE_S3_ENDPOINT:}          # interno (OCI compat / http://minio:9000)
+      region: ${STORAGE_S3_REGION:us-east-1}
+      access-key: ${STORAGE_S3_ACCESS_KEY:}
+      secret-key: ${STORAGE_S3_SECRET_KEY:}
+    avatars-bucket: ${STORAGE_AVATARS_BUCKET:finsight-avatars}
+    avatars-public-base-url: ${STORAGE_AVATARS_PUBLIC_URL:}  # URL pública para el navegador
   # Emails con acceso total (pueden ver perfiles de otros). Separados por coma.
   admin-emails: ${ADMIN_EMAILS:demo.admin@finsight.com}
   # Orígenes permitidos por CORS (frontend). Coma-separados. En prod: la URL de Vercel.

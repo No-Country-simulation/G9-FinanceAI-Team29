@@ -49,9 +49,19 @@ services:
       # El microservicio de ML se alcanza por su nombre de servicio en la red de compose
       # (el default 127.0.0.1:8000 dentro del container apunta al propio backend).
       ML_SERVICE_URL: "http://ai-service:8000"
+      # Object Storage para avatares (local: MinIO). En OCI se apunta al endpoint real.
+      # endpoint = interno (red compose); public-url = lo que ve el navegador (puerto publicado).
+      STORAGE_S3_ENDPOINT: "http://minio:9000"
+      STORAGE_S3_ACCESS_KEY: "${MINIO_ROOT_USER:-minioadmin}"
+      STORAGE_S3_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minioadmin}"
+      STORAGE_S3_REGION: "us-east-1"
+      STORAGE_AVATARS_BUCKET: "finsight-avatars"
+      STORAGE_AVATARS_PUBLIC_URL: "http://localhost:9000/finsight-avatars"
     depends_on:
       postgres:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     expose:
       - "8081"

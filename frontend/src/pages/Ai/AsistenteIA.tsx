@@ -135,7 +135,7 @@ function puedeMostrarExplicameMas(texto: string): boolean {
   return !respuestasInteractivas;
 }
 
-type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | "wololo1" | "wololo2" | "descanso" | "rickroll" | "isengard" | "albion" | "hello_world" | "mongolia" | "infinite_money" | "ctrl_z_gastos" | null;
+type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | "wololo1" | "wololo2" | "descanso" | "rickroll" | "isengard" | "albion" | "hello_world" | "mongolia" | "infinite_money" | "ctrl_z_gastos" | "finsi_walking" | null;
 
 function detectarEasterEggVisual(texto: string): EasterEggVisual {
   if (texto.includes("!audio[general-kenobi]") || /\bGeneral Kenobi\./i.test(texto)) {
@@ -196,6 +196,10 @@ function detectarEasterEggVisual(texto: string): EasterEggVisual {
 if (texto.includes("!audio[ctrl-z-gastos]")) {
   return "ctrl_z_gastos";
 }
+
+  if (texto.includes("!audio[finsi-walking]")) {
+    return "finsi_walking";
+  }
 
   return null;
 }
@@ -289,6 +293,13 @@ ctrl_z_gastos: {
   durationMs: 10000,
   border: "border-red-300/60",
 },
+
+  finsi_walking: {
+    src: "/images/task/finsi-walking.webp",
+    poster: "/images/task/finsi-walking-poster.webp",
+    durationMs: 8000,
+    border: "border-sky-300/60",
+  },
 
 };
 

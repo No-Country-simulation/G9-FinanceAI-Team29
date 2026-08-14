@@ -31,6 +31,10 @@ public class Usuario {
     @Column(name = "ics_token", length = 36)
     private String icsToken;
 
+    // URL pública de la foto de perfil subida a Object Storage. Null = usa el emoji.
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
     @Column(name = "ingreso_mensual", precision = 12, scale = 2)
     private BigDecimal ingresoMensual;
 
@@ -136,6 +140,14 @@ public class Usuario {
 
     public void setIcsToken(String icsToken) {
         this.icsToken = icsToken;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
     }
 
     public String getPasswordHash() {
