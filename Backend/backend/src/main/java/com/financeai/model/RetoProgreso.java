@@ -8,7 +8,12 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "retos_progreso")
+@Table(
+    name = "retos_progreso",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_reto_por_usuario_semana",
+        columnNames = {"usuario_id", "reto_id", "semana_iso"})
+)
 public class RetoProgreso {
 
     @Id

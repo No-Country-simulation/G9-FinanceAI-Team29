@@ -46,6 +46,9 @@ services:
       DB_URL: "jdbc:postgresql://postgres:5432/finsight"
       DB_USER: "finsight"
       DB_PASS: "${POSTGRES_PASSWORD:-finsight_dev}"
+      # El microservicio de ML se alcanza por su nombre de servicio en la red de compose
+      # (el default 127.0.0.1:8000 dentro del container apunta al propio backend).
+      ML_SERVICE_URL: "http://ai-service:8000"
     depends_on:
       postgres:
         condition: service_healthy

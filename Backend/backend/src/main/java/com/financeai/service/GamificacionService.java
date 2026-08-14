@@ -53,21 +53,21 @@ public class GamificacionService {
                 .toList();
     }
 
+    /**
+     * Guarda el progreso de un reto con un UPSERT atómico (INSERT ... ON CONFLICT DO UPDATE
+     * sobre la constraint única usuario+reto+semana). Es inmune a requests concurrentes: no hay
+     * "find + insert" que pueda chocar ni duplicar filas, así que no se ensucia el log.
+     */
     @Transactional
     public RetoProgresoResponse guardarReto(String usuarioId, String retoId, RetoProgresoUpdateRequest request) {
-        Usuario usuario = requireUser(usuarioId);
-        RetoProgreso reto = retoProgresoRepository
+        requireUser(usuarioId);
+        retoProgresoRepository.upsertReto(
+                usuarioId, retoId, request.semanaIso(), request.completado(), request.progreso());
+        return retoProgresoRepository
                 .findByUsuarioIdAndRetoIdAndSemanaIso(usuarioId, retoId, request.semanaIso())
-                .orElseGet(() -> {
-                    RetoProgreso nuevo = new RetoProgreso();
-                    nuevo.setUsuario(usuario);
-                    nuevo.setRetoId(retoId);
-                    nuevo.setSemanaIso(request.semanaIso());
-                    return nuevo;
-                });
-        reto.setCompletado(request.completado());
-        reto.setProgreso(request.progreso());
-        return toResponse(retoProgresoRepository.save(reto));
+                .map(this::toResponse)
+                .orElseThrow(() -> new IllegalStateException(
+                        "El progreso del reto no quedó persistido: " + retoId));
     }
 
     @Transactional(readOnly = true)
@@ -104,26 +104,31 @@ public class GamificacionService {
         return estadoGamificacionRepository.findById(usuarioId).map(this::toResponse);
     }
 
+    /**
+     * Guarda el estado con un UPSERT atómico (INSERT ... ON CONFLICT DO UPDATE). Es inmune a
+     * dos requests concurrentes: no hay "find + insert" que pueda chocar con la PK, así que no
+     * se genera la violación de constraint que antes ensuciaba el log.
+     */
     @Transactional
     public EstadoGamificacionResponse guardarEstado(String usuarioId, EstadoGamificacionUpdateRequest request) {
-        Usuario usuario = requireUser(usuarioId);
-        EstadoGamificacion estado = estadoGamificacionRepository.findById(usuarioId)
-                .orElseGet(() -> {
-                    EstadoGamificacion nuevo = new EstadoGamificacion();
-                    nuevo.setUsuario(usuario);
-                    return nuevo;
-                });
-        estado.setWeekKey(request.weekKey());
-        estado.setChallengesBaseline(request.challengesBaseline());
-        estado.setStreak(request.streak());
-        estado.setBestStreak(request.bestStreak());
-        estado.setLastActiveDate(request.lastActiveDate());
-        estado.setDailyStreak(request.dailyStreak());
-        estado.setBestDailyStreak(request.bestDailyStreak());
-        estado.setBestLevelSeen(request.bestLevelSeen());
-        estado.setUltimaSubidaNivel(request.ultimaSubidaNivel());
-        estado.setPuntos(request.puntos());
-        return toResponse(estadoGamificacionRepository.save(estado));
+        requireUser(usuarioId);
+        estadoGamificacionRepository.upsertEstado(
+                usuarioId,
+                request.weekKey(),
+                request.challengesBaseline(),
+                request.streak(),
+                request.bestStreak(),
+                request.lastActiveDate(),
+                request.dailyStreak(),
+                request.bestDailyStreak(),
+                request.bestLevelSeen(),
+                request.ultimaSubidaNivel(),
+                request.puntos()
+        );
+        return estadoGamificacionRepository.findById(usuarioId)
+                .map(this::toResponse)
+                .orElseThrow(() -> new IllegalStateException(
+                        "El estado de gamificación no quedó persistido para " + usuarioId));
     }
 
     @Transactional
