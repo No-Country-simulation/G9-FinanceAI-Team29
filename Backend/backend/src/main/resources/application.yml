@@ -58,6 +58,13 @@ spring:
 # Vacío = deshabilitado (no se acepta ninguna llamada de servicio).
 app:
   service-token: ${SERVICE_TOKEN:}
+  # URL pública del frontend (para armar el enlace del email de reset). En OCI: el dominio real.
+  site-url: ${SITE_URL:http://localhost}
+  # Correo saliente (Resend). Si resend-api-key queda vacío, en local NO se envía: se loguea el enlace.
+  email:
+    resend-api-key: ${RESEND_API_KEY:}
+    from: ${EMAIL_FROM:FinSightAI <onboarding@resend.dev>}
+    logo-url: ${EMAIL_LOGO_URL:}
   # Emails con acceso total (pueden ver perfiles de otros). Separados por coma.
   admin-emails: ${ADMIN_EMAILS:demo.admin@finsight.com}
   # Orígenes permitidos por CORS (frontend). Coma-separados. En prod: la URL de Vercel.

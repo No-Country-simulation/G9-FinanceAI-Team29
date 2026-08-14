@@ -1,8 +1,10 @@
 package com.financeai.controller;
 
 import com.financeai.dto.AuthChangePasswordRequest;
+import com.financeai.dto.AuthForgotPasswordRequest;
 import com.financeai.dto.AuthLoginRequest;
 import com.financeai.dto.AuthRegisterRequest;
+import com.financeai.dto.AuthResetPasswordRequest;
 import com.financeai.model.Usuario;
 import com.financeai.service.AuthService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -61,6 +63,33 @@ public class AuthController {
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("mensaje", e.getMessage()));
+        }
+    }
+
+    // Mismo mensaje exista o no el email: no filtramos qué correos están registrados.
+    private static final String MENSAJE_RESET_GENERICO =
+            "Si el correo existe en nuestro sistema, te enviamos un enlace para restablecer tu contraseña.";
+
+    /** Solicitud de restablecimiento: genera un token y manda el email. Siempre responde 200. */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody AuthForgotPasswordRequest request) {
+        try {
+            authService.solicitarReset(request.email());
+        } catch (Exception e) {
+            // No filtramos el error real (podría revelar si el email existe o si falló el envío).
+            // El log interno ya registra el detalle.
+        }
+        return ResponseEntity.ok(Map.of("mensaje", MENSAJE_RESET_GENERICO));
+    }
+
+    /** Fija la nueva contraseña usando el token que llegó por email. */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody AuthResetPasswordRequest request) {
+        try {
+            authService.resetearPassword(request.token(), request.password());
+            return ResponseEntity.ok(Map.of("mensaje", "Contraseña actualizada. Ya podés iniciar sesión."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("mensaje", e.getMessage()));
         }
     }
 

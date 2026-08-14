@@ -1,40 +1,34 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
 import { mostrarError, mostrarExito } from "../../utils/alerts";
-import { supabase } from "../../services/supabase";
 import PasswordStrengthMeter from "./PasswordStrengthMeter";
 
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 const PASSWORD_HINT =
   "Mínimo 8 caracteres, con al menos una mayúscula, una minúscula, un número y un símbolo.";
 
+const API_BASE =
+  import.meta.env.VITE_API_URL ?? "http://localhost:8081/api";
+
 export default function ResetPasswordForm() {
   const navigate = useNavigate();
-  const [enlaceValido, setEnlaceValido] = useState<boolean | null>(null);
+  const [searchParams] = useSearchParams();
+
+  // El token llega en el enlace del email: /reset-password?token=XXXX
+  const token = useMemo(() => searchParams.get("token")?.trim() ?? "", [searchParams]);
+
   const [password, setPassword] = useState("");
   const [confirmacion, setConfirmacion] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  // El backend valida el token recién al enviar; si lo rechaza, mostramos el aviso.
+  const [enlaceInvalido, setEnlaceInvalido] = useState(false);
 
-  useEffect(() => {
-    // Supabase intercepta el token del enlace en la URL y crea una sesión
-    // temporal de tipo "recovery" antes de que este componente se monte.
-    supabase.auth.getSession().then(({ data }) => {
-      setEnlaceValido(Boolean(data.session));
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setEnlaceValido(true);
-      }
-    });
-
-    return () => sub.subscription.unsubscribe();
-  }, []);
+  const enlaceValido = Boolean(token) && !enlaceInvalido;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,16 +45,29 @@ export default function ResetPasswordForm() {
 
     setEnviando(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password });
+      const response = await fetch(`${API_BASE}/auth/v2/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+      });
+      const data = await response.json().catch(() => ({}));
 
-      if (error) {
-        await mostrarError("No se pudo actualizar", error.message);
+      if (!response.ok) {
+        const msg = data?.mensaje ?? "No se pudo actualizar la contraseña.";
+        if (/no es válido|expiró|utilizado/i.test(msg)) {
+          setEnlaceInvalido(true);
+        }
+        await mostrarError("No se pudo actualizar", msg);
         return;
       }
 
-      await mostrarExito("Contraseña actualizada", "Ya puedes iniciar sesión con tu nueva contraseña.");
-      await supabase.auth.signOut();
+      await mostrarExito(
+        "Contraseña actualizada",
+        "Ya puedes iniciar sesión con tu nueva contraseña.",
+      );
       navigate("/signin");
+    } catch {
+      await mostrarError("Error de red", "Ocurrió un problema al conectar. Intenta nuevamente.");
     } finally {
       setEnviando(false);
     }
@@ -99,11 +106,7 @@ export default function ResetPasswordForm() {
             </p>
           </div>
 
-          {enlaceValido === null && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Verificando enlace…</p>
-          )}
-
-          {enlaceValido === false && (
+          {!enlaceValido && (
             <div className="rounded-xl border border-error-200 bg-error-50 p-4 text-sm text-error-700 dark:border-error-800 dark:bg-error-500/10 dark:text-error-400">
               Este enlace no es válido o ya expiró. Solicita uno nuevo desde la pantalla de{" "}
               <Link to="/signin" className="font-medium underline">
@@ -113,7 +116,7 @@ export default function ResetPasswordForm() {
             </div>
           )}
 
-          {enlaceValido === true && (
+          {enlaceValido && (
             <form onSubmit={handleSubmit}>
               <div className="space-y-6">
                 <div>

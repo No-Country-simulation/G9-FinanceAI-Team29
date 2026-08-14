@@ -15,6 +15,9 @@ import AuthBrandWithMascot from "./AuthBrandWithMascot";
 const ESPERA_USUARIO_MS = 6000;
 const INTERVALO_POLL_MS = 100;
 
+const API_BASE =
+  import.meta.env.VITE_API_URL ?? "http://localhost:8081/api";
+
 function esperar(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -123,10 +126,10 @@ export default function SignInForm() {
     if (!resultado.isConfirmed || !resultado.value) return;
 
     try {
-      const response = await fetch("/api/reset-password-email", {
+      const response = await fetch(`${API_BASE}/auth/v2/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resultado.value.trim() }),
+        body: JSON.stringify({ email: resultado.value.trim().toLowerCase() }),
       });
       const data = await response.json().catch(() => ({}));
 

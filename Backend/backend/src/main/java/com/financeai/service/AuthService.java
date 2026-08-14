@@ -1,32 +1,60 @@
 package com.financeai.service;
 
 import com.financeai.model.EstadoUsuario;
+import com.financeai.model.PasswordResetToken;
 import com.financeai.model.Usuario;
+import com.financeai.repository.PasswordResetTokenRepository;
 import com.financeai.repository.UsuarioRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.HexFormat;
 
 /**
  * Autenticación propia del backend (reemplaza a Supabase Auth).
  *
  * <p>Registro: hashea la contraseña con bcrypt y guarda el usuario.
  * <p>Login: verifica la contraseña y emite un JWT firmado por el backend ({@link JwtService}).
+ * <p>Reset: genera un token de un solo uso, lo manda por email ({@link EmailService}) y permite
+ * fijar una nueva contraseña.
  */
 @Service
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final long RESET_TTL_HORAS = 1;
+
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final PasswordResetTokenRepository resetTokenRepository;
+    private final EmailService emailService;
+    private final String siteUrl;
 
     public AuthService(UsuarioRepository usuarioRepository,
                        PasswordEncoder passwordEncoder,
-                       JwtService jwtService) {
+                       JwtService jwtService,
+                       PasswordResetTokenRepository resetTokenRepository,
+                       EmailService emailService,
+                       @Value("${app.site-url:http://localhost}") String siteUrl) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.resetTokenRepository = resetTokenRepository;
+        this.emailService = emailService;
+        this.siteUrl = siteUrl.replaceAll("/+$", "");
     }
 
     @Transactional
@@ -78,6 +106,78 @@ public class AuthService {
 
         usuario.setPasswordHash(passwordEncoder.encode(passwordNueva));
         usuarioRepository.save(usuario);
+    }
+
+    /**
+     * Genera un token de reset y lo envía por email. Silencioso si el email no existe o la cuenta
+     * está eliminada (para no filtrar qué correos están registrados). El controller siempre
+     * responde con un mensaje genérico.
+     */
+    @Transactional
+    public void solicitarReset(String email) {
+        String emailNorm = email.trim().toLowerCase();
+        var maybe = usuarioRepository.findByEmailIgnoreCase(emailNorm);
+        if (maybe.isEmpty()) {
+            log.info("[reset] Pedido de reset para email no registrado (se ignora): {}", emailNorm);
+            return;
+        }
+
+        Usuario usuario = maybe.get();
+        if (usuario.getEstado() == EstadoUsuario.ELIMINADO) {
+            return;
+        }
+
+        String tokenPlano = generarTokenSeguro();
+
+        PasswordResetToken token = new PasswordResetToken();
+        token.setUsuario(usuario);
+        token.setTokenHash(sha256(tokenPlano));
+        token.setExpiraAt(LocalDateTime.now().plusHours(RESET_TTL_HORAS));
+        resetTokenRepository.save(token);
+
+        String resetUrl = siteUrl + "/reset-password?token=" + tokenPlano;
+        log.info("[reset] Enlace de restablecimiento para {}: {}", usuario.getEmail(), resetUrl);
+        emailService.enviarResetPassword(usuario.getEmail(), usuario.getNombre(), resetUrl);
+    }
+
+    /** Valida el token (existe, no usado, no vencido) y fija la nueva contraseña. */
+    @Transactional
+    public void resetearPassword(String tokenPlano, String passwordNueva) {
+        PasswordResetToken token = resetTokenRepository.findByTokenHash(sha256(tokenPlano))
+                .orElseThrow(() -> new IllegalArgumentException("El enlace no es válido."));
+
+        if (token.isUsado()) {
+            throw new IllegalArgumentException("Este enlace ya fue utilizado.");
+        }
+        if (token.getExpiraAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("El enlace expiró. Pedí uno nuevo.");
+        }
+
+        Usuario usuario = token.getUsuario();
+        usuario.setPasswordHash(passwordEncoder.encode(passwordNueva));
+        usuario.setEstado(EstadoUsuario.ACTIVO);
+        usuarioRepository.save(usuario);
+
+        token.setUsado(true);
+        resetTokenRepository.save(token);
+    }
+
+    /** Token aleatorio de 256 bits en base64url (el que viaja en el email). */
+    private static String generarTokenSeguro() {
+        byte[] bytes = new byte[32];
+        RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /** Hash SHA-256 (hex) del token; es lo único que se guarda en la BD. */
+    private static String sha256(String valor) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(valor.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 no disponible", e);
+        }
     }
 
     private String generarSiguienteId() {
