@@ -9,6 +9,7 @@ import { AnalisisRequest, AnalisisResponse } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 import { useAuth } from "../../context/AuthContext";
 import { useOnboarding } from "../../context/OnboardingContext";
+import { useGamification } from "../../context/GamificationContext";
 import { mostrarError, mostrarExito, mostrarInfo } from "../../utils/alerts";
 
 function DatosEntradaSkeleton() {
@@ -39,6 +40,7 @@ export default function Analisis() {
 
   const { usuarioId } = useAuth();
   const { isTourActive } = useOnboarding();
+  const { desbloquearLogro } = useGamification();
   const navigate = useNavigate();
 
   // El formulario se llena con el perfil y las transacciones reales de la
@@ -89,6 +91,7 @@ export default function Analisis() {
     try {
       const result = await analizarFinanzas(formData, usuarioId);
       setResultado(result);
+      desbloquearLogro('primer_analisis');
       mostrarExito(
         'Análisis completado',
         `Perfil financiero: ${result.perfilFinanciero}`,
@@ -295,7 +298,12 @@ export default function Analisis() {
                   </ul>
                   <button
                     type="button"
-                    onClick={() => navigate('/metas')}
+                    onClick={() => {
+                      // Le avisa a la página de Metas que la próxima meta creada viene
+                      // de esta recomendación, para poder desbloquear 'meta_por_analisis'.
+                      sessionStorage.setItem('finsight:meta-desde-analisis', 'true');
+                      navigate('/metas');
+                    }}
                     className="mt-4 inline-flex items-center rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
                   >
                     {resultado.perfilFinanciero.toLowerCase().includes('riesgo') ? 'Crear meta para saldar deuda' : 'Crear o ver mis metas'}

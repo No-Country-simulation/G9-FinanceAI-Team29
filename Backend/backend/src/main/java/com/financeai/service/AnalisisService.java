@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -56,217 +55,313 @@ public class AnalisisService {
 
     @Transactional
     public AnalisisResponse analizar(AnalisisRequest request, String usuarioId) {
+
         // ¿Está arriba el microservicio de ML? Se consulta una sola vez por petición.
         boolean mlUp = mlService.estaDisponible();
 
         // 1) Clasificar cada transacción (ML o reglas) y acumular gastos por categoría.
         Map<String, BigDecimal> gastosPorCategoria = new LinkedHashMap<>();
         BigDecimal totalGastosHistoricos = BigDecimal.ZERO;
-List<MlTransaccion> transaccionesMl = new ArrayList<>();
+        List<MlTransaccion> transaccionesMl = new ArrayList<>();
 
-LocalDate fechaMin = null;
-LocalDate fechaMax = null;
+        LocalDate fechaMin = null;
+        LocalDate fechaMax = null;
 
-for (TransaccionDTO t : request.getTransacciones()) {
+        for (TransaccionDTO t : request.getTransacciones()) {
 
-    String categoria = clasificar(t, mlUp);
+            String categoria = clasificar(t, mlUp);
 
-    gastosPorCategoria.merge(
-        categoria,
-        t.getValor(),
-        BigDecimal::add
-    );
+            gastosPorCategoria.merge(
+                    categoria,
+                    t.getValor(),
+                    BigDecimal::add
+            );
 
-    totalGastosHistoricos = totalGastosHistoricos.add(
-        t.getValor()
-    );
+            totalGastosHistoricos = totalGastosHistoricos.add(
+                    t.getValor()
+            );
 
-    if (t.getFecha() != null) {
+            if (t.getFecha() != null) {
 
-        if (fechaMin == null || t.getFecha().isBefore(fechaMin)) {
-            fechaMin = t.getFecha();
+                if (fechaMin == null || t.getFecha().isBefore(fechaMin)) {
+                    fechaMin = t.getFecha();
+                }
+
+                if (fechaMax == null || t.getFecha().isAfter(fechaMax)) {
+                    fechaMax = t.getFecha();
+                }
+            }
+
+            transaccionesMl.add(
+                    aMlTransaccion(t, categoria)
+            );
         }
 
-        if (fechaMax == null || t.getFecha().isAfter(fechaMax)) {
-            fechaMax = t.getFecha();
-        }
-    }
+        long cantidadMeses = 12;
 
-    transaccionesMl.add(
-        aMlTransaccion(t, categoria)
-    );
-}
+        BigDecimal divisor = BigDecimal.valueOf(cantidadMeses);
 
-long cantidadMeses = 12;
+        BigDecimal totalGastos = totalGastosHistoricos.divide(
+                divisor,
+                2,
+                RoundingMode.HALF_UP
+        );
 
-BigDecimal divisor = BigDecimal.valueOf(cantidadMeses);
+        gastosPorCategoria.replaceAll(
+                (categoria, totalCategoria) ->
+                        totalCategoria.divide(
+                                divisor,
+                                2,
+                                RoundingMode.HALF_UP
+                        )
+        );
 
-BigDecimal totalGastos = totalGastosHistoricos.divide(
-    divisor,
-    2,
-    RoundingMode.HALF_UP
-);
-
-gastosPorCategoria.replaceAll(
-    (categoria, totalCategoria) ->
-        totalCategoria.divide(
-            divisor,
-            2,
-            RoundingMode.HALF_UP
-        )
-);
-
-log.info(
-    "Período analizado: {} meses ({} a {})",
-    cantidadMeses,
-    fechaMin,
-    fechaMax
-);
+        log.info(
+                "Período analizado: {} meses ({} a {})",
+                cantidadMeses,
+                fechaMin,
+                fechaMax
+        );
 
         // 2) Métricas derivadas.
         BigDecimal porcentajeGastos = BigDecimal.ZERO;
+
         if (request.getIngresoMensual().compareTo(BigDecimal.ZERO) > 0) {
-            porcentajeGastos = totalGastos.multiply(new BigDecimal("100"))
-                .divide(request.getIngresoMensual(), 2, RoundingMode.HALF_UP);
+            porcentajeGastos = totalGastos
+                    .multiply(new BigDecimal("100"))
+                    .divide(
+                            request.getIngresoMensual(),
+                            2,
+                            RoundingMode.HALF_UP
+                    );
         }
 
         BigDecimal porcentajeAhorro = BigDecimal.ONE.subtract(
-            porcentajeGastos.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)
-        ).multiply(new BigDecimal("100")).setScale(2, RoundingMode.HALF_UP);
+                porcentajeGastos.divide(
+                        new BigDecimal("100"),
+                        4,
+                        RoundingMode.HALF_UP
+                )
+        ).multiply(new BigDecimal("100"))
+                .setScale(2, RoundingMode.HALF_UP);
 
-        // 3) Respuesta base: resumen de gastos y totales (siempre los calcula el backend).
+        // 3) Respuesta base.
         AnalisisResponse response = new AnalisisResponse();
-        response.setResumenGastos(construirResumen(gastosPorCategoria, totalGastos));
+
+        response.setResumenGastos(
+                construirResumen(gastosPorCategoria, totalGastos)
+        );
+
         response.setTotalGastos(totalGastos);
         response.setTotalIngresos(request.getIngresoMensual());
         response.setPorcentajeAhorro(porcentajeAhorro);
 
-        // 4) Perfil financiero: primero el modelo de ML; si falla, reglas internas.
+        // 4) Perfil financiero: primero ML; si falla, reglas internas.
         boolean analizadoConMl = false;
+
         if (mlUp) {
             try {
+
                 MlAnalysisRequest mlReq = construirRequestMl(
-                    request, usuarioId, totalGastos, porcentajeGastos, transaccionesMl);
+                        request,
+                        usuarioId,
+                        totalGastos,
+                        porcentajeGastos,
+                        transaccionesMl
+                );
+
                 MlAnalysisResponse ml = mlService.analizar(mlReq);
+
                 aplicarResultadoMl(response, ml);
+
                 analizadoConMl = true;
-                log.info("Análisis de perfil resuelto por el modelo de ML (usuario {}).", usuarioId);
+
+                log.info(
+                        "Análisis de perfil resuelto por el modelo de ML (usuario {}).",
+                        usuarioId
+                );
+
             } catch (Exception e) {
-                log.warn("Falló /analysis del ML, se usan las reglas internas: {}", e.getMessage());
+
+                log.warn(
+                        "Falló /analysis del ML, se usan las reglas internas: {}",
+                        e.getMessage()
+                );
             }
         }
 
         if (!analizadoConMl) {
-            aplicarResultadoReglas(response, request, gastosPorCategoria, totalGastos, porcentajeGastos);
+            aplicarResultadoReglas(
+                    response,
+                    request,
+                    gastosPorCategoria,
+                    totalGastos,
+                    porcentajeGastos
+            );
         }
 
-        // 5) Persistir en el historial (solo si el usuario existe en la BD).
+        // 5) Persistir perfil actual + historial.
         guardarHistorial(usuarioId, response);
 
         return response;
     }
 
     /**
-     * Clasifica una sola descripción (el endpoint GET /clasificar).
-     * Primero prueba el ML y, si no está o falla, usa las reglas.
+     * Clasifica una sola descripción (endpoint GET /clasificar).
      */
     public Map<String, String> clasificarDescripcion(String descripcion) {
+
         if (descripcion == null || descripcion.isBlank()) {
             return Map.of(
-                "categoria", "Otros",
-                "subcategoria", ""
+                    "categoria", "Otros",
+                    "subcategoria", ""
             );
         }
 
         if (mlService.estaDisponible()) {
+
             try {
+
                 MlTransaccion tx = new MlTransaccion(
-                    LocalDate.now().toString(),
-                    descripcion,
-                    BigDecimal.ONE,
-                    null,
-                    "desconocido",
-                    "no"
+                        LocalDate.now().toString(),
+                        descripcion,
+                        BigDecimal.ONE,
+                        null,
+                        "desconocido",
+                        "no"
                 );
 
-                MlPredictResponse r = mlService.predecirCategoria(tx);
+                MlPredictResponse r =
+                        mlService.predecirCategoria(tx);
 
                 if (r.getConfianza() != null
                         && r.getConfianza().doubleValue()
                         >= umbralConfianzaClasificacion) {
 
                     return Map.of(
-                        "categoria", r.getCategoriaPredicha(),
-                        "subcategoria",
-                        r.getSubcategoriaPredicha() != null
-                            ? r.getSubcategoriaPredicha()
-                            : ""
+                            "categoria",
+                            r.getCategoriaPredicha(),
+
+                            "subcategoria",
+                            r.getSubcategoriaPredicha() != null
+                                    ? r.getSubcategoriaPredicha()
+                                    : ""
                     );
                 }
 
                 log.debug(
-                    "ML poco seguro ({}) para '{}', se usa regla.",
-                    r.getConfianza(),
-                    descripcion
+                        "ML poco seguro ({}) para '{}', se usa regla.",
+                        r.getConfianza(),
+                        descripcion
                 );
+
             } catch (Exception e) {
+
                 log.warn(
-                    "Falló /predict/category para '{}', se usa regla: {}",
-                    descripcion,
-                    e.getMessage()
+                        "Falló /predict/category para '{}', se usa regla: {}",
+                        descripcion,
+                        e.getMessage()
                 );
             }
         }
 
         String categoria =
-            clasificacionService.clasificarTransaccion(descripcion);
+                clasificacionService.clasificarTransaccion(descripcion);
 
         return Map.of(
-            "categoria", categoria,
-            "subcategoria", ""
+                "categoria", categoria,
+                "subcategoria", ""
         );
     }
 
     /**
-     * Devuelve la categoría del ML solo si su confianza pasa el umbral; si no
-     * (o si algo falla) devuelve null para que quien llama use las reglas.
+     * Devuelve categoría del ML sólo si la confianza supera el umbral.
      */
     private String categoriaSiConfiable(MlTransaccion tx) {
+
         try {
-            MlPredictResponse r = mlService.predecirCategoria(tx);
+
+            MlPredictResponse r =
+                    mlService.predecirCategoria(tx);
+
             if (r.getConfianza() != null
-                    && r.getConfianza().doubleValue() >= umbralConfianzaClasificacion) {
+                    && r.getConfianza().doubleValue()
+                    >= umbralConfianzaClasificacion) {
+
                 return r.getCategoriaPredicha();
             }
-            log.debug("ML poco seguro ({}) para '{}', se usa regla.",
-                r.getConfianza(), tx.getDescripcion());
+
+            log.debug(
+                    "ML poco seguro ({}) para '{}', se usa regla.",
+                    r.getConfianza(),
+                    tx.getDescripcion()
+            );
+
         } catch (Exception e) {
-            log.warn("Falló /predict/category para '{}', se usa regla: {}",
-                tx.getDescripcion(), e.getMessage());
+
+            log.warn(
+                    "Falló /predict/category para '{}', se usa regla: {}",
+                    tx.getDescripcion(),
+                    e.getMessage()
+            );
         }
+
         return null;
     }
 
     // ---------------------------------------------------------------------
-    //  Clasificación (ML con fallback a reglas)
+    // Clasificación
     // ---------------------------------------------------------------------
 
-    private String clasificar(TransaccionDTO t, boolean mlUp) {
+    private String clasificar(
+            TransaccionDTO t,
+            boolean mlUp) {
+
         if (mlUp) {
-            String categoriaMl = categoriaSiConfiable(aMlTransaccion(t, null));
+
+            String categoriaMl =
+                    categoriaSiConfiable(
+                            aMlTransaccion(t, null)
+                    );
+
             if (categoriaMl != null) {
                 return categoriaMl;
             }
         }
-        return clasificacionService.clasificarTransaccion(t.getDescripcion());
+
+        return clasificacionService
+                .clasificarTransaccion(
+                        t.getDescripcion()
+                );
     }
 
-    /** Convierte una transacción del request en el formato que espera el ML, con defaults. */
-    private MlTransaccion aMlTransaccion(TransaccionDTO t, String categoria) {
-        String fecha = t.getFecha() != null ? t.getFecha().toString() : LocalDate.now().toString();
-        String medioPago = tieneTexto(t.getMedioPago()) ? t.getMedioPago() : "desconocido";
-        String recurrente = tieneTexto(t.getRecurrente()) ? t.getRecurrente() : "no";
-        return new MlTransaccion(fecha, t.getDescripcion(), t.getValor(), categoria, medioPago, recurrente);
+    private MlTransaccion aMlTransaccion(
+            TransaccionDTO t,
+            String categoria) {
+
+        String fecha =
+                t.getFecha() != null
+                        ? t.getFecha().toString()
+                        : LocalDate.now().toString();
+
+        String medioPago =
+                tieneTexto(t.getMedioPago())
+                        ? t.getMedioPago()
+                        : "desconocido";
+
+        String recurrente =
+                tieneTexto(t.getRecurrente())
+                        ? t.getRecurrente()
+                        : "no";
+
+        return new MlTransaccion(
+                fecha,
+                t.getDescripcion(),
+                t.getValor(),
+                categoria,
+                medioPago,
+                recurrente
+        );
     }
 
     private boolean tieneTexto(String s) {
@@ -274,68 +369,156 @@ log.info(
     }
 
     // ---------------------------------------------------------------------
-    //  Construcción del request al ML y mapeo de su respuesta
+    // Request ML
     // ---------------------------------------------------------------------
 
     private MlAnalysisRequest construirRequestMl(
-            AnalisisRequest request, String usuarioId,
-            BigDecimal totalGastos, BigDecimal porcentajeGastos,
+            AnalisisRequest request,
+            String usuarioId,
+            BigDecimal totalGastos,
+            BigDecimal porcentajeGastos,
             List<MlTransaccion> transaccionesMl) {
 
-        BigDecimal ingreso = request.getIngresoMensual();
+        BigDecimal ingreso =
+                request.getIngresoMensual();
 
-        // Campos que el modelo necesita y el backend deriva de lo que ya tiene.
-        BigDecimal deudaMensual = ingreso
-            .multiply(request.getNivelEndeudamiento())
-            .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
-        BigDecimal ahorroEstimado = ingreso.subtract(totalGastos).subtract(deudaMensual).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal deudaMensual =
+                ingreso
+                        .multiply(
+                                request.getNivelEndeudamiento()
+                        )
+                        .divide(
+                                new BigDecimal("100"),
+                                2,
+                                RoundingMode.HALF_UP
+                        );
 
-        MlAnalysisRequest mlReq = new MlAnalysisRequest();
-        mlReq.setUsuarioId(usuarioId != null ? usuarioId : "USR0001");
+        BigDecimal ahorroEstimado =
+                ingreso
+                        .subtract(totalGastos)
+                        .subtract(deudaMensual)
+                        .setScale(
+                                2,
+                                RoundingMode.HALF_UP
+                        );
+
+        MlAnalysisRequest mlReq =
+                new MlAnalysisRequest();
+
+        mlReq.setUsuarioId(
+                usuarioId != null
+                        ? usuarioId
+                        : "USR0001"
+        );
+
         mlReq.setIngresoMensual(ingreso);
         mlReq.setDeudaMensual(deudaMensual);
         mlReq.setGastoMensualPromedio(totalGastos);
         mlReq.setAhorroMensualEstimado(ahorroEstimado);
-        mlReq.setNivelEndeudamiento(request.getNivelEndeudamiento());
-        mlReq.setPorcentajeGastosIngreso(porcentajeGastos);
-        mlReq.setFrecuenciaAhorro(request.getFrecuenciaAhorro());
-        mlReq.setTransacciones(transaccionesMl);
+        mlReq.setNivelEndeudamiento(
+                request.getNivelEndeudamiento()
+        );
+        mlReq.setPorcentajeGastosIngreso(
+                porcentajeGastos
+        );
+        mlReq.setFrecuenciaAhorro(
+                request.getFrecuenciaAhorro()
+        );
+        mlReq.setTransacciones(
+                transaccionesMl
+        );
+
         return mlReq;
     }
 
-    private void aplicarResultadoMl(AnalisisResponse response, MlAnalysisResponse ml) {
-        response.setPerfilFinanciero(ml.getPerfilFinanciero());
-        response.setProbabilidad(ml.getConfianzaPerfil());
-        response.setNivelRiesgo(ml.getNivelRiesgo());
-        response.setRecomendaciones(ml.getRecomendaciones());
-        response.setFinancialScore(ml.getFinancialScore());
-        response.setScoreStatus(ml.getScoreStatus());
-        response.setScoreColor(ml.getScoreColor());
-        response.setExplicacion(ml.getExplicacion());
-        response.setFortalezas(ml.getFortalezas());
-        response.setOportunidadesMejora(ml.getOportunidadesMejora());
+    private void aplicarResultadoMl(
+            AnalisisResponse response,
+            MlAnalysisResponse ml) {
+
+        response.setPerfilFinanciero(
+                ml.getPerfilFinanciero()
+        );
+
+        response.setProbabilidad(
+                ml.getConfianzaPerfil()
+        );
+
+        response.setNivelRiesgo(
+                ml.getNivelRiesgo()
+        );
+
+        response.setRecomendaciones(
+                ml.getRecomendaciones()
+        );
+
+        response.setFinancialScore(
+                ml.getFinancialScore()
+        );
+
+        response.setScoreStatus(
+                ml.getScoreStatus()
+        );
+
+        response.setScoreColor(
+                ml.getScoreColor()
+        );
+
+        response.setExplicacion(
+                ml.getExplicacion()
+        );
+
+        response.setFortalezas(
+                ml.getFortalezas()
+        );
+
+        response.setOportunidadesMejora(
+                ml.getOportunidadesMejora()
+        );
+
         response.setMotorAnalisis("ML");
     }
 
     // ---------------------------------------------------------------------
-    //  Fallback: reglas internas (comportamiento original)
+    // Fallback reglas
     // ---------------------------------------------------------------------
 
     private void aplicarResultadoReglas(
-            AnalisisResponse response, AnalisisRequest request,
+            AnalisisResponse response,
+            AnalisisRequest request,
             Map<String, BigDecimal> gastosPorCategoria,
-            BigDecimal totalGastos, BigDecimal porcentajeGastos) {
+            BigDecimal totalGastos,
+            BigDecimal porcentajeGastos) {
 
-        String perfil = clasificarPerfil(
-            request.getNivelEndeudamiento(), porcentajeGastos, request.getFrecuenciaAhorro());
-        BigDecimal probabilidad = calcularProbabilidad(
-            perfil, request.getNivelEndeudamiento(), porcentajeGastos);
-        String nivelRiesgo = determinarNivelRiesgo(
-            request.getNivelEndeudamiento(), porcentajeGastos);
+        String perfil =
+                clasificarPerfil(
+                        request.getNivelEndeudamiento(),
+                        porcentajeGastos,
+                        request.getFrecuenciaAhorro()
+                );
 
-        List<com.financeai.dto.RecomendacionDTO> recomendaciones = recomendacionService.generarRecomendaciones(
-            perfil, request.getNivelEndeudamiento(), porcentajeGastos,
-            request.getFrecuenciaAhorro(), gastosPorCategoria, totalGastos, request.getIngresoMensual());
+        BigDecimal probabilidad =
+                calcularProbabilidad(
+                        perfil,
+                        request.getNivelEndeudamiento(),
+                        porcentajeGastos
+                );
+
+        String nivelRiesgo =
+                determinarNivelRiesgo(
+                        request.getNivelEndeudamiento(),
+                        porcentajeGastos
+                );
+
+        List<com.financeai.dto.RecomendacionDTO> recomendaciones =
+                recomendacionService.generarRecomendaciones(
+                        perfil,
+                        request.getNivelEndeudamiento(),
+                        porcentajeGastos,
+                        request.getFrecuenciaAhorro(),
+                        gastosPorCategoria,
+                        totalGastos,
+                        request.getIngresoMensual()
+                );
 
         response.setPerfilFinanciero(perfil);
         response.setProbabilidad(probabilidad);
@@ -345,110 +528,264 @@ log.info(
     }
 
     private AnalisisResponse.ResumenGastosDTO construirResumen(
-            Map<String, BigDecimal> gastosPorCategoria, BigDecimal totalGastos) {
+            Map<String, BigDecimal> gastosPorCategoria,
+            BigDecimal totalGastos) {
 
-        AnalisisResponse.ResumenGastosDTO resumen = new AnalisisResponse.ResumenGastosDTO();
-        Map<String, BigDecimal> porcentajes = new LinkedHashMap<>();
+        AnalisisResponse.ResumenGastosDTO resumen =
+                new AnalisisResponse.ResumenGastosDTO();
+
+        Map<String, BigDecimal> porcentajes =
+                new LinkedHashMap<>();
+
         if (totalGastos.compareTo(BigDecimal.ZERO) > 0) {
-            for (Map.Entry<String, BigDecimal> entry : gastosPorCategoria.entrySet()) {
-                BigDecimal pct = entry.getValue().multiply(new BigDecimal("100"))
-                    .divide(totalGastos, 2, RoundingMode.HALF_UP);
-                porcentajes.put(entry.getKey(), pct);
+
+            for (Map.Entry<String, BigDecimal> entry
+                    : gastosPorCategoria.entrySet()) {
+
+                BigDecimal pct =
+                        entry.getValue()
+                                .multiply(
+                                        new BigDecimal("100")
+                                )
+                                .divide(
+                                        totalGastos,
+                                        2,
+                                        RoundingMode.HALF_UP
+                                );
+
+                porcentajes.put(
+                        entry.getKey(),
+                        pct
+                );
             }
         }
-        resumen.setPorCategoria(gastosPorCategoria);
-        resumen.setPorcentajes(porcentajes);
+
+        resumen.setPorCategoria(
+                gastosPorCategoria
+        );
+
+        resumen.setPorcentajes(
+                porcentajes
+        );
+
         return resumen;
     }
 
     // ---------------------------------------------------------------------
-    //  Historial
+    // Historial + perfil financiero actual
     // ---------------------------------------------------------------------
 
     /**
-     * Guarda el análisis en el historial del usuario (solo si el usuario existe).
-     * Si no está en la BD no lo persistimos, para no romper la FK.
+     * Guarda el análisis en el historial y mantiene sincronizado
+     * el perfil financiero actual del usuario.
      */
-    private void guardarHistorial(String usuarioId, AnalisisResponse response) {
+    private void guardarHistorial(
+            String usuarioId,
+            AnalisisResponse response) {
+
         if (usuarioId == null) {
             return;
         }
-        usuarioRepository.findById(usuarioId).ifPresent(usuario -> {
-            PerfilHistorial historial = new PerfilHistorial();
-            historial.setUsuario(usuario);
-            historial.setPerfilPredicho(response.getPerfilFinanciero());
-            historial.setProbabilidad(response.getProbabilidad());
-            historial.setFechaAnalisis(LocalDateTime.now());
-            historial.setDetalles(construirDetalles(response));
-            perfilHistorialRepository.save(historial);
-        });
+
+        usuarioRepository
+                .findById(usuarioId)
+                .ifPresent(usuario -> {
+
+                    // IMPORTANTE!!!:
+                    // Actualizamos el perfil actual del usuario para que
+                    // Dashboard y Mi Cuenta muestren el mismo resultado.
+                    usuario.setPerfilFinanciero(
+                            response.getPerfilFinanciero()
+                    );
+
+                    usuarioRepository.save(usuario);
+
+                    // Conservamos también el resultado histórico.
+                    PerfilHistorial historial =
+                            new PerfilHistorial();
+
+                    historial.setUsuario(usuario);
+
+                    historial.setPerfilPredicho(
+                            response.getPerfilFinanciero()
+                    );
+
+                    historial.setProbabilidad(
+                            response.getProbabilidad()
+                    );
+
+                    historial.setFechaAnalisis(
+                            LocalDateTime.now()
+                    );
+
+                    historial.setDetalles(
+                            construirDetalles(response)
+                    );
+
+                    perfilHistorialRepository.save(
+                            historial
+                    );
+                });
     }
 
-    /** Construye un JSON compacto con las métricas del análisis (columna jsonb). */
-    private String construirDetalles(AnalisisResponse r) {
-        return String.format(java.util.Locale.US,
-            "{\"totalGastos\":%s,\"totalIngresos\":%s,\"porcentajeAhorro\":%s,\"nivelRiesgo\":\"%s\",\"motor\":\"%s\"}",
-            r.getTotalGastos().toPlainString(),
-            r.getTotalIngresos().toPlainString(),
-            r.getPorcentajeAhorro().toPlainString(),
-            r.getNivelRiesgo(),
-            r.getMotorAnalisis());
+    private String construirDetalles(
+            AnalisisResponse r) {
+
+        return String.format(
+                java.util.Locale.US,
+
+                "{\"totalGastos\":%s,\"totalIngresos\":%s,\"porcentajeAhorro\":%s,\"nivelRiesgo\":\"%s\",\"motor\":\"%s\"}",
+
+                r.getTotalGastos().toPlainString(),
+                r.getTotalIngresos().toPlainString(),
+                r.getPorcentajeAhorro().toPlainString(),
+                r.getNivelRiesgo(),
+                r.getMotorAnalisis()
+        );
     }
 
     // ---------------------------------------------------------------------
-    //  Reglas internas de perfil (fallback)
+    // Reglas internas
     // ---------------------------------------------------------------------
 
-    private String clasificarPerfil(BigDecimal nivelEndeudamiento, BigDecimal porcentajeGastos, String frecuenciaAhorro) {
+    private String clasificarPerfil(
+            BigDecimal nivelEndeudamiento,
+            BigDecimal porcentajeGastos,
+            String frecuenciaAhorro) {
+
         int puntos = 0;
 
-        if (nivelEndeudamiento.compareTo(new BigDecimal("20")) <= 0) puntos += 3;
-        else if (nivelEndeudamiento.compareTo(new BigDecimal("40")) <= 0) puntos += 1;
-        else puntos -= 1;
+        if (nivelEndeudamiento.compareTo(
+                new BigDecimal("20")) <= 0) {
 
-        if (porcentajeGastos.compareTo(new BigDecimal("50")) <= 0) puntos += 3;
-        else if (porcentajeGastos.compareTo(new BigDecimal("70")) <= 0) puntos += 1;
-        else puntos -= 1;
+            puntos += 3;
 
-        switch (frecuenciaAhorro) {
-            case "Alta": puntos += 3; break;
-            case "Media": puntos += 1; break;
-            case "Baja": puntos -= 1; break;
-            case "Nunca": puntos -= 3; break;
+        } else if (nivelEndeudamiento.compareTo(
+                new BigDecimal("40")) <= 0) {
+
+            puntos += 1;
+
+        } else {
+
+            puntos -= 1;
         }
 
-        if (puntos >= 5) return "Saludable";
-        if (puntos >= 2) return "En observación";
+        if (porcentajeGastos.compareTo(
+                new BigDecimal("50")) <= 0) {
+
+            puntos += 3;
+
+        } else if (porcentajeGastos.compareTo(
+                new BigDecimal("70")) <= 0) {
+
+            puntos += 1;
+
+        } else {
+
+            puntos -= 1;
+        }
+
+        switch (frecuenciaAhorro) {
+
+            case "Alta":
+                puntos += 3;
+                break;
+
+            case "Media":
+                puntos += 1;
+                break;
+
+            case "Baja":
+                puntos -= 1;
+                break;
+
+            case "Nunca":
+                puntos -= 3;
+                break;
+        }
+
+        if (puntos >= 5) {
+            return "Saludable";
+        }
+
+        if (puntos >= 2) {
+            return "En observación";
+        }
+
         return "En riesgo";
     }
 
-    private BigDecimal calcularProbabilidad(String perfil, BigDecimal nivelEndeudamiento, BigDecimal porcentajeGastos) {
+    private BigDecimal calcularProbabilidad(
+            String perfil,
+            BigDecimal nivelEndeudamiento,
+            BigDecimal porcentajeGastos) {
+
         BigDecimal base = BigDecimal.ZERO;
+
         switch (perfil) {
-            case "Saludable": base = new BigDecimal("0.85"); break;
-            case "En observación": base = new BigDecimal("0.65"); break;
-            case "En riesgo": base = new BigDecimal("0.40"); break;
+
+            case "Saludable":
+                base = new BigDecimal("0.85");
+                break;
+
+            case "En observación":
+                base = new BigDecimal("0.65");
+                break;
+
+            case "En riesgo":
+                base = new BigDecimal("0.40");
+                break;
         }
 
-        if (nivelEndeudamiento.compareTo(new BigDecimal("30")) > 0) {
-            base = base.subtract(new BigDecimal("0.10"));
-        }
-        if (porcentajeGastos.compareTo(new BigDecimal("70")) > 0) {
-            base = base.subtract(new BigDecimal("0.10"));
+        if (nivelEndeudamiento.compareTo(
+                new BigDecimal("30")) > 0) {
+
+            base = base.subtract(
+                    new BigDecimal("0.10")
+            );
         }
 
-        return base.setScale(4, RoundingMode.HALF_UP).max(new BigDecimal("0.01")).min(new BigDecimal("0.99"));
+        if (porcentajeGastos.compareTo(
+                new BigDecimal("70")) > 0) {
+
+            base = base.subtract(
+                    new BigDecimal("0.10")
+            );
+        }
+
+        return base
+                .setScale(
+                        4,
+                        RoundingMode.HALF_UP
+                )
+                .max(
+                        new BigDecimal("0.01")
+                )
+                .min(
+                        new BigDecimal("0.99")
+                );
     }
 
-    private String determinarNivelRiesgo(BigDecimal nivelEndeudamiento, BigDecimal porcentajeGastos) {
-        if (nivelEndeudamiento.compareTo(new BigDecimal("50")) > 0 ||
-            porcentajeGastos.compareTo(new BigDecimal("90")) > 0) {
+    private String determinarNivelRiesgo(
+            BigDecimal nivelEndeudamiento,
+            BigDecimal porcentajeGastos) {
+
+        if (nivelEndeudamiento.compareTo(
+                new BigDecimal("50")) > 0
+                || porcentajeGastos.compareTo(
+                new BigDecimal("90")) > 0) {
+
             return "Alto";
         }
-        if (nivelEndeudamiento.compareTo(new BigDecimal("30")) > 0 ||
-            porcentajeGastos.compareTo(new BigDecimal("70")) > 0) {
+
+        if (nivelEndeudamiento.compareTo(
+                new BigDecimal("30")) > 0
+                || porcentajeGastos.compareTo(
+                new BigDecimal("70")) > 0) {
+
             return "Medio";
         }
+
         return "Bajo";
     }
 }
