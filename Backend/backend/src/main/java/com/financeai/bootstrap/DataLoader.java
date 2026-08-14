@@ -1,6 +1,7 @@
 package com.financeai.bootstrap;
 
 import com.financeai.model.Categoria;
+import com.financeai.model.EstadoUsuario;
 import com.financeai.model.Transaccion;
 import com.financeai.model.Usuario;
 import com.financeai.repository.CategoriaRepository;
@@ -10,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,18 +48,38 @@ public class DataLoader implements CommandLineRunner {
     private static final String TRANSACCIONES_CSV =
         "data/transacciones.csv";
 
+    /**
+     * Cuentas demo → usuarioId de datos. El sub del token propio ES el usuarioId, así que
+     * al loguearse con estos correos el usuario cae directo sobre ese perfil.
+     */
+    private static final Map<String, String> CUENTAS_DEMO = Map.of(
+        "demo.critico@finsight.com", "USR0001",
+        "demo.intermedio@finsight.com", "USR0002",
+        "demo.saludable@finsight.com", "USR0009"
+    );
+
+    /** Cuenta admin (sin datos financieros propios; inspecciona los demás perfiles). */
+    private static final String ADMIN_EMAIL = "demo.admin@finsight.com";
+    private static final String ADMIN_ID = "USRADMIN";
+
+    /** Contraseña común de las cuentas demo (solo datos sintéticos; no es info sensible). */
+    private static final String DEMO_PASSWORD = "Demo1234!";
+
     private final UsuarioRepository usuarioRepository;
     private final TransaccionRepository transaccionRepository;
     private final CategoriaRepository categoriaRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public DataLoader(
         UsuarioRepository usuarioRepository,
         TransaccionRepository transaccionRepository,
-        CategoriaRepository categoriaRepository
+        CategoriaRepository categoriaRepository,
+        PasswordEncoder passwordEncoder
     ) {
         this.usuarioRepository = usuarioRepository;
         this.transaccionRepository = transaccionRepository;
         this.categoriaRepository = categoriaRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -80,11 +102,55 @@ public class DataLoader implements CommandLineRunner {
 
         cargarTransacciones(usuarios);
 
+        sembrarCuentasDemo();
+
         log.info(
             "Carga inicial completada en {} ms: {} usuarios, {} transacciones.",
             System.currentTimeMillis() - inicio,
             usuarioRepository.count(),
             transaccionRepository.count()
+        );
+    }
+
+    /**
+     * Da credenciales propias (email + bcrypt) a las cuentas demo para que puedan iniciar
+     * sesión con el auth del backend (sin Supabase). Las 3 cuentas de perfil reutilizan
+     * usuarios de datos existentes; la cuenta admin se crea aparte.
+     */
+    private void sembrarCuentasDemo() {
+        String hash = passwordEncoder.encode(DEMO_PASSWORD);
+
+        CUENTAS_DEMO.forEach((email, usuarioId) ->
+            usuarioRepository.findById(usuarioId).ifPresentOrElse(
+                usuario -> {
+                    usuario.setEmail(email);
+                    usuario.setPasswordHash(hash);
+                    usuario.setEstado(EstadoUsuario.ACTIVO);
+                    usuarioRepository.save(usuario);
+                },
+                () -> log.warn(
+                    "Cuenta demo {} no sembrada: no existe el usuario {}.",
+                    email, usuarioId
+                )
+            )
+        );
+
+        if (usuarioRepository.findByEmailIgnoreCase(ADMIN_EMAIL).isEmpty()) {
+            Usuario admin = new Usuario();
+            admin.setId(ADMIN_ID);
+            admin.setNombre("Admin");
+            admin.setApellido("Demo");
+            admin.setEmail(ADMIN_EMAIL);
+            admin.setPasswordHash(hash);
+            admin.setEstado(EstadoUsuario.ACTIVO);
+            admin.setActivo(true);
+            admin.setFechaRegistro(LocalDateTime.now());
+            usuarioRepository.save(admin);
+        }
+
+        log.info(
+            "Cuentas demo sembradas: {} de perfil + admin ({}).",
+            CUENTAS_DEMO.size(), ADMIN_EMAIL
         );
     }
 
