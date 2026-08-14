@@ -7,7 +7,9 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Envío de correos vía Resend (reemplaza el envío que hacían las funciones serverless de Vercel).
@@ -23,16 +25,19 @@ public class EmailService {
     private final String apiKey;
     private final String from;
     private final String logoUrl;
+    private final String siteUrl;
     private final RestClient client;
 
     public EmailService(
             @Value("${app.email.resend-api-key:}") String apiKey,
             @Value("${app.email.from:FinSightAI <onboarding@resend.dev>}") String from,
-            @Value("${app.email.logo-url:}") String logoUrl
+            @Value("${app.email.logo-url:}") String logoUrl,
+            @Value("${app.site-url:http://localhost}") String siteUrl
     ) {
         this.apiKey = apiKey;
         this.from = from;
         this.logoUrl = logoUrl;
+        this.siteUrl = siteUrl.replaceAll("/+$", "");
         this.client = RestClient.builder().baseUrl("https://api.resend.com").build();
     }
 
@@ -40,6 +45,13 @@ public class EmailService {
     public void enviarResetPassword(String to, String nombre, String resetUrl) {
         String saludo = (nombre != null && !nombre.isBlank()) ? nombre.trim() : "Hola";
         enviar(to, "Restablecé tu contraseña de FinSightAI", htmlReset(saludo, resetUrl));
+    }
+
+    /** Envía el recordatorio de eventos/metas próximos (lista de "titulo — fecha"). */
+    public void enviarRecordatorio(String to, String nombre, List<String> items, int diasAnticipacion) {
+        String saludo = (nombre != null && !nombre.isBlank()) ? nombre.trim() : to;
+        String asunto = "Recordatorio: " + items.size() + " evento(s) financiero(s) próximos";
+        enviar(to, asunto, htmlRecordatorio(saludo, items, diasAnticipacion));
     }
 
     private void enviar(String to, String subject, String html) {
@@ -63,6 +75,32 @@ public class EmailService {
             log.error("[email] Resend rechazó el envío a {}: {}", to, e.getMessage());
             throw new IllegalStateException("No se pudo enviar el correo.", e);
         }
+    }
+
+    private String htmlRecordatorio(String saludo, List<String> items, int dias) {
+        String logo = (logoUrl == null || logoUrl.isBlank())
+                ? ""
+                : "<img src=\"" + logoUrl + "\" alt=\"FinSightAI\" height=\"48\" style=\"margin-bottom:16px\"/>";
+        String lista = items.stream()
+                .map(i -> "<li>" + escaparHtml(i) + "</li>")
+                .collect(Collectors.joining());
+        String ctaUrl = siteUrl + "/calendario-financiero";
+        return """
+            <div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">
+              %s
+              <h1 style="font-size:20px;margin:0 0 12px">Recordatorio financiero</h1>
+              <p style="font-size:14px;line-height:1.6;margin:0 0 12px">Hola %s, en %d días tenés lo siguiente en tu calendario financiero:</p>
+              <ul style="font-size:14px;line-height:1.7;margin:0 0 16px;padding-left:20px">%s</ul>
+              <p style="margin:24px 0">
+                <a href="%s" style="background:#465fff;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;display:inline-block">Ver mi calendario</a>
+              </p>
+              <p style="font-size:12px;line-height:1.6;color:#6b7280;margin:0">Podés desactivar estos recordatorios desde el calendario financiero.</p>
+            </div>
+            """.formatted(logo, saludo, dias, lista, ctaUrl);
+    }
+
+    private String escaparHtml(String v) {
+        return v == null ? "" : v.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     private String htmlReset(String saludo, String resetUrl) {

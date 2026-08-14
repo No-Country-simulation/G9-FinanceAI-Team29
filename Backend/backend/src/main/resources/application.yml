@@ -65,6 +65,15 @@ app:
     resend-api-key: ${RESEND_API_KEY:}
     from: ${EMAIL_FROM:FinSightAI <onboarding@resend.dev>}
     logo-url: ${EMAIL_LOGO_URL:}
+  # Web Push (VAPID). Sin claves → los recordatorios van solo por email.
+  push:
+    vapid-public-key: ${VAPID_PUBLIC_KEY:}
+    vapid-private-key: ${VAPID_PRIVATE_KEY:}
+    vapid-subject: ${VAPID_SUBJECT:mailto:soporte@finsightai.com}
+  # Job diario de recordatorios (metas/eventos que vencen en 3 días).
+  recordatorios:
+    cron: ${RECORDATORIOS_CRON:0 0 9 * * *}
+    zone: ${RECORDATORIOS_ZONE:America/Argentina/Buenos_Aires}
   # Emails con acceso total (pueden ver perfiles de otros). Separados por coma.
   admin-emails: ${ADMIN_EMAILS:demo.admin@finsight.com}
   # Orígenes permitidos por CORS (frontend). Coma-separados. En prod: la URL de Vercel.

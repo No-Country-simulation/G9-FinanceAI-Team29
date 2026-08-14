@@ -59,6 +59,25 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- Web Push (VAPID) para los recordatorios push del navegador. Reemplaza a la
+             librería web-push que usaba la función serverless de Vercel. Necesita BouncyCastle
+             (no lo trae transitivo), que agregamos abajo. -->
+        <dependency>
+            <groupId>nl.martijndwars</groupId>
+            <artifactId>web-push</artifactId>
+            <version>5.1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.78.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>1.78.1</version>
+        </dependency>
+
         <!-- Lee un archivo .env local (en Backend/backend/) y expone sus valores como
              propiedades de Spring, igual que el frontend y el AI-Service. Así el equipo
              ya no necesita setear las variables a mano en cada terminal.
