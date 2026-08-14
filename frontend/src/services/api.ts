@@ -71,22 +71,6 @@ export interface AgentResponse {
   provider: string;
 }
 
-export interface CrearUsuarioRequest {
-  nombre: string;
-  apellido: string;
-  email: string;
-  authUserId: string;
-}
-
-export interface CrearUsuarioResponse {
-  mensaje: string;
-  usuarioId: string;
-  nombre: string;
-  apellido: string;
-  email: string;
-  authUserId: string;
-}
-
 // AI-Service (FastAPI :8000) — agente LLM.
 // POST /agent/chat { usuario_id, question }
 export async function preguntarAgente(
@@ -212,48 +196,6 @@ export async function analizarFinanzas(
   }
 
   return response.json();
-}
-
-export async function crearUsuario(
-  request: CrearUsuarioRequest,
-): Promise<CrearUsuarioResponse> {
-  const response = await apiFetch(`${API_BASE}/usuarios`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    const raw = await response.text();
-    let mensaje = 'No se pudo crear el perfil del usuario.';
-
-    try {
-      const data = JSON.parse(raw);
-      mensaje =
-        data.mensaje ??
-        data.message ??
-        data.error ??
-        mensaje;
-    } catch {
-      if (raw) {
-        mensaje = raw;
-      }
-    }
-
-    throw new Error(mensaje);
-  }
-
-  const data: CrearUsuarioResponse = await response.json();
-
-  if (!data.usuarioId) {
-    throw new Error(
-      'El backend creó el perfil, pero no devolvió usuarioId.',
-    );
-  }
-
-  return data;
 }
 
 export async function obtenerUsuario(

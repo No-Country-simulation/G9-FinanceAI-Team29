@@ -94,10 +94,6 @@ logging:
     com.financeai: INFO
     org.hibernate.SQL: WARN
 
-supabase:
-  url: ${SUPABASE_URL:https://wfypvyfhpworindwllsz.supabase.co}
-  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}
-
 # Actuator: exponemos SOLO el health-check por la web (sin detalles sensibles).
 management:
   endpoints:

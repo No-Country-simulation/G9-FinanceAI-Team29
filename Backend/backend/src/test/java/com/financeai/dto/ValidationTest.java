@@ -70,26 +70,4 @@ class ValidationTest {
 
         assertThat(validator.validate(req)).isEmpty();
     }
-
-    // ---- LoginUidRequest ----
-
-    @Test
-    void loginRechazaCamposEnBlanco() {
-        LoginUidRequest req = new LoginUidRequest();
-        req.setEmail("");
-        req.setPassword("");
-
-        Set<ConstraintViolation<LoginUidRequest>> v = validator.validate(req);
-        assertThat(violaEl(v, "email")).isTrue();
-        assertThat(violaEl(v, "password")).isTrue();
-    }
-
-    @Test
-    void loginValido_noTieneViolaciones() {
-        LoginUidRequest req = new LoginUidRequest();
-        req.setEmail("demo@example.com");
-        req.setPassword("7a5da953-cccf-4fec-a726-cbb9008400ab"); // auth_user_id
-
-        assertThat(validator.validate(req)).isEmpty();
-    }
 }

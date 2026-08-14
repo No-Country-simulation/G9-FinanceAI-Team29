@@ -3,7 +3,6 @@ package com.financeai.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -63,8 +62,7 @@ public class SecurityConfig {
             // OwnershipInterceptor sobre /api/usuarios/{usuarioId}/**.
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/v2/change-password").authenticated()    // requiere token válido
-                .requestMatchers("/api/auth/**").permitAll()                       // login + registro
-                .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()     // crear perfil (registro)
+                .requestMatchers("/api/auth/**").permitAll()                       // registro + login + reset
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html",
                                  "/v3/api-docs/**", "/error").permitAll()
                 .requestMatchers("/actuator/health").permitAll()                   // health-check público
