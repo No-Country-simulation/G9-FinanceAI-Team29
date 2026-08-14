@@ -5,6 +5,7 @@ import { LockIcon, LockOpenIcon } from '../../icons';
 interface AchievementsListProps {
   catalogo: AchievementDef[];
   desbloqueados: AchievementId[];
+  onPistaCompleta?: () => void;
 }
 
 /** Logros con easter eggs que ameritan un poco más de misterio en el candado. */
@@ -41,7 +42,7 @@ function textoMisterioso(seed: string): string {
     .join(' ');
 }
 
-export default function AchievementsList({ catalogo, desbloqueados }: AchievementsListProps) {
+export default function AchievementsList({ catalogo, desbloqueados, onPistaCompleta }: AchievementsListProps) {
   const [shakingId, setShakingId] = useState<AchievementId | null>(null);
   const [clicks, setClicks] = useState<Partial<Record<AchievementId, number>>>({});
   const [mensajeVisibleId, setMensajeVisibleId] = useState<AchievementId | null>(null);
@@ -65,6 +66,10 @@ export default function AchievementsList({ catalogo, desbloqueados }: Achievemen
 
     const nuevoConteo = (clicks[id] ?? 0) + 1;
     setClicks((actual) => ({ ...actual, [id]: nuevoConteo }));
+
+    if (nuevoConteo === CLICKS_PARA_PISTA) {
+      onPistaCompleta?.();
+    }
 
     if (nuevoConteo >= CLICKS_PARA_REGANO) {
       setMensajeVisibleId(id);
@@ -110,7 +115,13 @@ export default function AchievementsList({ catalogo, desbloqueados }: Achievemen
               )}
               {desbloqueado ? (
                 logro.imagenUrl ? (
-                  <img src={logro.imagenUrl} alt="" className="h-7 w-7 rounded-sm object-contain" />
+                  <img
+                    src={logro.imagenUrl}
+                    alt=""
+                    className={`rounded-sm object-contain ${
+                      logro.id === 'equipo_descubierto' ? 'h-20 w-20' : 'h-12 w-12'
+                    }`}
+                  />
                 ) : (
                   <span className="text-2xl">{logro.emoji}</span>
                 )

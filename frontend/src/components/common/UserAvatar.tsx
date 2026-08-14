@@ -1,4 +1,5 @@
 import { useAuth } from '../../context/AuthContext';
+import { useEsModoMatrix } from '../../hooks/useEsModoMatrix';
 
 interface UserAvatarProps {
   className?: string;
@@ -12,10 +13,15 @@ export default function UserAvatar({
   status = 'online',
 }: UserAvatarProps) {
   const { avatarIcon } = useAuth();
+  const enModoMatrix = useEsModoMatrix();
 
   return (
     <span className={`relative inline-flex shrink-0 rounded-full ${className}`}>
-      <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-brand-50 dark:bg-brand-500/10">
+      <span
+        className={`flex h-full w-full items-center justify-center overflow-hidden rounded-full ${
+          enModoMatrix ? "bg-error-500/15" : "bg-brand-50 dark:bg-brand-500/10"
+        }`}
+      >
         {avatarIcon ? (
           <span className={emojiClassName} aria-hidden="true">
             {avatarIcon}

@@ -13,5 +13,6 @@ public record EstadoGamificacionResponse(
     int bestDailyStreak,
     int bestLevelSeen,
     LocalDateTime ultimaSubidaNivel,
-    int puntos
+    int puntos,
+    int mensajesAsistente
 ) {}

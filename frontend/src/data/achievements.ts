@@ -8,6 +8,9 @@ export type AchievementId =
   | 'rickroll'
   | 'skynet'
   | 'matrix'
+  | 'pastilla_azul'
+  | 'rastro_del_dinero'
+  | 'intruso_matrix'
   | 'got'
   | '42'
   | 'to_the_moon'
@@ -25,7 +28,27 @@ export type AchievementId =
   | 'admin_click_frenzy'
   | 'primera_meta'
   | 'primer_csv'
-  | 'racha_dos_semanas';
+  | 'racha_dos_semanas'
+  | 'meta_cumplida'
+  | 'trivia_perfecta'
+  | 'charlas_con_finsi'
+  | 'meta_por_analisis'
+  | 'tarea_calendario'
+  | 'calendario_sincronizado'
+  | 'filtro_imposible'
+  | 'logro_persistente'
+  | 'pregunta_finsi_contextual'
+  | 'pregunta_economia'
+  | 'equipo_descubierto'
+  | 'narrador_activado'
+  | 'narrador_desactivado'
+  | 'coleccionista_secretos'
+  | 'primer_analisis'
+  | 'tour_completado'
+  | 'exportar_pdf'
+  | 'exportar_csv'
+  | 'exportar_excel'
+  | 'exportar_dashboard';
 
 /**
  * 'especial' = easter egg del chat
@@ -136,8 +159,18 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
     titulo: 'Pastilla roja',
     descripcion: 'Elegiste enfrentar la verdad de tus gastos en delivery.',
     emoji: '💊',
+    imagenUrl: '/images/mascot/finsi_matrix_red.png',
     categoria: 'especial',
-    pista: 'Ofrécele al asistente elegir entre la pastilla roja o la azul.',
+    pista: 'Ofrécele al asistente elegir entre la pastilla roja o la azul, y elegí la roja.',
+  },
+  {
+    id: 'pastilla_azul',
+    titulo: 'Pastilla azul',
+    descripcion: 'Preferiste seguir creyendo lo que quieras creer sobre tus finanzas.',
+    emoji: '🔵',
+    imagenUrl: '/images/mascot/finsight-bird-matrix-on.png',
+    categoria: 'especial',
+    pista: 'Ofrécele al asistente elegir entre la pastilla roja o la azul, y elegí la azul.',
   },
   {
     id: 'got',
@@ -207,7 +240,8 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
     id: 'wololo',
     titulo: 'Wololo',
     descripcion: 'Invocaste el wololo financiero.',
-    emoji: 'WO',
+    emoji: '🔄',
+    imagenUrl: '/images/mascot/wololo_icon.png',
     categoria: 'especial',
     pista: 'Escribe "wololo" en el chat.',
   },
@@ -215,7 +249,7 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
     id: 'descanso',
     titulo: 'Junto a la hoguera',
     descripcion: 'Le pediste un descanso al asistente.',
-    emoji: 'OK',
+    emoji: '🔥',
     categoria: 'especial',
     pista: 'Dile al asistente que estás cansado o que necesitas descansar.',
   },
@@ -223,7 +257,7 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
     id: 'isengard',
     titulo: 'Camino a Isengard',
     descripcion: 'Encontraste una ruta muy poco financiera.',
-    emoji: 'IG',
+    emoji: '🛡️',
     categoria: 'especial',
     pista: 'Menciona Isengard o los hobbits en el chat.',
   },
@@ -295,6 +329,184 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
     emoji: '🔥',
     categoria: 'hito',
     pista: 'Cumple tus retos diarios durante dos semanas seguidas.',
+  },
+  {
+    id: 'meta_cumplida',
+    titulo: 'Meta cumplida',
+    descripcion: 'Completaste el 100% de una meta financiera.',
+    emoji: '🏁',
+    categoria: 'hito',
+    pista: 'Ahorra hasta alcanzar el 100% de una de tus metas.',
+  },
+  {
+    id: 'trivia_perfecta',
+    titulo: 'Sabelotodo financiero',
+    descripcion: 'Respondiste correctamente toda una ronda de trivia.',
+    emoji: '🎓',
+    categoria: 'hito',
+    pista: 'Acertá las 5 preguntas de una misma ronda de trivia financiera.',
+  },
+  {
+    id: 'charlas_con_finsi',
+    titulo: 'Amigos de Finsi',
+    descripcion: 'Hablaste 5 veces con el asistente Finsi.',
+    emoji: '💬',
+    categoria: 'hito',
+    pista: 'Enviale 5 mensajes al asistente Finsi.',
+  },
+  {
+    id: 'meta_por_analisis',
+    titulo: 'Meta con propósito',
+    descripcion: 'Creaste una meta a partir de las recomendaciones de tu análisis financiero.',
+    emoji: '📈',
+    categoria: 'hito',
+    pista: 'Desde el resultado de un análisis, hacé clic en "Crear meta" y completá el formulario.',
+  },
+  {
+    id: 'tarea_calendario',
+    titulo: 'Organizador financiero',
+    descripcion: 'Creaste tu primera tarea en el calendario financiero.',
+    emoji: '🗓️',
+    categoria: 'hito',
+    pista: 'Agregá un evento nuevo en el calendario financiero.',
+  },
+  {
+    id: 'calendario_sincronizado',
+    titulo: 'Calendario conectado',
+    descripcion: 'Sincronizaste el calendario financiero con tu app de calendario.',
+    emoji: '🔗',
+    categoria: 'hito',
+    pista: 'Usá el botón para suscribirte al calendario desde Google o Apple Calendar.',
+  },
+  {
+    id: 'filtro_imposible',
+    titulo: 'JAJAJA, MR OBVIO',
+    descripcion: 'Intentaste usar una combinación de filtros que no tiene ningún sentido.',
+    emoji: '🤡',
+    categoria: 'especial',
+    pista: 'En Transacciones, hacé clic en una opción de filtro que esté bloqueada por el filtro contrario.',
+  },
+  {
+    id: 'logro_persistente',
+    titulo: 'Logro persistente',
+    descripcion: 'Insististe clickeando un logro bloqueado hasta que Finsi te dio la pista completa.',
+    emoji: '🔓',
+    categoria: 'especial',
+    pista: 'Hacé clic muchas veces sobre el candado de un logro bloqueado hasta que aparezca la pista.',
+  },
+  {
+    id: 'pregunta_finsi_contextual',
+    titulo: 'Con ayuda de Finsi',
+    descripcion: 'Usaste el botón "Preguntar a Finsi sobre esto" para profundizar una recomendación.',
+    emoji: '🙋',
+    categoria: 'hito',
+    pista: 'Buscá el botón "Preguntar a Finsi sobre esto" en una recomendación o evento del calendario.',
+  },
+  {
+    id: 'pregunta_economia',
+    titulo: 'Recién salido de la Facu',
+    descripcion: 'Le hiciste al asistente tu primera pregunta de economía.',
+    emoji: '📚',
+    categoria: 'especial',
+    pista: 'Hacele al asistente una pregunta sobre economía (inflación, tasas, mercado, etc.).',
+  },
+  {
+    id: 'equipo_descubierto',
+    titulo: 'Descubriste al equipo',
+    descripcion: 'Le preguntaste al asistente quién lo creó y conociste a TwentyNineDevs.',
+    emoji: '🕵️‍♂️',
+    imagenUrl: 'https://media.tenor.com/jc9TgRwK5WYAAAAM/unmask.gif',
+    categoria: 'especial',
+    pista: 'Preguntale al asistente quién lo creó o quién es su equipo.',
+  },
+  {
+    id: 'narrador_activado',
+    titulo: 'ALOOO?',
+    descripcion: 'Activaste por primera vez la voz narrada de Finsi.',
+    emoji: '🔊',
+    categoria: 'especial',
+    pista: 'Activá la voz narrada en el chat con el asistente.',
+  },
+  {
+    id: 'narrador_desactivado',
+    titulo: 'SILENCIO!!',
+    descripcion: 'Desactivaste por primera vez la voz narrada de Finsi.',
+    emoji: '🤫',
+    categoria: 'especial',
+    pista: 'Después de activarla, desactivá la voz narrada en el chat con el asistente.',
+  },
+  {
+    id: 'primer_analisis',
+    titulo: 'Analista debutante',
+    descripcion: 'Hiciste tu primer análisis financiero.',
+    emoji: '🔍',
+    categoria: 'hito',
+    pista: 'Completá el formulario de Análisis y hacé clic en "Analizar Finanzas".',
+  },
+  {
+    id: 'rastro_del_dinero',
+    titulo: 'El rastro del dinero',
+    descripcion: 'Seguiste a Finsi en Modo Matrix hasta ver tu resumen financiero.',
+    emoji: '🐦',
+    categoria: 'hito',
+    pista: 'En Modo Matrix, pasá el mouse sobre la mascota y hacé clic en "Sí, vamos".',
+  },
+  {
+    id: 'intruso_matrix',
+    titulo: 'No estabas invitado',
+    descripcion: 'Intentaste colarte en Modo Matrix sin elegir la pastilla roja, y la Matrix te lo hizo saber.',
+    emoji: '🟢',
+    imagenUrl: '/images/mascot/finsi_matrix_red.png',
+    categoria: 'especial',
+    pista: 'Intentá entrar a Modo Matrix sin haber elegido la pastilla roja antes (por ejemplo, recargando la página o volviendo con el botón "atrás").',
+  },
+  {
+    id: 'tour_completado',
+    titulo: 'Explorador guiado',
+    descripcion: 'Completaste el recorrido de bienvenida de la app.',
+    emoji: '🧭',
+    categoria: 'hito',
+    pista: 'Terminá el tour de bienvenida hasta el último paso.',
+  },
+  {
+    id: 'exportar_pdf',
+    titulo: 'Papel digital',
+    descripcion: 'Exportaste un reporte en PDF.',
+    emoji: '📄',
+    categoria: 'hito',
+    pista: 'Usá el botón "Exportar" y elegí la opción PDF.',
+  },
+  {
+    id: 'exportar_csv',
+    titulo: 'Datos en crudo',
+    descripcion: 'Exportaste un reporte en CSV.',
+    emoji: '🗂️',
+    categoria: 'hito',
+    pista: 'Usá el botón "Exportar" y elegí la opción CSV.',
+  },
+  {
+    id: 'exportar_excel',
+    titulo: 'Hoja de cálculo',
+    descripcion: 'Exportaste un reporte en Excel.',
+    emoji: '📊',
+    categoria: 'hito',
+    pista: 'Usá el botón "Exportar" y elegí la opción Excel.',
+  },
+  {
+    id: 'exportar_dashboard',
+    titulo: 'Panel de control',
+    descripcion: 'Exportaste el dashboard financiero completo.',
+    emoji: '🖨️',
+    categoria: 'hito',
+    pista: 'Usá el botón "Exportar" y elegí la opción "Exportar Dashboard".',
+  },
+  {
+    id: 'coleccionista_secretos',
+    titulo: 'Coleccionista de secretos',
+    descripcion: 'Desbloqueaste todos los easter eggs escondidos en el chat.',
+    emoji: '🏆',
+    categoria: 'hito',
+    pista: 'Encontrá todos los logros especiales escondidos en el chat con el asistente.',
   },
 ];
 

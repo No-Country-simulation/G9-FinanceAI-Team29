@@ -7,9 +7,11 @@ import { useGamification } from "../../context/GamificationContext";
 import { obtenerPerfilCompleto } from "../../services/api";
 import { confirmarCierreSesion } from "../../utils/alerts";
 import UserAvatar from "../common/UserAvatar";
+import { useEsModoMatrix } from "../../hooks/useEsModoMatrix";
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
+  const enModoMatrix = useEsModoMatrix();
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const { signOut, usuarioId, email } = useAuth();
@@ -65,15 +67,17 @@ export default function UserDropdown() {
       <button
         onClick={toggleDropdown}
         aria-label="Menú de usuario"
-        className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
+        className={`flex items-center dropdown-toggle dark:text-gray-400 ${
+          enModoMatrix ? "text-error-700" : "text-gray-700"
+        }`}
       >
         <UserAvatar className="h-11 w-11 sm:mr-3" />
 
         <span className="hidden mr-1 font-medium sm:block text-theme-sm">{nombreMostrado}</span>
         <svg
-          className={`hidden stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 sm:block ${
-            isOpen ? "rotate-180" : ""
-          }`}
+          className={`hidden dark:stroke-gray-400 transition-transform duration-200 sm:block ${
+            enModoMatrix ? "stroke-error-500" : "stroke-gray-500"
+          } ${isOpen ? "rotate-180" : ""}`}
           width="18"
           height="20"
           viewBox="0 0 18 20"
@@ -92,30 +96,46 @@ export default function UserDropdown() {
       <Dropdown
         isOpen={isOpen}
         onClose={closeDropdown}
-        className="absolute right-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
+        className={`absolute right-0 mt-[17px] flex w-[260px] flex-col rounded-2xl border p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark ${
+          enModoMatrix ? "border-error-900/40 bg-gray-950" : "border-gray-200 bg-white"
+        }`}
       >
         <div>
-          <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
+          <span className={`block font-medium text-theme-sm dark:text-gray-400 ${enModoMatrix ? "!text-white/90" : "text-gray-700"}`}>
             {nombreCompleto}
           </span>
-          <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
+          <span className={`mt-0.5 block text-theme-xs dark:text-gray-400 ${enModoMatrix ? "!text-error-400/80" : "text-gray-500"}`}>
             {email ?? "—"}
           </span>
-          <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-theme-xs font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+          <span
+            className={`mt-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-theme-xs font-medium dark:bg-brand-500/15 dark:text-brand-400 ${
+              enModoMatrix ? "bg-error-500/15 text-error-400" : "bg-brand-50 text-brand-600"
+            }`}
+          >
             🏆 Nivel {health.level} · {health.titulo}
           </span>
         </div>
 
-        <ul className="flex flex-col gap-1 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">
+        <ul
+          className={`flex flex-col gap-1 pt-4 pb-3 border-b dark:border-gray-800 ${
+            enModoMatrix ? "border-error-900/40" : "border-gray-200"
+          }`}
+        >
           <li>
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
               to="/profile"
-              className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+              className={`flex items-center gap-3 px-3 py-2 font-medium rounded-lg group text-theme-sm dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${
+                enModoMatrix
+                  ? "!text-gray-300 hover:!bg-error-950/40 hover:!text-error-300"
+                  : "text-gray-700 hover:bg-gray-100 hover:text-gray-700"
+              }`}
             >
               <svg
-                className="fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"
+                className={`dark:fill-gray-400 dark:group-hover:fill-gray-300 ${
+                  enModoMatrix ? "!fill-error-400 group-hover:!fill-error-300" : "fill-gray-500 group-hover:fill-gray-700"
+                }`}
                 width="24"
                 height="24"
                 viewBox="0 0 24 24"
@@ -137,10 +157,16 @@ export default function UserDropdown() {
               onItemClick={closeDropdown}
               tag="a"
               to="/profile#seguridad"
-              className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+              className={`flex items-center gap-3 px-3 py-2 font-medium rounded-lg group text-theme-sm dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${
+                enModoMatrix
+                  ? "!text-gray-300 hover:!bg-error-950/40 hover:!text-error-300"
+                  : "text-gray-700 hover:bg-gray-100 hover:text-gray-700"
+              }`}
             >
               <svg
-                className="fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"
+                className={`dark:fill-gray-400 dark:group-hover:fill-gray-300 ${
+                  enModoMatrix ? "!fill-error-400 group-hover:!fill-error-300" : "fill-gray-500 group-hover:fill-gray-700"
+                }`}
                 width="24"
                 height="24"
                 viewBox="0 0 24 24"
@@ -162,10 +188,16 @@ export default function UserDropdown() {
               onItemClick={closeDropdown}
               tag="a"
               to="/soporte"
-              className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+              className={`flex items-center gap-3 px-3 py-2 font-medium rounded-lg group text-theme-sm dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${
+                enModoMatrix
+                  ? "!text-gray-300 hover:!bg-error-950/40 hover:!text-error-300"
+                  : "text-gray-700 hover:bg-gray-100 hover:text-gray-700"
+              }`}
             >
               <svg
-                className="fill-gray-500 group-hover:fill-gray-700 dark:fill-gray-400 dark:group-hover:fill-gray-300"
+                className={`dark:fill-gray-400 dark:group-hover:fill-gray-300 ${
+                  enModoMatrix ? "!fill-error-400 group-hover:!fill-error-300" : "fill-gray-500 group-hover:fill-gray-700"
+                }`}
                 width="24"
                 height="24"
                 viewBox="0 0 24 24"
@@ -186,10 +218,16 @@ export default function UserDropdown() {
         <button
           type="button"
           onClick={handleLogout}
-          className="flex items-center w-full gap-3 px-3 py-2 mt-3 font-medium text-left text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+          className={`flex items-center w-full gap-3 px-3 py-2 mt-3 font-medium text-left rounded-lg group text-theme-sm dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300 ${
+            enModoMatrix
+              ? "!text-gray-300 hover:!bg-error-950/40 hover:!text-error-300"
+              : "text-gray-700 hover:bg-gray-100 hover:text-gray-700"
+          }`}
         >
           <svg
-            className="fill-gray-500 group-hover:fill-gray-700 dark:group-hover:fill-gray-300"
+            className={`dark:group-hover:fill-gray-300 ${
+              enModoMatrix ? "!fill-error-400 group-hover:!fill-error-300" : "fill-gray-500 group-hover:fill-gray-700"
+            }`}
             width="24"
             height="24"
             viewBox="0 0 24 24"

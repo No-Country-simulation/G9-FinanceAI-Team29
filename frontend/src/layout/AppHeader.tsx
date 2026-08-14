@@ -107,6 +107,9 @@ const AppHeader: React.FC = () => {
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  // Modo Matrix: en tema claro, los botones del header también se tiñen de rojo
+  // para que la página no se vea a medias entre el look normal y el hacker.
+  const enModoMatrix = location.pathname === "/modo-matrix";
 
   const inputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -254,7 +257,9 @@ const AppHeader: React.FC = () => {
     <ul
       id={listId}
       role="listbox"
-      className="absolute left-0 top-[calc(100%+6px)] z-99999 w-full overflow-hidden rounded-lg border border-gray-200 bg-white py-1.5 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
+      className={`absolute left-0 top-[calc(100%+6px)] z-99999 w-full overflow-hidden rounded-lg border py-1.5 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900 ${
+        enModoMatrix ? "border-error-900/40 bg-gray-950" : "border-gray-200 bg-white"
+      }`}
     >
       {results.length ? (
         results.map((entry, index) => (
@@ -263,19 +268,23 @@ const AppHeader: React.FC = () => {
               type="button"
               onMouseEnter={() => setActiveIndex(index)}
               onClick={() => goToResult(entry)}
-              className={`flex w-full items-center justify-between px-4 py-2 text-left text-sm ${
+              className={`flex w-full items-center justify-between px-4 py-2 text-left text-sm dark:bg-white/[0.05] dark:text-brand-400 ${
                 index === activeIndex
-                  ? "bg-brand-50 text-brand-600 dark:bg-white/[0.05] dark:text-brand-400"
-                  : "text-gray-700 dark:text-gray-300"
+                  ? enModoMatrix
+                    ? "!bg-error-500/15 !text-error-400"
+                    : "bg-brand-50 text-brand-600"
+                  : enModoMatrix
+                    ? "!text-gray-300"
+                    : "text-gray-700 dark:text-gray-300"
               }`}
             >
               <span>{entry.name}</span>
-              <span className="text-xs text-gray-400 dark:text-gray-500">{entry.group}</span>
+              <span className={`text-xs dark:text-gray-500 ${enModoMatrix ? "!text-error-400/70" : "text-gray-400"}`}>{entry.group}</span>
             </button>
           </li>
         ))
       ) : (
-        <li className="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">
+        <li className={`px-4 py-2 text-sm dark:text-gray-500 ${enModoMatrix ? "!text-error-400/70" : "text-gray-400"}`}>
           Sin resultados para "{query}"
         </li>
       )}
@@ -286,11 +295,25 @@ const AppHeader: React.FC = () => {
     "M3.04175 9.37363C3.04175 5.87693 5.87711 3.04199 9.37508 3.04199C12.8731 3.04199 15.7084 5.87693 15.7084 9.37363C15.7084 12.8703 12.8731 15.7053 9.37508 15.7053C5.87711 15.7053 3.04175 12.8703 3.04175 9.37363ZM9.37508 1.54199C5.04902 1.54199 1.54175 5.04817 1.54175 9.37363C1.54175 13.6991 5.04902 17.2053 9.37508 17.2053C11.2674 17.2053 13.003 16.5344 14.357 15.4176L17.177 18.238C17.4699 18.5309 17.9448 18.5309 18.2377 18.238C18.5306 17.9451 18.5306 17.4703 18.2377 17.1774L15.418 14.3573C16.5365 13.0033 17.2084 11.2669 17.2084 9.37363C17.2084 5.04817 13.7011 1.54199 9.37508 1.54199Z";
 
   return (
-    <header className="sticky top-0 flex w-full bg-white border-gray-200 z-99999 dark:border-gray-800 dark:bg-gray-900 lg:border-b">
+    <header
+      className={`sticky top-0 flex w-full z-99999 lg:border-b ${
+        enModoMatrix
+          ? "bg-gray-950 border-error-900/40"
+          : "bg-white border-gray-200"
+      } dark:border-gray-800 dark:bg-gray-900`}
+    >
       <div className="flex flex-col items-center justify-between grow lg:flex-row lg:px-6">
-        <div className="flex items-center justify-between w-full gap-2 px-3 py-3 border-b border-gray-200 dark:border-gray-800 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 lg:py-4">
+        <div
+          className={`flex items-center justify-between w-full gap-2 px-3 py-3 border-b sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0 lg:py-4 ${
+            enModoMatrix ? "border-error-900/40" : "border-gray-200"
+          } dark:border-gray-800`}
+        >
           <button
-            className="items-center justify-center w-10 h-10 text-gray-500 border-gray-200 rounded-lg z-99999 dark:border-gray-800 lg:flex dark:text-gray-400 lg:h-11 lg:w-11 lg:border"
+            className={`items-center justify-center w-10 h-10 rounded-lg z-99999 lg:flex lg:h-11 lg:w-11 lg:border ${
+              enModoMatrix
+                ? "text-error-400 border-error-900/40 hover:bg-error-950/50"
+                : "text-gray-500 border-gray-200"
+            } dark:border-gray-800 dark:text-gray-400`}
             onClick={handleToggle}
             aria-label="Toggle Sidebar"
           >
@@ -348,10 +371,12 @@ const AppHeader: React.FC = () => {
               onClick={toggleMobileSearch}
               aria-label="Buscar"
               aria-expanded={isMobileSearchOpen}
-              className="flex items-center justify-center w-10 h-10 text-gray-700 rounded-lg z-99999 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              className={`flex items-center justify-center w-10 h-10 rounded-lg z-99999 dark:text-gray-400 dark:hover:bg-gray-800 ${
+                enModoMatrix ? "text-error-400 hover:bg-error-950/50" : "text-gray-700 hover:bg-gray-100"
+              }`}
             >
               <svg
-                className="fill-gray-700 dark:fill-gray-400"
+                className={enModoMatrix ? "fill-error-400 dark:fill-gray-400" : "fill-gray-700 dark:fill-gray-400"}
                 width="20"
                 height="20"
                 viewBox="0 0 20 20"
@@ -364,7 +389,9 @@ const AppHeader: React.FC = () => {
 
             <button
               onClick={toggleApplicationMenu}
-              className="flex items-center justify-center w-10 h-10 text-gray-700 rounded-lg z-99999 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              className={`flex items-center justify-center w-10 h-10 rounded-lg z-99999 dark:text-gray-400 dark:hover:bg-gray-800 ${
+                enModoMatrix ? "text-error-400 hover:bg-error-950/50" : "text-gray-700 hover:bg-gray-100"
+              }`}
             >
               <svg
                 width="24"
@@ -389,7 +416,7 @@ const AppHeader: React.FC = () => {
                 <div className="relative">
                   <span className="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
                     <svg
-                      className="fill-gray-500 dark:fill-gray-400"
+                      className={`dark:fill-gray-400 ${enModoMatrix ? "!fill-error-400" : "fill-gray-500"}`}
                       width="20"
                       height="20"
                       viewBox="0 0 20 20"
@@ -414,13 +441,21 @@ const AppHeader: React.FC = () => {
                     role="combobox"
                     aria-expanded={isSearchOpen && results.length > 0}
                     aria-controls="app-search-results-desktop"
-                    className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-12 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
+                    className={`dark:bg-dark-900 h-11 w-full rounded-lg border bg-transparent py-2.5 pl-12 pr-12 text-sm shadow-theme-xs focus:outline-hidden focus:ring-3 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px] ${
+                      enModoMatrix
+                        ? "border-error-900/40 text-white/90 placeholder:text-error-400/50 focus:border-error-700 focus:ring-error-500/10"
+                        : "border-gray-200 text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-brand-500/10"
+                    }`}
                   />
 
                   <button
                     type="submit"
                     aria-label="Buscar"
-                    className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-1.5 text-gray-500 hover:bg-gray-100 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400 dark:hover:bg-white/[0.08]"
+                    className={`absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-lg border p-1.5 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400 dark:hover:bg-white/[0.08] ${
+                      enModoMatrix
+                        ? "border-error-900/40 bg-error-500/10 text-error-400 hover:bg-error-950/50"
+                        : "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100"
+                    }`}
                   >
                     <svg
                       width="16"
@@ -441,13 +476,13 @@ const AppHeader: React.FC = () => {
         </div>
 
         {isMobileSearchOpen && (
-          <div className="w-full border-b border-gray-200 px-3 pb-3 dark:border-gray-800 lg:hidden">
+          <div className={`w-full border-b px-3 pb-3 dark:border-gray-800 lg:hidden ${enModoMatrix ? "border-error-900/40" : "border-gray-200"}`}>
             <div ref={mobileSearchContainerRef} className="relative">
               <form onSubmit={handleSearchSubmit}>
                 <div className="relative">
                   <span className="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
                     <svg
-                      className="fill-gray-500 dark:fill-gray-400"
+                      className={`dark:fill-gray-400 ${enModoMatrix ? "!fill-error-400" : "fill-gray-500"}`}
                       width="20"
                       height="20"
                       viewBox="0 0 20 20"
@@ -472,13 +507,21 @@ const AppHeader: React.FC = () => {
                     role="combobox"
                     aria-expanded={isSearchOpen && results.length > 0}
                     aria-controls="app-search-results-mobile"
-                    className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-12 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                    className={`dark:bg-dark-900 h-11 w-full rounded-lg border bg-transparent py-2.5 pl-12 pr-12 text-sm shadow-theme-xs focus:outline-hidden focus:ring-3 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 ${
+                      enModoMatrix
+                        ? "border-error-900/40 text-white/90 placeholder:text-error-400/50 focus:border-error-700 focus:ring-error-500/10"
+                        : "border-gray-200 text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-brand-500/10"
+                    }`}
                   />
 
                   <button
                     type="submit"
                     aria-label="Buscar"
-                    className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-1.5 text-gray-500 hover:bg-gray-100 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400 dark:hover:bg-white/[0.08]"
+                    className={`absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-lg border p-1.5 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400 dark:hover:bg-white/[0.08] ${
+                      enModoMatrix
+                        ? "border-error-900/40 bg-error-500/10 text-error-400 hover:bg-error-950/50"
+                        : "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100"
+                    }`}
                   >
                     <svg
                       width="16"
@@ -504,9 +547,9 @@ const AppHeader: React.FC = () => {
           } w-full items-center justify-between gap-2 px-3 py-2.5 shadow-theme-md lg:flex lg:w-auto lg:justify-end lg:gap-4 lg:px-0 lg:py-4 lg:shadow-none`}
         >
           <div className="flex flex-1 items-center justify-start gap-1.5 2xsm:gap-2 lg:flex-none lg:gap-3">
-            {/* <!-- Dark Mode Toggler --> */}
-            <ThemeToggleButton />
-            {/* <!-- Dark Mode Toggler --> */}
+            {/* <!-- Dark Mode Toggler: oculto en Modo Matrix para que el
+            usuario no pueda salir del tema oscuro que esa sección requiere --> */}
+            {!enModoMatrix && <ThemeToggleButton />}
             <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
             <AccountSwitcher />

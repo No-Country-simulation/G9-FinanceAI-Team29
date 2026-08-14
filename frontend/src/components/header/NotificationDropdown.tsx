@@ -13,6 +13,7 @@ import {
 } from '../../utils/financialNotifications';
 import { Dropdown } from '../ui/dropdown/Dropdown';
 import { DropdownItem } from '../ui/dropdown/DropdownItem';
+import { useEsModoMatrix } from '../../hooks/useEsModoMatrix';
 
 const storageKey = (usuarioId: string) =>
   `finsight:notifications:read:${usuarioId}`;
@@ -33,6 +34,7 @@ function readStoredIds(usuarioId: string): string[] {
 
 export default function NotificationDropdown() {
   const { usuarioId } = useAuth();
+  const enModoMatrix = useEsModoMatrix();
   const { health, subioNivelRecientemente } = useGamification();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<FinancialNotification[]>([]);
@@ -112,7 +114,11 @@ export default function NotificationDropdown() {
     <div className="relative">
       <button
         type="button"
-        className="dropdown-toggle relative flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+        className={`dropdown-toggle relative flex h-11 w-11 items-center justify-center rounded-full border transition-colors dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white ${
+          enModoMatrix
+            ? "border-error-900/40 bg-gray-950 text-error-400 hover:bg-error-950/50 hover:text-error-300"
+            : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        }`}
         onClick={toggleDropdown}
         aria-label={
           unreadIds.length > 0
@@ -146,21 +152,26 @@ export default function NotificationDropdown() {
       <Dropdown
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        className="max-sm:left-0 max-sm:right-auto max-sm:w-[75vw] max-sm:max-w-[300px] absolute right-0 mt-[17px] flex h-[480px] w-[calc(100vw-2rem)] max-w-[361px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark"
+        className={`max-sm:left-0 max-sm:right-auto max-sm:w-[75vw] max-sm:max-w-[300px] absolute right-0 mt-[17px] flex h-[480px] w-[calc(100vw-2rem)] max-w-[361px] flex-col rounded-2xl border p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark ${
+          enModoMatrix ? "border-error-900/40 bg-gray-950" : "border-gray-200 bg-white"
+        }`}
       >
-        <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-700">
+        <div
+          className={`mb-3 flex items-center justify-between border-b pb-3 dark:border-gray-700 ${
+            enModoMatrix ? "border-error-900/40" : "border-gray-100"
+          }`}
+        >
           <div>
-            <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+            <h5 className={`text-lg font-semibold dark:text-gray-200 ${enModoMatrix ? "!text-white/90" : "text-gray-800"}`}>
               Notificaciones
             </h5>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Perfil {usuarioId}
-            </p>
           </div>
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            className="text-gray-500 transition hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className={`transition dark:text-gray-400 dark:hover:text-gray-200 ${
+              enModoMatrix ? "!text-error-400 hover:!text-error-300" : "text-gray-500 hover:text-gray-700"
+            }`}
             aria-label="Cerrar notificaciones"
           >
             <svg
@@ -183,25 +194,27 @@ export default function NotificationDropdown() {
 
         <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-gray-500">
-              <span className="h-7 w-7 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+            <div className={`flex h-full flex-col items-center justify-center gap-3 text-sm ${enModoMatrix ? "!text-error-400/80" : "text-gray-500"}`}>
+              <span className={`h-7 w-7 animate-spin rounded-full border-2 border-t-transparent ${enModoMatrix ? "border-error-500" : "border-brand-500"}`} />
               Calculando alertas…
             </div>
           ) : hasError ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-5 text-center">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+              <span className={`text-sm dark:text-gray-400 ${enModoMatrix ? "!text-error-400/80" : "text-gray-500"}`}>
                 No fue posible cargar los datos financieros.
               </span>
               <button
                 type="button"
                 onClick={() => void loadNotifications()}
-                className="text-sm font-medium text-brand-600 hover:text-brand-700"
+                className={`text-sm font-medium ${
+                  enModoMatrix ? "text-error-400 hover:text-error-300" : "text-brand-600 hover:text-brand-700"
+                }`}
               >
                 Reintentar
               </button>
             </div>
           ) : notifications.length === 0 ? (
-            <div className="flex h-full items-center justify-center px-5 text-center text-sm text-gray-500 dark:text-gray-400">
+            <div className={`flex h-full items-center justify-center px-5 text-center text-sm dark:text-gray-400 ${enModoMatrix ? "!text-error-400/80" : "text-gray-500"}`}>
               No hay alertas financieras para ti en este momento, prueba subiendo datos en importar csv.
             </div>
           ) : (
@@ -210,7 +223,9 @@ export default function NotificationDropdown() {
                 <li key={notification.id}>
                   <DropdownItem
                     onItemClick={() => setIsOpen(false)}
-                    className="flex gap-3 rounded-lg border-b border-gray-100 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
+                    className={`flex gap-3 rounded-lg border-b px-4.5 py-3 dark:border-gray-800 dark:hover:bg-white/5 ${
+                      enModoMatrix ? "border-error-900/30 hover:bg-error-950/40" : "border-gray-100 hover:bg-gray-100"
+                    }`}
                   >
                     <span
                       className={`relative z-1 flex h-10 max-w-10 shrink-0 items-center justify-center rounded-full text-lg font-semibold ${notification.iconBg}`}
@@ -220,16 +235,16 @@ export default function NotificationDropdown() {
                     </span>
 
                     <span className="block min-w-0">
-                      <span className="mb-1.5 block text-theme-sm text-gray-500 dark:text-gray-400">
-                        <span className="font-medium text-gray-800 dark:text-white/90">
+                      <span className={`mb-1.5 block text-theme-sm dark:text-gray-400 ${enModoMatrix ? "!text-error-300/80" : "text-gray-500"}`}>
+                        <span className={`font-medium dark:text-white/90 ${enModoMatrix ? "!text-white/90" : "text-gray-800"}`}>
                           {notification.titulo}
                         </span>
                         <span className="mt-0.5 block">{notification.detalle}</span>
                       </span>
 
-                      <span className="flex items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
+                      <span className={`flex items-center gap-2 text-theme-xs dark:text-gray-400 ${enModoMatrix ? "!text-error-400/70" : "text-gray-500"}`}>
                         <span>{notification.tipo}</span>
-                        <span className="h-1 w-1 rounded-full bg-gray-400" />
+                        <span className={`h-1 w-1 rounded-full ${enModoMatrix ? "bg-error-500/60" : "bg-gray-400"}`} />
                         <span>{notification.tiempo}</span>
                       </span>
                     </span>
@@ -244,7 +259,11 @@ export default function NotificationDropdown() {
           type="button"
           onClick={() => void loadNotifications()}
           disabled={loading}
-          className="mt-3 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-wait disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+          className={`mt-3 block w-full rounded-lg border px-4 py-2 text-center text-sm font-medium disabled:cursor-wait disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 ${
+            enModoMatrix
+              ? "border-error-900/40 bg-error-500/10 text-error-400 hover:bg-error-950/50"
+              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+          }`}
         >
           Actualizar notificaciones
         </button>

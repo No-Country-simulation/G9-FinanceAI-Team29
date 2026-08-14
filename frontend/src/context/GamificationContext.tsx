@@ -60,6 +60,12 @@ const PUNTOS_POR_EVENTO: Record<EventoGamificacion, number> = {
 
 const PUNTOS_POR_LOGRO = 25;
 
+// No incluye 'coleccionista_secretos' (categoría 'hito'): completar los especiales
+// es justamente lo que lo desbloquea, así que no puede depender de sí mismo.
+const ESPECIALES_IDS: AchievementId[] = ACHIEVEMENTS_CATALOG
+  .filter((a) => a.categoria === 'especial')
+  .map((a) => a.id);
+
 const LOGRO_DE_HITO: Partial<Record<EventoGamificacion, AchievementId>> = {
   meta_creada: 'primera_meta',
   csv_importado: 'primer_csv',
@@ -89,6 +95,7 @@ interface GamificationState {
   bestLevelSeen: number;
   ultimaSubidaNivel: string | null;
   puntos: number;
+  mensajesAsistente: number;
   logrosDesbloqueados: AchievementId[];
   trivia: {
     lastPlayedDate: string | null;
@@ -111,6 +118,7 @@ function persistEstado(usuarioId: string, state: GamificationState) {
     bestLevelSeen: state.bestLevelSeen,
     ultimaSubidaNivel: state.ultimaSubidaNivel,
     puntos: state.puntos,
+    mensajesAsistente: state.mensajesAsistente,
   };
   guardarEstadoGamificacion(usuarioId, dto).catch((error) =>
     console.error('No se pudo sincronizar el progreso con Supabase:', error),
@@ -206,17 +214,45 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
   // sobre todo en StrictMode); por eso NO se llama a la API acá adentro — solo se
   // actualiza el estado en memoria. La sincronización con Supabase vive en el
   // efecto de abajo, con un ref que garantiza "una sola vez por logro nuevo".
+  const logrosPendientesRef = useRef<Set<AchievementId>>(new Set());
+
   const desbloquearLogro = useCallback((id: AchievementId) => {
     if (!usuarioId) return;
     setState((actual) => {
-      if (!actual || actual.logrosDesbloqueados.includes(id)) return actual;
+      if (!actual) {
+        // El progreso todavía no terminó de cargar desde Supabase (p. ej. el
+        // usuario navegó rapidísimo a una pantalla con un logro apenas entró
+        // a la app): guardamos el id para aplicarlo en cuanto el estado
+        // inicial esté listo, en vez de perderlo silenciosamente.
+        logrosPendientesRef.current.add(id);
+        return actual;
+      }
+      if (actual.logrosDesbloqueados.includes(id)) return actual;
+      const nuevosLogros = [...actual.logrosDesbloqueados, id];
+      // "Coleccionista de secretos": se otorga solo, sin depender del componente que
+      // llame a desbloquearLogro, en cuanto el nuevo logro completa todos los especiales.
+      const faltaColeccionista = !nuevosLogros.includes('coleccionista_secretos');
+      const completoTodosLosEspeciales = ESPECIALES_IDS.every((eid) => nuevosLogros.includes(eid));
+      if (id !== 'coleccionista_secretos' && faltaColeccionista && completoTodosLosEspeciales) {
+        nuevosLogros.push('coleccionista_secretos');
+      }
       return {
         ...actual,
-        logrosDesbloqueados: [...actual.logrosDesbloqueados, id],
-        puntos: actual.puntos + PUNTOS_POR_LOGRO,
+        logrosDesbloqueados: nuevosLogros,
+        puntos: actual.puntos + PUNTOS_POR_LOGRO * (nuevosLogros.length - actual.logrosDesbloqueados.length),
       };
     });
   }, [usuarioId]);
+
+  // Aplica logros que llegaron mientras `state` todavía era null (ver comentario
+  // arriba). Corre en cada cambio de estado, pero es un no-op salvo la primera
+  // vez que hay pendientes, justo cuando el estado inicial termina de cargar.
+  useEffect(() => {
+    if (!state || logrosPendientesRef.current.size === 0) return;
+    const pendientes = Array.from(logrosPendientesRef.current);
+    logrosPendientesRef.current.clear();
+    pendientes.forEach((id) => desbloquearLogro(id));
+  }, [state, desbloquearLogro]);
 
   const logrosSincronizadosRef = useRef<Set<AchievementId>>(new Set());
 
@@ -268,17 +304,32 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       let logrosRemotos: AchievementId[] = [];
       let triviaRemota = { lastPlayedDate: null as string | null, bestScore: 0, correctStreak: 0 };
 
-      try {
-        const [estado, logros, trivia] = await Promise.all([
-          obtenerEstadoGamificacion(usuarioId),
-          obtenerLogrosDesbloqueados(usuarioId),
-          obtenerEstadisticasTrivia(usuarioId),
-        ]);
-        estadoRemoto = estado;
-        logrosRemotos = logros.map((l) => l.logroId as AchievementId);
+      // Cada llamada se maneja de forma independiente: si una falla (p. ej. el
+      // endpoint de estado), las otras dos no deben perderse por un solo catch
+      // compartido, o los logros/hitos ya guardados desaparecerían de la UI.
+      const [estadoResult, logrosResult, triviaResult] = await Promise.allSettled([
+        obtenerEstadoGamificacion(usuarioId),
+        obtenerLogrosDesbloqueados(usuarioId),
+        obtenerEstadisticasTrivia(usuarioId),
+      ]);
+
+      if (estadoResult.status === 'fulfilled') {
+        estadoRemoto = estadoResult.value;
+      } else {
+        console.error('No se pudo cargar el estado de gamificación desde Supabase:', estadoResult.reason);
+      }
+
+      if (logrosResult.status === 'fulfilled') {
+        logrosRemotos = logrosResult.value.map((l) => l.logroId as AchievementId);
+      } else {
+        console.error('No se pudieron cargar los logros desbloqueados desde Supabase:', logrosResult.reason);
+      }
+
+      if (triviaResult.status === 'fulfilled') {
+        const trivia = triviaResult.value;
         triviaRemota = { lastPlayedDate: trivia.lastPlayedDate, bestScore: trivia.bestScore, correctStreak: trivia.correctStreak };
-      } catch (error) {
-        console.error('No se pudo cargar el progreso de gamificación desde Supabase:', error);
+      } else {
+        console.error('No se pudieron cargar las estadísticas de trivia desde Supabase:', triviaResult.reason);
       }
 
       if (cancelado) return;
@@ -300,6 +351,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
             bestLevelSeen: estadoRemoto.bestLevelSeen,
             ultimaSubidaNivel: estadoRemoto.ultimaSubidaNivel,
             puntos: estadoRemoto.puntos,
+            mensajesAsistente: estadoRemoto.mensajesAsistente,
           }
         : {
             weekKey,
@@ -312,6 +364,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
             bestLevelSeen: 0,
             ultimaSubidaNivel: null as string | null,
             puntos: 0,
+            mensajesAsistente: 0,
           };
 
       if (stored.weekKey === weekKey && estadoRemoto) {
@@ -351,6 +404,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
         bestLevelSeen: stored.bestLevelSeen,
         ultimaSubidaNivel: stored.ultimaSubidaNivel,
         puntos: stored.puntos,
+        mensajesAsistente: stored.mensajesAsistente,
         logrosDesbloqueados: logrosRemotos,
         trivia: triviaRemota,
       };
@@ -412,6 +466,9 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       const actualizado: GamificationState = {
         ...actual,
         puntos: actual.puntos + PUNTOS_POR_EVENTO[tipo],
+        mensajesAsistente: tipo === 'mensaje_asistente'
+          ? actual.mensajesAsistente + 1
+          : actual.mensajesAsistente,
       };
       persistEstado(usuarioId, actualizado);
       return actualizado;
@@ -479,7 +536,10 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
         console.error('No se pudo sincronizar la trivia con Supabase:', error),
       );
     }
-  }, [usuarioId, state]);
+    if (huboRachaCompleta && total > 0) {
+      desbloquearLogro('trivia_perfecta');
+    }
+  }, [usuarioId, state, desbloquearLogro]);
 
   const subioNivelRecientemente = useMemo(() => {
     if (!state?.ultimaSubidaNivel) return false;

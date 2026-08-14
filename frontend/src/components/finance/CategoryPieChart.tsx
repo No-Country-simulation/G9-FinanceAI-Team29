@@ -20,18 +20,16 @@ const CATEGORY_COLORS = [
   '#667085',
 ];
 
-const money = new Intl.NumberFormat('es-CL', {
-  style: 'currency',
-  currency: 'USD',
+const moneyFormatter = new Intl.NumberFormat('es-CL', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+const money = { format: (value: number) => `$${moneyFormatter.format(value)}` };
 
-const compactMoney = new Intl.NumberFormat('es-CL', {
-  style: 'currency',
-  currency: 'USD',
+const compactMoneyFormatter = new Intl.NumberFormat('es-CL', {
   maximumFractionDigits: 0,
 });
+const compactMoney = { format: (value: number) => `$${compactMoneyFormatter.format(value)}` };
 
 export default function CategoryPieChart({ porCategoria, porcentajes }: CategoryPieChartProps) {
   const categorias = Object.entries(porCategoria)

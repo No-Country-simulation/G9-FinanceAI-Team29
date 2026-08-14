@@ -1,0 +1,14 @@
+1
+00:00:00,000 --> 00:00:02,900
+¡Hola! Ya que has decidido
+tomar la pastilla roja...
+
+2
+00:00:02,900 --> 00:00:05,900
+¿deseas venir a hablar conmigo
+y revisar tus finanzas
+
+3
+00:00:05,900 --> 00:00:08,400
+como un experto? Anda,
+yo sé que quieres.

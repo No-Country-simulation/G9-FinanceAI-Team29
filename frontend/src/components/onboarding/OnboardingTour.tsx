@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { useSidebar } from "../../context/SidebarContext";
 import { useOnboarding } from "../../context/OnboardingContext";
+import { useGamification } from "../../context/GamificationContext";
+import { useEsModoMatrix } from "../../hooks/useEsModoMatrix";
 import { isSpeechSupported, speakText, stopSpeaking } from "../../utils/speech";
 import {
   playDismiss,
@@ -210,6 +212,8 @@ export default function OnboardingTour() {
     closeMobileSidebar,
   } = useSidebar();
   const { setIsTourActive } = useOnboarding();
+  const { desbloquearLogro } = useGamification();
+  const enModoMatrix = useEsModoMatrix();
   const authId = session?.user.id ?? "guest";
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [active, setActive] = useState(false);
@@ -248,8 +252,12 @@ export default function OnboardingTour() {
   const finish = useCallback(
     (completed = false) => {
       stopSpeaking();
-      if (completed) playTourComplete();
-      else playDismiss();
+      if (completed) {
+        playTourComplete();
+        desbloquearLogro('tour_completado');
+      } else {
+        playDismiss();
+      }
       setActive(false);
       setWelcomeOpen(false);
       saveCompletedTour(authId);
@@ -257,7 +265,7 @@ export default function OnboardingTour() {
       window.setTimeout(() => previousFocusRef.current?.focus(), 0);
       navigate("/");
     },
-    [authId, closeMobileSidebar, navigate],
+    [authId, closeMobileSidebar, navigate, desbloquearLogro],
   );
 
   const start = () => {
@@ -443,7 +451,11 @@ export default function OnboardingTour() {
             setWelcomeOpen(true);
             playWelcomeChime();
           }}
-          className="fixed bottom-7 right-[5.25rem] z-[99990] flex size-10 items-center justify-center rounded-full border border-gray-200 bg-white text-brand-600 shadow-theme-md transition hover:-translate-y-0.5 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 motion-reduce:transition-none dark:border-gray-700 dark:bg-gray-900 dark:text-brand-400 dark:hover:bg-gray-800 sm:right-24"
+          className={`fixed bottom-7 right-[5.25rem] z-[99990] flex size-10 items-center justify-center rounded-full border shadow-theme-md transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none dark:border-gray-700 dark:bg-gray-900 dark:text-brand-400 dark:hover:bg-gray-800 sm:right-24 ${
+            enModoMatrix
+              ? "border-error-900/40 bg-gray-950 text-error-400 hover:bg-error-950/50 focus-visible:outline-error-500"
+              : "border-gray-200 bg-white text-brand-600 hover:bg-brand-50 focus-visible:outline-brand-500"
+          }`}
           aria-label="Abrir ayuda y recorrido guiado"
           title="Ayuda y recorrido"
         >
@@ -527,7 +539,13 @@ export default function OnboardingTour() {
                   <button type="button" onClick={skipWelcome} className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]">
                     Explorar por mi cuenta
                   </button>
-                  <button type="button" onClick={start} className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
+                  <button
+                    type="button"
+                    onClick={start}
+                    className={`rounded-lg px-4 py-2.5 text-sm font-medium text-white ${
+                      enModoMatrix ? "bg-error-600 hover:bg-error-500" : "bg-brand-500 hover:bg-brand-600"
+                    }`}
+                  >
                     Iniciar recorrido
                   </button>
                 </div>
@@ -583,7 +601,13 @@ export default function OnboardingTour() {
                     >
                       Anterior
                     </button>
-                    <button type="button" onClick={() => finish(true)} className="rounded-lg bg-brand-500 px-3 py-2.5 text-sm font-medium text-white hover:bg-brand-600">
+                    <button
+                      type="button"
+                      onClick={() => finish(true)}
+                      className={`rounded-lg px-3 py-2.5 text-sm font-medium text-white ${
+                        enModoMatrix ? "bg-error-600 hover:bg-error-500" : "bg-brand-500 hover:bg-brand-600"
+                      }`}
+                    >
                       Finalizar
                     </button>
                   </div>
@@ -606,7 +630,9 @@ export default function OnboardingTour() {
                         playStepClick("forward");
                         goToStep(stepIndex + 1);
                       }}
-                      className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+                      className={`rounded-lg px-4 py-2 text-sm font-medium text-white ${
+                        enModoMatrix ? "bg-error-600 hover:bg-error-500" : "bg-brand-500 hover:bg-brand-600"
+                      }`}
                     >
                       Siguiente
                     </button>

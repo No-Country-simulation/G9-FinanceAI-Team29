@@ -6,9 +6,10 @@ interface ColumnFilterProps {
   selected: string[];
   onChange: (selected: string[]) => void;
   disabledOptions?: string[];
+  onDisabledOptionClick?: (option: string) => void;
 }
 
-export default function ColumnFilter({ options, selected, onChange, disabledOptions = [] }: ColumnFilterProps) {
+export default function ColumnFilter({ options, selected, onChange, disabledOptions = [], onDisabledOptionClick }: ColumnFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const isActive = selected.length > 0;
 
@@ -61,6 +62,12 @@ export default function ColumnFilter({ options, selected, onChange, disabledOpti
               <label
                 key={option}
                 title={isDisabled ? 'No combina con los otros filtros activos' : undefined}
+                onClick={(e) => {
+                  if (isDisabled) {
+                    e.preventDefault();
+                    onDisabledOptionClick?.(option);
+                  }
+                }}
                 className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-normal ${
                   isDisabled
                     ? 'cursor-not-allowed text-gray-300 dark:text-gray-600'

@@ -1197,7 +1197,11 @@ export default function AsistenteIA() {
     setMatrixSplash({ tipo: eleccion, fase: "visible" });
     const ruta = eleccion === "roja" ? "/modo-matrix" : "/";
     const cerrar = setTimeout(() => setMatrixSplash((prev) => prev ? { ...prev, fase: "cerrando" } : null), 1600);
-    const navegar = setTimeout(() => { navigate(ruta); setMatrixSplash(null); }, 2100);
+    const navegar = setTimeout(() => {
+      // La pastilla roja entra en la experiencia completa de Modo Matrix (no en el guard).
+      navigate(ruta, eleccion === "roja" ? { state: { pastillaRojaSplash: true } } : undefined);
+      setMatrixSplash(null);
+    }, 2100);
     return () => { clearTimeout(cerrar); clearTimeout(navegar); };
   };
 

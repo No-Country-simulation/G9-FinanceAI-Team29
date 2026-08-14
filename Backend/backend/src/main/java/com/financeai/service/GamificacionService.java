@@ -123,7 +123,8 @@ public class GamificacionService {
                 request.bestDailyStreak(),
                 request.bestLevelSeen(),
                 request.ultimaSubidaNivel(),
-                request.puntos()
+                request.puntos(),
+                request.mensajesAsistente()
         );
         return estadoGamificacionRepository.findById(usuarioId)
                 .map(this::toResponse)
@@ -195,7 +196,8 @@ public class GamificacionService {
         return new EstadoGamificacionResponse(
             estado.getWeekKey(), estado.getChallengesBaseline(), estado.getStreak(), estado.getBestStreak(),
             estado.getLastActiveDate(), estado.getDailyStreak(), estado.getBestDailyStreak(),
-            estado.getBestLevelSeen(), estado.getUltimaSubidaNivel(), estado.getPuntos()
+            estado.getBestLevelSeen(), estado.getUltimaSubidaNivel(), estado.getPuntos(),
+            estado.getMensajesAsistente()
         );
     }
 }

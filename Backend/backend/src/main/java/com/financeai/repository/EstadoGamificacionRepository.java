@@ -23,10 +23,12 @@ public interface EstadoGamificacionRepository extends JpaRepository<EstadoGamifi
     @Query(value = """
         INSERT INTO gamificacion_estado
             (usuario_id, week_key, challenges_baseline, streak, best_streak, last_active_date,
-             daily_streak, best_daily_streak, best_level_seen, ultima_subida_nivel, puntos, actualizado_at)
+             daily_streak, best_daily_streak, best_level_seen, ultima_subida_nivel, puntos,
+             mensajes_asistente, actualizado_at)
         VALUES
             (:usuarioId, :weekKey, CAST(:challengesBaseline AS jsonb), :streak, :bestStreak, :lastActiveDate,
-             :dailyStreak, :bestDailyStreak, :bestLevelSeen, :ultimaSubidaNivel, :puntos, now())
+             :dailyStreak, :bestDailyStreak, :bestLevelSeen, :ultimaSubidaNivel, :puntos,
+             :mensajesAsistente, now())
         ON CONFLICT (usuario_id) DO UPDATE SET
             week_key            = EXCLUDED.week_key,
             challenges_baseline = EXCLUDED.challenges_baseline,
@@ -38,6 +40,7 @@ public interface EstadoGamificacionRepository extends JpaRepository<EstadoGamifi
             best_level_seen     = EXCLUDED.best_level_seen,
             ultima_subida_nivel = EXCLUDED.ultima_subida_nivel,
             puntos              = EXCLUDED.puntos,
+            mensajes_asistente  = EXCLUDED.mensajes_asistente,
             actualizado_at      = now()
         """, nativeQuery = true)
     void upsertEstado(
@@ -51,6 +54,7 @@ public interface EstadoGamificacionRepository extends JpaRepository<EstadoGamifi
             @Param("bestDailyStreak") int bestDailyStreak,
             @Param("bestLevelSeen") int bestLevelSeen,
             @Param("ultimaSubidaNivel") LocalDateTime ultimaSubidaNivel,
-            @Param("puntos") int puntos
+            @Param("puntos") int puntos,
+            @Param("mensajesAsistente") int mensajesAsistente
     );
 }
