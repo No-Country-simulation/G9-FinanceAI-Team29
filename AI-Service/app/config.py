@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     groq_api_key_2: str | None = None
     groq_api_key_3: str | None = None
     groq_api_key_4: str | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-20b"
 
     @property
     def groq_api_keys(self) -> list[str]:
