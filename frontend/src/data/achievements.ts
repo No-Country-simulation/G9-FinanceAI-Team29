@@ -25,6 +25,7 @@ export type AchievementId =
   | 'isengard'
   | 'infinite_money'
   | 'ctrl_z_gastos'
+  | 'finsi_walking'
   | 'admin_click_frenzy'
   | 'primera_meta'
   | 'primer_csv'
@@ -293,6 +294,14 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
     emoji: '⌨️',
     categoria: 'especial',
     pista: 'Intenta hacer Ctrl+Z sobre tus gastos en el chat.',
+  },
+  {
+    id: 'finsi_walking',
+    titulo: 'Con estilo',
+    descripcion: 'Le preguntaste al asistente cómo conseguir mejores precios y Finsi se lució caminando la calle.',
+    emoji: '🚶',
+    categoria: 'especial',
+    pista: 'Preguntale al asistente cómo conseguir mejores precios u ofertas.',
   },
 
   {

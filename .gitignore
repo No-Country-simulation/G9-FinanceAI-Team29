@@ -42,3 +42,4 @@ MERGE_NOTES.txt
 *.njsproj
 *.sln
 *.sw?
+docker-compose.override.yml

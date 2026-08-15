@@ -30,6 +30,7 @@ const MATCHERS: { id: AchievementId; substring: string }[] = [
   { id: 'mongolia', substring: 'de mongolia soy' },
   { id: 'infinite_money', substring: 'infinite money glitch detectado' },
   { id: 'ctrl_z_gastos', substring: 'intentando deshacer tus gastos' },
+  { id: 'finsi_walking', substring: 'caminando la calle, pero con estilo' },
 ];
 
 export function detectarLogroEnRespuesta(answer: string): AchievementId | null {

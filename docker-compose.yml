@@ -6,10 +6,10 @@
 #   docker compose up -d --build
 #
 # Requisitos (cada uno con su .env, NO commiteado):
-#   - Backend/backend/.env      → DB_PASS, SUPABASE_SERVICE_ROLE_KEY, SERVICE_TOKEN, ...
-#   - AI-Service/.env           → GROQ_API_KEY, SERVICE_TOKEN, ...
-#   - frontend/.env             → VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (para el build)
-#   - frontend/.env.production   → VITE_API_URL=/api, VITE_AI_URL=/ai (same-origin, ya incluido)
+#   - Backend/backend/.env      → DB_PASS, SERVICE_TOKEN, RESEND_API_KEY, VAPID_*, ...
+#   - AI-Service/.env           → GROQ_API_KEY (+2/3/4), GEMINI_API_KEY, SERVICE_TOKEN, ...
+#   - frontend/.env             → VITE_VAPID_PUBLIC_KEY (para el build dev)
+#   - frontend/.env.production   → VITE_API_URL=/api, VITE_AI_URL=/ai, VITE_VAPID_PUBLIC_KEY
 
 services:
   frontend:
@@ -49,14 +49,14 @@ services:
       # El microservicio de ML se alcanza por su nombre de servicio en la red de compose
       # (el default 127.0.0.1:8000 dentro del container apunta al propio backend).
       ML_SERVICE_URL: "http://ai-service:8000"
-      # Object Storage para avatares (local: MinIO). En OCI se apunta al endpoint real.
-      # endpoint = interno (red compose); public-url = lo que ve el navegador (puerto publicado).
-      STORAGE_S3_ENDPOINT: "http://minio:9000"
-      STORAGE_S3_ACCESS_KEY: "${MINIO_ROOT_USER:-minioadmin}"
-      STORAGE_S3_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minioadmin}"
-      STORAGE_S3_REGION: "us-east-1"
-      STORAGE_AVATARS_BUCKET: "finsight-avatars"
-      STORAGE_AVATARS_PUBLIC_URL: "http://localhost:9000/finsight-avatars"
+      # Object Storage para avatares. Sin overrides → MinIO local (dev).
+      # En el VM: definir STORAGE_S3_* en el .env raíz (root) y toma OCI real.
+      STORAGE_S3_ENDPOINT: "${STORAGE_S3_ENDPOINT:-http://minio:9000}"
+      STORAGE_S3_ACCESS_KEY: "${STORAGE_S3_ACCESS_KEY:-${MINIO_ROOT_USER:-minioadmin}}"
+      STORAGE_S3_SECRET_KEY: "${STORAGE_S3_SECRET_KEY:-${MINIO_ROOT_PASSWORD:-minioadmin}}"
+      STORAGE_S3_REGION: "${STORAGE_S3_REGION:-us-east-1}"
+      STORAGE_AVATARS_BUCKET: "${STORAGE_AVATARS_BUCKET:-finsight-avatars}"
+      STORAGE_AVATARS_PUBLIC_URL: "${STORAGE_AVATARS_PUBLIC_URL:-http://localhost:9000/finsight-avatars}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,13 +74,14 @@ services:
     environment:
       # Dentro de la red de compose, el backend se alcanza por su nombre de servicio.
       BACKEND_URL: "http://backend:8081/api"
-      # Modelos desde Object Storage (local: MinIO). En OCI se apunta al endpoint real.
-      # Si estas vars faltan, el AI-Service usa los .joblib empaquetados (fallback).
-      MODELS_S3_ENDPOINT: "http://minio:9000"
-      MODELS_S3_BUCKET: "finsight-models"
-      MODELS_S3_ACCESS_KEY: "${MINIO_ROOT_USER:-minioadmin}"
-      MODELS_S3_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minioadmin}"
-      MODELS_S3_REGION: "us-east-1"
+      # Modelos desde Object Storage. Sin overrides → MinIO local (dev).
+      # En el VM: definir MODELS_S3_* en el .env raíz (root) y toma OCI real.
+      # Si el storage no responde, el AI-Service usa los .joblib empaquetados (fallback).
+      MODELS_S3_ENDPOINT: "${MODELS_S3_ENDPOINT:-http://minio:9000}"
+      MODELS_S3_BUCKET: "${MODELS_S3_BUCKET:-finsight-models}"
+      MODELS_S3_ACCESS_KEY: "${MODELS_S3_ACCESS_KEY:-${MINIO_ROOT_USER:-minioadmin}}"
+      MODELS_S3_SECRET_KEY: "${MODELS_S3_SECRET_KEY:-${MINIO_ROOT_PASSWORD:-minioadmin}}"
+      MODELS_S3_REGION: "${MODELS_S3_REGION:-us-east-1}"
     depends_on:
       minio-init:
         condition: service_completed_successfully
