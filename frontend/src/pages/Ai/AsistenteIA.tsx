@@ -135,7 +135,7 @@ function puedeMostrarExplicameMas(texto: string): boolean {
   return !respuestasInteractivas;
 }
 
-type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | "wololo1" | "wololo2" | "descanso" | "rickroll" | "isengard" | "albion" | "hello_world" | "mongolia" | "infinite_money" | "ctrl_z_gastos" | "finsi_walking" | null;
+type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | "wololo1" | "wololo2" | "descanso" | "rickroll" | "isengard" | "albion" | "hello_world" | "mongolia" | "infinite_money" | "ctrl_z_gastos" | "finsi_walking" | "finsi_crypto" | null;
 
 function detectarEasterEggVisual(texto: string): EasterEggVisual {
   if (texto.includes("!audio[general-kenobi]") || /\bGeneral Kenobi\./i.test(texto)) {
@@ -200,6 +200,14 @@ if (texto.includes("!audio[ctrl-z-gastos]")) {
   if (texto.includes("!audio[finsi-walking]")) {
     return "finsi_walking";
   }
+
+  if (texto.includes("!audio[finsi-walking]")) {
+  return "finsi_walking";
+}
+
+if (texto.includes("[[finsi-crypto]]")) {
+  return "finsi_crypto";
+}
 
   return null;
 }
@@ -301,7 +309,15 @@ ctrl_z_gastos: {
     border: "border-sky-300/60",
   },
 
-};
+
+  finsi_crypto: {
+    src: "/images/task/finsi-crypto.webp",
+    poster: "/images/task/finsi-crypto-poster.webp",
+    durationMs: 10000,
+    border: "border-yellow-300/60",
+  },
+
+};  
 
 
 const GOT_TITLE_LINES = ["WINTER IS", "COMING"];
@@ -1571,7 +1587,7 @@ export default function AsistenteIA() {
                         !message.isHistory &&
                         !enviando &&
                         !pasoPendiente &&
-                        !easterVisual &&
+                        !easterVisual || easterVisual === "finsi_crypto" &&
                         modeloActivo === "FinSightAI Advisor" &&
                         !/You just got Rickrolled|!video\[Rickroll\]/i.test(message.text) &&
                         normalizarPreguntaParaComparar(ultimaPreguntaUsuarioTexto) !==

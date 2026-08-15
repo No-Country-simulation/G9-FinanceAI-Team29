@@ -31,6 +31,7 @@ const MATCHERS: { id: AchievementId; substring: string }[] = [
   { id: 'infinite_money', substring: 'infinite money glitch detectado' },
   { id: 'ctrl_z_gastos', substring: 'intentando deshacer tus gastos' },
   { id: 'finsi_walking', substring: 'caminando la calle, pero con estilo' },
+  { id: 'rey_crypto', substring: 'has venido a consultar al rey de las crypto' },
 ];
 
 export function detectarLogroEnRespuesta(answer: string): AchievementId | null {

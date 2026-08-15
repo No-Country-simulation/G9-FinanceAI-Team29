@@ -49,7 +49,8 @@ export type AchievementId =
   | 'exportar_pdf'
   | 'exportar_csv'
   | 'exportar_excel'
-  | 'exportar_dashboard';
+  | 'exportar_dashboard'
+  |  'rey_crypto';
 
 /**
  * 'especial' = easter egg del chat
@@ -509,6 +510,15 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
     categoria: 'hito',
     pista: 'Usá el botón "Exportar" y elegí la opción "Exportar Dashboard".',
   },
+  {
+    id: 'rey_crypto',
+    titulo: 'Rey de las Crypto',
+    descripcion: 'Hablaste con el mismísimo Rey de las Crypto.',
+    emoji: '👑',
+    categoria: 'hito',
+    pista: 'Pregúntale a Finsi sobre Bitcoin, criptomonedas o memecoins.',
+  },
+
   {
     id: 'coleccionista_secretos',
     titulo: 'Coleccionista de secretos',

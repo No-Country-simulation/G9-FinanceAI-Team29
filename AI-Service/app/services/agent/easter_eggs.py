@@ -398,6 +398,57 @@ class EasterEggResponder:
         "encontrar ofertas",
     }
 
+    _CRYPTO_KING_TRIGGERS = {
+        "que opinas de las criptomonedas",
+        "que opinas de las crypto",
+        "que opinas de las cripto",
+        "que opinas de bitcoin",
+        "que piensas de las criptomonedas",
+        "que piensas de las crypto",
+        "que piensas de bitcoin",
+        "hablame de criptomonedas",
+        "hablame de las criptomonedas",
+        "hablame de crypto",
+        "hablame de bitcoin",
+        "explicame las criptomonedas",
+        "explicame crypto",
+        "explicame bitcoin",
+        "como funcionan las criptomonedas",
+        "como funciona bitcoin",
+        "son seguras las criptomonedas",
+        "es seguro invertir en criptomonedas",
+        "conviene invertir en criptomonedas",
+        "conviene invertir en crypto",
+        "conviene invertir en bitcoin",
+        "deberia invertir en criptomonedas",
+        "deberia invertir en crypto",
+        "deberia invertir en bitcoin",
+        "quiero invertir en criptomonedas",
+        "quiero invertir en crypto",
+        "quiero invertir en bitcoin",
+        "criptomonedas",
+        "criptomoneda",
+        "crypto",
+        "cripto",
+        "bitcoin",
+        "btc",
+        "ethereum",
+        "eth",
+        "memecoin",
+        "memecoins",
+        "meme coin",
+        "meme coins",
+        "que es una memecoin",
+        "que son las memecoins",
+        "que opinas de las memecoins",
+        "conviene invertir en memecoins",
+        "quiero invertir en memecoins",
+        "dogecoin",
+        "doge",
+        "shiba inu",
+        "shib",
+    }
+
     
 
     @classmethod
@@ -630,8 +681,42 @@ class EasterEggResponder:
                     "!audio[finsi-walking](/images/task/finsi-walking.mp3)"
         ),
     )
-        
-        
+
+        if (normalized in cls._CRYPTO_KING_TRIGGERS
+            or any(
+            cls._contains_word(normalized, word)
+            for word in (
+                   "crypto",
+                    "cripto",
+                    "criptomoneda",
+                    "criptomonedas",
+                    "bitcoin",
+                    "btc",
+                    "ethereum",
+                    "eth",
+                    "memecoin",
+                    "memecoins",
+                    "dogecoin",
+                    "doge",
+            )
+        )
+):
+         return EasterEgg(
+            key="finsi_crypto",
+            response=(
+                    "👑 Ah... veo que has venido a consultar al Rey de las Crypto.\n\n"
+                    "Ahora, fuera de mi imperio cripto 😎: las criptomonedas son "
+                    "activos digitales que pueden tener una volatilidad muy alta. "
+                    "Si estás pensando en invertir, es importante evaluar cuánto "
+                    "riesgo podés asumir, evitar usar dinero destinado a gastos "
+                    "esenciales y no concentrar todo tu capital en un único activo.\n\n"
+                    "También conviene investigar bien cada proyecto, entender cómo "
+                    "funciona y prestar especial atención a la seguridad y custodia "
+                    "de tus activos.\n\n"
+                    "!audio[finsi-crypto](/images/task/finsi-crypto.mp3)\n\n"
+                    "[[finsi-crypto]]"
+        ),
+    )                                                 
 
         return None
 
