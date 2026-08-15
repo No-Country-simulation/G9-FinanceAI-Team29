@@ -239,17 +239,163 @@ class EasterEggResponder:
     }
 
     _MEJORES_PRECIOS_TRIGGERS = {
+    # Frases principales
         "como consigo mejores precios",
         "como puedo conseguir mejores precios",
-        "donde consigo mejores precios",
-        "como encuentro mejores precios",
         "como conseguir mejores precios",
+        "donde consigo mejores precios",
+        "donde puedo conseguir mejores precios",
+        "como encuentro mejores precios",
+        "como puedo encontrar mejores precios",
+        "donde encuentro mejores precios",
+        "donde puedo encontrar mejores precios",
+
+        # Más barato / baratos
         "como consigo precios mas baratos",
+        "como conseguir precios mas baratos",
+        "como puedo conseguir precios mas baratos",
         "como encuentro precios mas baratos",
+        "como puedo encontrar precios mas baratos",
         "donde encuentro precios mas baratos",
+        "donde consigo precios mas baratos",
+        "donde puedo conseguir precios mas baratos",
+        "como compro mas barato",
+        "como puedo comprar mas barato",
+        "donde compro mas barato",
+        "donde comprar mas barato",
+        "como comprar barato",
+        "donde comprar barato",
+
+        # Pagar menos
         "como puedo pagar menos",
+        "como pago menos",
+        "como hago para pagar menos",
+        "que hago para pagar menos",
+        "como puedo gastar menos",
+        "como hago para gastar menos",
+        "quiero pagar menos",
+        "quiero gastar menos",
+
+        # Ahorrar comprando
         "como ahorro en mis compras",
         "como puedo ahorrar en mis compras",
+        "como ahorrar en mis compras",
+        "como hago para ahorrar en mis compras",
+        "como puedo ahorrar comprando",
+        "como ahorrar comprando",
+        "como gasto menos en mis compras",
+        "como gastar menos en mis compras",
+        "como puedo gastar menos en compras",
+
+        # Ofertas / descuentos
+        "como consigo descuentos",
+        "como conseguir descuentos",
+        "donde consigo descuentos",
+        "donde encuentro descuentos",
+        "como encuentro descuentos",
+        "como consigo ofertas",
+        "como conseguir ofertas",
+        "donde consigo ofertas",
+        "donde encuentro ofertas",
+        "como encuentro ofertas",
+        "como encontrar buenas ofertas",
+        "donde hay mejores ofertas",
+        "donde hay mejores precios",
+
+        # Precio / precios
+        "como consigo un mejor precio",
+        "como conseguir un mejor precio",
+        "como encuentro un mejor precio",
+        "donde consigo un mejor precio",
+        "donde encuentro un mejor precio",
+        "como puedo conseguir un mejor precio",
+        "como puedo encontrar un mejor precio",
+
+        # Formas coloquiales
+        "como hago para conseguir mejores precios",
+        "como hago para encontrar mejores precios",
+        "como hago para comprar mas barato",
+        "como hago para conseguir cosas mas baratas",
+        "como consigo cosas mas baratas",
+        "donde consigo cosas mas baratas",
+        "como puedo comprar mas barato",
+        "quiero conseguir mejores precios",
+        "quiero comprar mas barato",
+        "quiero ahorrar cuando compro",
+        "quiero ahorrar en compras",
+
+        # Typos frecuentes: "como"
+        "cmo consigo mejores precios",
+        "como consigo mejore precios",
+        "como consigo mejor precios",
+        "como consigo mejores presios",
+        "como consigo mejores preios",
+        "como consigo mejores precio",
+        "como consigo mejores preicos",
+        "como consigo mejores preccios",
+        "como consigo mejroes precios",
+        "como consigo mejoers precios",
+        "como consgio mejores precios",
+        "como conisgo mejores precios",
+        "como consego mejores precios",
+        "como consijo mejores precios",
+
+        # Typos en conseguir
+        "como puedo consegir mejores precios",
+        "como puedo consguir mejores precios",
+        "como puedo consiguir mejores precios",
+        "como puedo consseguir mejores precios",
+        "como puedo conseguir mejore precios",
+        "como puedo conseguir mejores presios",
+
+        # Typos en encontrar
+        "como encuntro mejores precios",
+        "como encuetro mejores precios",
+        "como encuento mejores precios",
+        "como encunetro mejores precios",
+        "donde encuntro mejores precios",
+        "donde encuento mejores precios",
+
+        # Typos en barato
+        "como consigo precios mas varatos",
+        "como consigo precios mas bararos",
+        "como consigo precios mas bartos",
+        "como consigo precios mas baratso",
+        "como compro mas varato",
+        "como comprar mas varato",
+
+        # Typos en ahorrar
+        "como ahoro en mis compras",
+        "como aorro en mis compras",
+        "como ahoroo en mis compras",
+        "como puedo ahorar en mis compras",
+        "como puedo aorrar en mis compras",
+        "como puedo ahorrrar en mis compras",
+
+        # Typos en descuentos/ofertas
+        "como consigo descuetos",
+        "como consigo descunetos",
+        "como consigo desuentos",
+        "donde encuentro descuetos",
+        "como consigo ofetas",
+        "como consigo ofertsa",
+        "donde encuentro ofetas",
+
+        # Sin palabras que suelen omitirse al escribir rápido
+        "conseguir mejores precios",
+        "encontrar mejores precios",
+        "mejores precios",
+        "conseguir precios baratos",
+        "encontrar precios baratos",
+        "precios mas baratos",
+        "comprar mas barato",
+        "pagar menos",
+        "gastar menos",
+        "ahorrar en compras",
+        "conseguir descuentos",
+        "encontrar descuentos",
+        "conseguir ofertas",
+        "encontrar ofertas",
     }
 
     
@@ -476,7 +622,7 @@ class EasterEggResponder:
             return EasterEgg(
                 key="finsi_walking",
                 response=(
-                    "Caminando la calle, pero con estilo... 😎\n\n"
+                    "Caminando la calle, pero siempre con estilo... 😎\n\n"
                     "Nah, hablando en serio: tratá de buscar ofertas y comparar precios, "
                     "tanto en tiendas online como en locales físicos. A veces el mismo "
                     "producto puede tener diferencias importantes de precio según dónde "
