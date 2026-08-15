@@ -25,6 +25,7 @@ import {
   obtenerTransacciones,
   obtenerResumen,
   analizarFinanzas,
+  obtenerPerfilCompleto,
 } from "../../services/api";
 import {
   PerfilUsuario,
@@ -41,6 +42,7 @@ import DashboardSkeleton from "../../components/finance/DashboardSkeleton";
 
 export default function Home() {
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
+  const [nombre, setNombre] = useState<string | null>(null);
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [resumen, setResumen] = useState<ResumenTransacciones | null>(null);
   const [analisis, setAnalisis] = useState<AnalisisResponse | null>(null);
@@ -108,6 +110,14 @@ export default function Home() {
 
       const perfilData = await obtenerUsuario(usuarioId);
       console.log("✓ Perfil", perfilData);
+
+      try {
+        const perfilCompleto = await obtenerPerfilCompleto(usuarioId);
+        setNombre(perfilCompleto.nombre ?? null);
+      } catch (err) {
+        console.warn("No se pudo cargar el nombre del usuario:", err);
+        setNombre(null);
+      }
 
       const transData = await obtenerTransacciones(usuarioId);
       console.log("✓ Transacciones", transData);
@@ -441,6 +451,7 @@ if (authLoading) {
             perfil={perfil}
             analisis={analisis}
             loading={loading}
+            nombre={nombre}
           />
         </div>
 
