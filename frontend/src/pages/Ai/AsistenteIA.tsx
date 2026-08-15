@@ -205,7 +205,7 @@ if (texto.includes("!audio[ctrl-z-gastos]")) {
   return "finsi_walking";
 }
 
-if (texto.includes("[[finsi-crypto]]")) {
+if (texto.includes("!audio[finsi-crypto]")) {
   return "finsi_crypto";
 }
 

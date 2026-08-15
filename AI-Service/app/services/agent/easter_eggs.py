@@ -714,7 +714,6 @@ class EasterEggResponder:
                     "funciona y prestar especial atención a la seguridad y custodia "
                     "de tus activos.\n\n"
                     "!audio[finsi-crypto](/images/task/finsi-crypto.mp3)\n\n"
-                    "[[finsi-crypto]]"
         ),
     )                                                 
 
