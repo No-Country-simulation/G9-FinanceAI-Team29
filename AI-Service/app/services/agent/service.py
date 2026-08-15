@@ -1,4 +1,6 @@
+
 import re
+import random
 from datetime import date, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -50,6 +52,9 @@ class FinSightAgentService:
         self.policies = AgentPolicies()
         self.goal_repository = GoalRepository()
         self.support_agent = SupportAgent(llm=self.llm)
+        # Primera consulta crypto por usuario: muestra siempre el Rey Crypto.
+        # Consultas posteriores: aparece aleatoriamente para no saturar.
+        self._crypto_king_seen_users: set[str] = set()
 
     async def chat(
         self,
@@ -182,10 +187,11 @@ class FinSightAgentService:
             )
 
         easter_egg = EasterEggResponder.match(question)
-        if easter_egg is not None:
-            # Respuesta temprana: no pasa por intents, soporte, consultas,
-            # políticas ni LLM. Si había contexto financiero, conserva solo
-            # su marcador oculto para no alterar un seguimiento posterior.
+        crypto_king_query = EasterEggResponder.is_crypto_king_query(question)
+        if easter_egg is not None and easter_egg.key != "finsi_crypto":
+            # Los easter eggs tradicionales siguen siendo respuestas tempranas.
+            # Crypto es la excepción: debe conservar el visual/audio/logro, pero
+            # la pregunta real continúa por el flujo financiero/educativo.
             preserved_context = self._financial_context_marker(previous_answer)
             content = easter_egg.response
             if preserved_context:
@@ -257,6 +263,25 @@ class FinSightAgentService:
                     "corrections_count": len(query.corrections),
                 }
             )
+            return response
+
+        # Follow-ups cortos sobre capacidad de ahorro conservan la intención
+        # financiera de la respuesta anterior. Se resuelven antes del aislamiento
+        # Advisor/Soporte para que frases como "¿puedes calcularla?", "calculala"
+        # o "¿y cuánto es?" no sean interpretadas como consultas técnicas.
+        if self._is_savings_capacity_follow_up(query.original, previous_answer):
+            analysis = self._get_analysis(usuario_id)
+            content = DeterministicFinancialResponder.respond(
+                intent=Intent.SAVINGS,
+                analysis=analysis,
+            )
+            response = self._internal_response(
+                content,
+                Intent.SAVINGS,
+                query,
+                used_financial_context=True,
+            )
+            response.metadata["route"] = "savings_capacity_follow_up"
             return response
 
         # Si ya estamos dentro del flujo de creación de una meta, continuarlo
@@ -774,6 +799,23 @@ class FinSightAgentService:
                 "corrections_count": len(query.corrections),
             }
         )
+
+        if crypto_king_query:
+            first_crypto_for_user = usuario_id not in self._crypto_king_seen_users
+            show_crypto_king = first_crypto_for_user or random.random() < 0.25
+            self._crypto_king_seen_users.add(usuario_id)
+
+            if show_crypto_king:
+                response.content = (
+                    "👑 Ah... veo que has venido a consultar al Rey de las Crypto.\n\n"
+                    f"{response.content}\n\n"
+                    "!audio[finsi-crypto](/images/task/finsi-crypto.mp3)"
+                )
+                response.metadata["easter_egg"] = "finsi_crypto"
+                response.metadata["crypto_king_decorated"] = True
+            else:
+                response.metadata["crypto_king_decorated"] = False
+
         return response
 
 
@@ -810,6 +852,62 @@ class FinSightAgentService:
         return (
             f"La clasificaría como **{categoria} → {subcategoria}**. "
             "Esa clasificación se basa en la descripción de la transacción."
+        )
+
+    @staticmethod
+    def _is_savings_capacity_follow_up(
+        question: str,
+        previous_answer: str | None,
+    ) -> bool:
+        """Reconoce continuaciones breves de una consulta sobre capacidad de ahorro.
+
+        El objetivo es conservar el contexto financiero antes de que los detectores
+        amplios de soporte evalúen frases ambiguas como "puedes calcularla".
+        """
+        if not previous_answer:
+            return False
+
+        previous = QueryNormalizer.normalize(previous_answer)
+        if not any(
+            marker in previous
+            for marker in (
+                "capacidad de ahorro",
+                "ahorro mensual estimado",
+                "ahorro mensual registrado",
+                "puedes ahorrar cada mes",
+                "puedes ahorrar aproximadamente",
+            )
+        ):
+            return False
+
+        normalized = QueryNormalizer.normalize(question).strip()
+        exact_follow_ups = {
+            "puedes calcularla",
+            "podes calcularla",
+            "puedes calcularlo",
+            "podes calcularlo",
+            "calculala",
+            "calculalo",
+            "calcula eso",
+            "si calculala",
+            "si calculalo",
+            "cuanto es",
+            "y cuanto es",
+            "cuanto seria",
+            "y cuanto seria",
+            "cuanto puedo ahorrar",
+            "y cuanto puedo ahorrar",
+            "decime cuanto",
+            "dime cuanto",
+        }
+        if normalized in exact_follow_ups:
+            return True
+
+        return bool(
+            re.search(
+                r"^(?:puedes|podes|podrias|podrias)\s+calcular(?:la|lo)?$",
+                normalized,
+            )
         )
 
     @staticmethod

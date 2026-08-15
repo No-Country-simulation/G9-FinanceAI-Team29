@@ -1587,20 +1587,21 @@ export default function AsistenteIA() {
                         !message.isHistory &&
                         !enviando &&
                         !pasoPendiente &&
-                        !easterVisual || easterVisual === "finsi_crypto" &&
+                        (!easterVisual || easterVisual === "finsi_crypto") &&
                         modeloActivo === "FinSightAI Advisor" &&
                         !/You just got Rickrolled|!video\[Rickroll\]/i.test(message.text) &&
                         normalizarPreguntaParaComparar(ultimaPreguntaUsuarioTexto) !==
                           normalizarPreguntaParaComparar(MENSAJE_EXPLICAME_MAS) &&
                         puedeMostrarExplicameMas(message.text) && (
                           <div className="mt-2 flex w-full justify-start">
-                          <button
-                               type="button"
-                               onClick={() => void handleSubmit(MENSAJE_EXPLICAME_MAS)}
-                               disabled={enviando}
-                               className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50" >
-                                Explícame más
-                           </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleSubmit(MENSAJE_EXPLICAME_MAS)}
+                              disabled={enviando}
+                              className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Explícame más
+                            </button>
                           </div>
                         )}
 

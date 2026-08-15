@@ -774,6 +774,24 @@ class TransactionQueryEngine:
         ):
             return None
 
+        # Comparación relativa explícita entre el mes actual y el anterior.
+        # Se reconoce estructuralmente y se resuelve antes de cualquier ranking
+        # histórico para evitar que "este mes gasté más que el anterior" sea
+        # confundido con "¿en qué mes gasté más?".
+        relative_month_comparison = bool(
+            re.search(
+                r"\b(?:este\s+mes\s+(?:gaste|gasto|estoy\s+gastando)\s+(?:mas|menos)|"
+                r"(?:gaste|gasto)\s+(?:mas|menos)\s+este\s+mes)\b"
+                r".*\b(?:que|vs|versus)\s+(?:el\s+)?(?:mes\s+)?(?:anterior|pasado)\b",
+                q,
+            )
+        )
+        if relative_month_comparison:
+            return cls._result(
+                cls._compare_months(expenses, today, "gastos"),
+                "expenses_month_comparison",
+            )
+
         # Comparación directa entre dos meses explícitos.
         # Ej.: "¿Gasté más en julio o en agosto?"
         month_names = {
@@ -1147,14 +1165,61 @@ class TransactionQueryEngine:
             selected = cls._period_frame(expenses, period, today)
             return cls._result(f"Registraste {len(selected)} gastos {label}.", "expenses_count")
 
-        if cls._has(q, "mes con mas gastos", "mes gaste mas"):
+        # Las comparaciones relativas deben evaluarse antes del ranking histórico.
+        # Si no, "este mes gasté más que el anterior" contiene "mes gaste mas"
+        # y termina respondiendo cuál fue el mes con más gastos de todo el historial.
+        if cls._has(
+            q,
+            "este mes que el anterior",
+            "este mes que el mes anterior",
+            "este mes que el mes pasado",
+            "este mes gaste mas que el anterior",
+            "este mes gaste mas que el mes anterior",
+            "este mes gaste mas que el mes pasado",
+            "gaste mas este mes que el anterior",
+            "gaste mas este mes que el mes anterior",
+            "gaste mas este mes que el mes pasado",
+            "estoy gastando mas este mes que el anterior",
+            "estoy gastando mas este mes que el mes pasado",
+            "este mes vs el anterior",
+            "este mes vs el mes anterior",
+            "este mes vs el mes pasado",
+            "comparar este mes",
+            "compara este mes",
+            "comparar mis gastos de este mes",
+            "compara mis gastos de este mes",
+            "gastando mas que el mes pasado",
+            "gastos aumentaron este mes",
+            "gastos bajaron este mes",
+            "gastos disminuyeron este mes",
+            "cuanto mas gaste este mes",
+            "cuanto menos gaste este mes",
+        ):
+            return cls._result(cls._compare_months(expenses, today, "gastos"), "expenses_month_comparison")
+
+        if cls._has(
+            q,
+            "mes con mas gastos",
+            "mes gaste mas",
+            "mes en que mas gaste",
+            "mes donde mas gaste",
+            "cual fue el mes en que mas gaste",
+            "cual fue el mes que mas gaste",
+            "en que mes gaste mas",
+        ):
             return cls._result(cls._extreme_month(expenses, True, "gastaste"), "expenses_max_month")
 
-        if cls._has(q, "mes con menos gastos", "mes gaste menos"):
+        if cls._has(
+            q,
+            "mes con menos gastos",
+            "mes gaste menos",
+            "mes en que menos gaste",
+            "mes donde menos gaste",
+            "cual fue el mes en que menos gaste",
+            "cual fue el mes que menos gaste",
+            "en que mes gaste menos",
+        ):
             return cls._result(cls._extreme_month(expenses, False, "gastaste"), "expenses_min_month")
-
-        if cls._has(q, "este mes que el anterior", "este mes vs el anterior", "comparar este mes", "compara este mes"):
-            return cls._result(cls._compare_months(expenses, today, "gastos"), "expenses_month_comparison")
 
         if cls._has(q, "este ano que el pasado", "este año que el pasado", "este ano vs", "este año vs"):
             return cls._result(cls._compare_years(expenses, today, "gastos"), "expenses_year_comparison")
@@ -1388,6 +1453,18 @@ class TransactionQueryEngine:
             "viviendo por encima", "tres cosas concretas",
             "mejorar mis finanzas este mes", "por que no llego a fin de mes",
             "no llego a fin de mes",
+            # Explicación del perfil y camino de mejora.
+            "por que estoy en observacion", "por que estoy en riesgo",
+            "que me falta para ser saludable", "como paso a saludable",
+            "como salir de riesgo", "que tengo que mejorar para ser saludable",
+            # Simulaciones determinísticas.
+            "si reduzco", "si redusco", "si reduco",
+            "si bajo", "si recorto", "si disminuyo", "si rebajo",
+            "cuanto ahorraria", "cuanto ahoraria", "cuanto me ahorraria",
+            "cuanto me ahoraria", "cuanto podria ahorrar",
+            "ahorrar el 10%", "ahorrar 10%", "ahorrar un 10%",
+            "cuanto tengo que reducir", "cuanto tendria que reducir",
+            "que categoria deberia reducir primero", "que gasto tendria mayor impacto",
         ):
             return None
 
@@ -1419,6 +1496,156 @@ class TransactionQueryEngine:
         ratio = expense / income * 100 if income > 0 else None
         top = cls._top_category_tuple(expenses)
 
+        # Explica el perfil actual usando el análisis vivo del calificador. No intenta
+        # reconstruir ni adivinar los umbrales del modelo: muestra el perfil real y las
+        # oportunidades de mejora que ya produjo el pipeline financiero.
+        if cls._has(
+            q,
+            "por que estoy en observacion", "por que estoy en riesgo",
+            "que me falta para ser saludable", "como paso a saludable",
+            "como salir de riesgo", "que tengo que mejorar para ser saludable",
+        ):
+            if not analysis:
+                return cls._result(
+                    "Todavía no tengo un análisis financiero disponible para explicarte tu perfil.",
+                    "analysis_profile_explanation_empty",
+                )
+
+            profile = (
+                analysis.get("perfil_financiero")
+                or analysis.get("perfilFinanciero")
+                or "sin clasificar"
+            )
+            score = (
+                analysis.get("financial_score")
+                or analysis.get("score")
+                or analysis.get("puntajeFinanciero")
+            )
+            opportunities = analysis.get("oportunidades_mejora") or analysis.get("oportunidadesMejora") or []
+            strengths = analysis.get("fortalezas") or []
+
+            text = f"Tu perfil financiero actual es {profile}"
+            if score is not None:
+                text += f" y tu score es {score}/100"
+            text += "."
+
+            if opportunities:
+                clean = [str(item).strip() for item in opportunities if str(item).strip()]
+                if clean:
+                    text += " Para mejorar tu perfil, el análisis marca como prioridades: " + "; ".join(clean[:3]) + "."
+            elif ratio is not None:
+                text += f" Tus gastos representan aproximadamente el {ratio:.1f}% de tus ingresos."
+
+            if strengths:
+                clean_strengths = [str(item).strip() for item in strengths if str(item).strip()]
+                if clean_strengths:
+                    text += " Como punto a favor: " + clean_strengths[0] + "."
+
+            return cls._result(text, "analysis_profile_explanation")
+
+        # Simulación: reducir una categoría un porcentaje concreto.
+        # Ej.: "Si reduzco entretenimiento un 20%, ¿cuánto ahorraría?"
+        if cls._has(
+            q,
+            "si reduzco", "si redusco", "si reduco",
+            "si bajo", "si recorto", "si disminuyo", "si rebajo",
+            "cuanto ahorraria", "cuanto ahoraria",
+            "cuanto me ahorraria", "cuanto me ahoraria",
+            "cuanto podria ahorrar",
+        ):
+            percent_match = re.search(r"(\d+(?:[.,]\d+)?)\s*%", q)
+            category = cls._extract_category(q, expenses)
+
+            if percent_match and not category:
+                available_categories = sorted(
+                    {
+                        str(value).strip()
+                        for value in expenses["categoria"].dropna().tolist()
+                        if str(value).strip()
+                    },
+                    key=str.casefold,
+                )
+                examples = ", ".join(available_categories[:5])
+                message = "No encontré esa categoría entre tus gastos registrados."
+                if examples:
+                    message += f" Podés probar con alguna categoría disponible, por ejemplo: {examples}."
+                return cls._result(
+                    message,
+                    "analysis_category_reduction_category_not_found",
+                )
+
+            if percent_match and category:
+                percent = float(percent_match.group(1).replace(",", "."))
+                if percent < 0 or percent > 100:
+                    return cls._result(
+                        "El porcentaje de reducción debe estar entre 0% y 100%.",
+                        "analysis_category_reduction_invalid",
+                    )
+                selected = expenses[expenses["categoria"].str.casefold().eq(category.casefold())]
+                # Si la pregunta habla de este mes, usamos sólo el mes actual; de lo
+                # contrario, respetamos el período explícito o el período registrado.
+                if cls._explicit_period(q):
+                    period, _ = cls._select_period(q, today)
+                    selected = cls._period_frame(selected, period, today)
+                total = float(selected["monto"].sum())
+                reduction = total * percent / 100.0
+                new_total = total - reduction
+                return cls._result(
+                    f"Si redujeras {category} un {percent:g}%, ahorrarías aproximadamente "
+                    f"{cls._money(reduction)} en ese período. El gasto de la categoría "
+                    f"bajaría de {cls._money(total)} a {cls._money(new_total)}.",
+                    "analysis_category_reduction_simulation",
+                )
+
+        # Calcula cuánto hay que recortar para alcanzar una tasa de ahorro objetivo.
+        # Ej.: "¿Cuánto tendría que reducir mis gastos para ahorrar el 10% de mis ingresos?"
+        target_match = re.search(
+            r"(?:ahorr(?:ar|o)|ahor(?:ar|o))[^%]{0,30}?(\d+(?:[.,]\d+)?)\s*%",
+            q,
+        )
+        if target_match and cls._has(q, "cuanto tengo que reducir", "cuanto tendria que reducir", "ahorrar el", "ahorrar un"):
+            target_rate = float(target_match.group(1).replace(",", "."))
+            if income <= 0:
+                return cls._result(
+                    "No tengo ingresos suficientes registrados para calcular un objetivo de ahorro.",
+                    "analysis_savings_target_no_income",
+                )
+            if target_rate < 0 or target_rate >= 100:
+                return cls._result(
+                    "Indicame un porcentaje de ahorro entre 0% y 99%.",
+                    "analysis_savings_target_invalid",
+                )
+            target_saving = income * target_rate / 100.0
+            current_saving = income - expense
+            needed = target_saving - current_saving
+            if needed <= 0:
+                return cls._result(
+                    f"Con tus valores actuales ya alcanzás al menos un {target_rate:g}% de ahorro: "
+                    f"tu margen estimado es {cls._money(current_saving)} por mes.",
+                    "analysis_savings_target_already_met",
+                )
+            target_expense = income - target_saving
+            return cls._result(
+                f"Para ahorrar el {target_rate:g}% de tus ingresos deberías reservar "
+                f"{cls._money(target_saving)} por mes. Con gastos promedio de {cls._money(expense)}, "
+                f"necesitarías reducirlos aproximadamente {cls._money(needed)}, hasta unos "
+                f"{cls._money(target_expense)} mensuales.",
+                "analysis_savings_target",
+            )
+
+        if cls._has(
+            q,
+            "que categoria deberia reducir primero", "que gasto tendria mayor impacto",
+            "categoria deberia controlar", "perdiendo mas dinero",
+        ) and top:
+            category, value = top
+            return cls._result(
+                f"La categoría con mayor impacto en tus gastos es {category}, con "
+                f"{cls._money(value)} acumulados. Es el primer lugar que revisaría, "
+                f"priorizando gastos variables o postergables antes que gastos esenciales.",
+                "analysis_category_control",
+            )
+
         if cls._has(q, "viviendo por encima", "gastando demasiado", "gastos sostenibles", "gastos son sostenibles"):
             if income <= 0:
                 return cls._result(
@@ -1431,14 +1658,6 @@ class TransactionQueryEngine:
                 f"{ratio:.1f}% de tus ingresos ({cls._money(expense)} sobre "
                 f"{cls._money(income)}).",
                 "analysis_sustainability",
-            )
-
-        if cls._has(q, "categoria deberia controlar", "perdiendo mas dinero") and top:
-            category, value = top
-            return cls._result(
-                f"La categoría que más deberías revisar es {category}, donde acumulás "
-                f"{cls._money(value)} en gastos.",
-                "analysis_category_control",
             )
 
         # Esta consulta necesita una explicación, no una lista genérica de mejoras.
@@ -2204,10 +2423,11 @@ class TransactionQueryEngine:
         if previous == 0:
             return f"Registraste {cls._money(current)} en {noun}; no hay datos {comparison_label} para comparar."
         pct = abs(diff) / previous * 100
+        pct_text = f"{pct:.1f}".replace(".", ",")
         if diff > 0:
-            return f"Tus {noun} aumentaron {cls._money(diff)} ({pct:.1f}%) respecto {comparison_label}."
+            return f"Tus {noun} aumentaron {cls._money(diff)} ({pct_text}%) respecto {comparison_label}."
         if diff < 0:
-            return f"Tus {noun} bajaron {cls._money(abs(diff))} ({pct:.1f}%) respecto {comparison_label}."
+            return f"Tus {noun} bajaron {cls._money(abs(diff))} ({pct_text}%) respecto {comparison_label}."
         return f"Tus {noun} se mantuvieron iguales respecto {comparison_label}: {cls._money(current)}."
 
     @classmethod

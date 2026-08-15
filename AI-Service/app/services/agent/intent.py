@@ -468,6 +468,27 @@ class IntentDetector:
         "pelicula", "serie", "videojuego", "noticias", "presidente",
     }
 
+    # Consultas personales de simulación/optimización. Se evalúan antes de
+    # interpretar porcentajes como cálculos genéricos para que preguntas como
+    # "Si reduzco Vivienda un 5%, ¿cuánto ahorraría?" sigan el flujo financiero.
+    # Incluye variantes coloquiales y errores de tipeo frecuentes.
+    _PERSONAL_SIMULATION_TERMS = {
+        "si reduzco", "si reduzco mis", "si reduzco el", "si reduzco la",
+        "si redusco", "si redusco mis", "si redusco el", "si redusco la",
+        "si reduco", "si reduco mis", "si reduco el", "si reduco la",
+        "si bajo", "si bajo mis", "si bajo el", "si bajo la",
+        "si recorto", "si recorto mis", "si recorto el", "si recorto la",
+        "si disminuyo", "si disminuyo mis", "si disminuyo el", "si disminuyo la",
+        "si rebajo", "si rebajo mis", "si rebajo el", "si rebajo la",
+        "cuanto ahorraria", "cuanto ahorraría", "cuanto ahoraria",
+        "cuanto me ahorraria", "cuanto me ahoraria",
+        "cuanto podria ahorrar", "cuanto podría ahorrar",
+        "que pasa si reduzco", "que pasa si redusco", "que pasa si bajo",
+        "que pasa si recorto", "que pasa si disminuyo",
+        "cuanto tengo que reducir", "cuanto tendria que reducir",
+        "cuanto tengo que recortar", "cuanto tendria que recortar",
+    }
+
     _ANALYTICAL_TERMS = {
         "analiza", "analisis", "explica", "por que", "opina", "opinion",
         "mejorar", "recomienda", "recomendacion", "prioridad", "deberia",
@@ -493,6 +514,49 @@ class IntentDetector:
             and not self._contains_any(normalized, self._FINANCIAL_DOMAIN_TERMS)
         ):
             return IntentResult(Intent.GREETING, matched_terms=("hola",))
+
+        # Las simulaciones personales con porcentajes deben conservar contexto
+        # financiero. Esto evita que "5%" las convierta en una cuenta matemática
+        # genérica o que el router las derive a soporte.
+        personal_simulation = tuple(
+            term
+            for term in self._PERSONAL_SIMULATION_TERMS
+            if self._contains_term(normalized, term)
+        )
+        if personal_simulation:
+            return IntentResult(
+                intent=Intent.SAVINGS,
+                mode=QueryMode.ANALYTICAL,
+                matched_terms=personal_simulation,
+            )
+
+        # Las consultas sobre datos financieros personales deben usar los datos reales
+        # del usuario, no una definición educativa genérica. Estas reglas se evalúan
+        # antes de _is_financial_education para que expresiones como "mi capacidad
+        # de ahorro" no se interpreten como una pregunta conceptual.
+        if self._contains_any(
+            normalized,
+            {
+                "mi capacidad de ahorro",
+                "capacidad de ahorro actual",
+                "cual es mi capacidad de ahorro",
+                "cuanto es mi capacidad de ahorro",
+                "cuanto puedo ahorrar",
+                "cuanto puedo ahorrar por mes",
+                "cuanto puedo ahorrar al mes",
+                "cuanto dinero puedo ahorrar",
+                "cuanto dinero puedo ahorrar por mes",
+                "cuanto dinero puedo ahorrar al mes",
+                "cuanto me queda para ahorrar",
+                "tengo capacidad de ahorro",
+                "como esta mi capacidad de ahorro",
+            },
+        ):
+            return IntentResult(
+                intent=Intent.SAVINGS,
+                mode=QueryMode.DIRECT,
+                matched_terms=("capacidad de ahorro",),
+            )
 
         # Promesas/riesgos de inversión deben evaluarse antes de interpretar
         # porcentajes como operaciones matemáticas.
@@ -847,7 +911,7 @@ class IntentDetector:
         personal_data_patterns = (
             r"\b(?:mi|mis)\s+(?:deuda|deudas|saldo|saldos|ingreso|ingresos|"
             r"gasto|gastos|ahorro|ahorros|presupuesto|presupuestos|meta|metas|"
-            r"patrimonio|perfil)\b",
+            r"patrimonio|perfil|capacidad de ahorro)\b",
             r"\bcuanto\s+(?:debo|gasto|gaste|ahorro|ahorre|ingreso|ingrese)\b",
             r"\bcual\s+es\s+mi\s+(?:deuda|saldo|nivel|ratio|ahorro|presupuesto|patrimonio)\b",
             r"\bmostrame\s+(?:mi|mis)\b",

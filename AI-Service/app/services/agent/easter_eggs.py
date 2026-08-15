@@ -452,6 +452,44 @@ class EasterEggResponder:
     
 
     @classmethod
+    def is_crypto_king_query(cls, text: str) -> bool:
+        """Indica si una consulta debe mostrar el visual/audio del Rey Crypto.
+
+        A diferencia de ``match()``, este helper no responde la consulta: permite
+        que ``service.py`` continúe por el flujo financiero/educativo normal y
+        decore la respuesta final sin secuestrar preguntas como "¿qué es Bitcoin?"
+        o "¿qué es una memecoin?".
+        """
+        normalized = cls._normalize(text)
+        if not normalized:
+            return False
+
+        crypto_terms = (
+            "crypto",
+            "cripto",
+            "criptomoneda",
+            "criptomonedas",
+            "bitcoin",
+            "btc",
+            "ethereum",
+            "etherium",
+            "eterium",
+            "eth",
+            "memecoin",
+            "memecoins",
+            "meme coin",
+            "meme coins",
+            "dogecoin",
+            "doge",
+            "shiba inu",
+            "shib",
+        )
+        return (
+            normalized in cls._CRYPTO_KING_TRIGGERS
+            or any(cls._contains_word(normalized, word) for word in crypto_terms)
+        )
+
+    @classmethod
     def match(cls, text: str) -> EasterEgg | None:
         normalized = cls._normalize(text)
         if not normalized:

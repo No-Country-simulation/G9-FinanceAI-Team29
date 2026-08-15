@@ -273,21 +273,32 @@ class PromptBuilder:
             "current_question": question.strip(),
             "previous_answer": previous_answer.strip(),
         }
+
         serialized_payload = json.dumps(
             payload,
             ensure_ascii=False,
             indent=2,
         )
+
         user_prompt = (
             "El usuario está haciendo una pregunta de seguimiento sobre la respuesta anterior. "
-            "Respondé usando exclusivamente esa respuesta como referencia. No agregues datos nuevos, "
-            "no cambies montos ni conclusiones y no menciones que recibiste contexto previo. "
-            "Si pide una explicación más sencilla, reformulá con frases breves y lenguaje cotidiano. "
-            "Si pide un resumen, reducí la respuesta a lo esencial. "
-            "Si pide ampliar, profundizar o dice 'explícame más', desarrolla la respuesta anterior con más detalle, "
-            "manteniendo sus datos y conclusiones, y agrega ejemplos solo cuando ayuden a comprender.\n\n"
+            "Mantén como base los datos, montos, hechos y conclusiones de esa respuesta. "
+            "No cambies ni inventes datos personales, montos, porcentajes, categorías o conclusiones, "
+            "y no menciones que recibiste contexto previo. "
+            "Si pide una explicación más sencilla, reformula el contenido con frases breves y lenguaje cotidiano. "
+            "Si pide un resumen, reduce la respuesta a lo esencial. "
+            "Si pide ampliar, profundizar, más información o dice 'explícame más', "
+            "NO te limites a repetir, resumir o reformular la respuesta anterior. "
+            "Profundiza en los conceptos financieros mencionados y aporta información educativa adicional "
+            "que ayude realmente a comprenderlos. Puedes explicar cómo funcionan, por qué son importantes, "
+            "sus riesgos, relaciones entre conceptos y ejemplos generales. "
+            "No inventes información personal del usuario ni modifiques los datos o conclusiones "
+            "de la respuesta original. Evita repetir literalmente lo que ya fue explicado. "
+            "La nueva respuesta debe aportar valor adicional y ser perceptiblemente más detallada "
+            "que la respuesta anterior.\n\n"
             f"{serialized_payload}"
         )
+
         return [
             LLMMessage(role="system", content=SYSTEM_PROMPT),
             LLMMessage(role="user", content=user_prompt),
