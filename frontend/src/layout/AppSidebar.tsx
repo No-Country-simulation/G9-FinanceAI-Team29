@@ -14,6 +14,7 @@ import {
   UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
+import { useAuth } from "../context/AuthContext";
 
 export type NavItem = {
   name: string;
@@ -81,6 +82,8 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered, closeMobileSidebar } =
     useSidebar();
   const location = useLocation();
+  const { usuarioId } = useAuth();
+  const [educacionVista, setEducacionVista] = useState(false);
   // Modo Matrix: en tema claro, la barra lateral también se tiñe de rojo.
   const enModoMatrix = location.pathname === "/modo-matrix";
 
@@ -98,6 +101,33 @@ const AppSidebar: React.FC = () => {
     (path: string) => location.pathname === path,
     [location.pathname]
   );
+
+  useEffect(() => {
+    if (!usuarioId) {
+      setEducacionVista(false);
+      return;
+    }
+
+    const educationSeenKey = `finsight:educacion-financiera:visto:${usuarioId}`;
+
+    const actualizarEstadoEducacion = () => {
+      setEducacionVista(localStorage.getItem(educationSeenKey) === "true");
+    };
+
+    actualizarEstadoEducacion();
+
+    window.addEventListener(
+      "finsight:educacion-financiera-vista",
+      actualizarEstadoEducacion,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "finsight:educacion-financiera-vista",
+        actualizarEstadoEducacion,
+      );
+    };
+  }, [usuarioId]);
 
   useEffect(() => {
     let submenuMatched = false;
@@ -269,17 +299,19 @@ const AppSidebar: React.FC = () => {
                     >
                       {subItem.name}
                       <span className="flex items-center gap-1 ml-auto">
-                        {subItem.new && (
-                          <span
-                            className={`ml-auto ${
-                              isActive(subItem.path)
-                                ? "menu-dropdown-badge-active"
-                                : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge`}
-                          >
-                            new
-                          </span>
-                        )}
+                        {subItem.new &&
+                          subItem.path === "/educacion-financiera" &&
+                          !educacionVista && (
+                            <span
+                              className={`ml-auto ${
+                                isActive(subItem.path)
+                                  ? "menu-dropdown-badge-active"
+                                  : "menu-dropdown-badge-inactive"
+                              } menu-dropdown-badge`}
+                            >
+                              NUEVO
+                            </span>
+                          )}
                         {subItem.pro && (
                           <span
                             className={`ml-auto ${

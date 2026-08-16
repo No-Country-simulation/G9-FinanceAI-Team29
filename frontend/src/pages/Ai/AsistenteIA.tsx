@@ -27,7 +27,8 @@ import TeamAuroraBackdrop from "../../components/team/TeamAuroraBackdrop";
 
 type PasoInteractivo = "sin-datos" | "otra-consulta" | "support-help" | "team-info" | null;
 
-const REGEX_RESPUESTA_CREADOR = /twentyninedevs es el equipo de desarrolladores que cre[oó] finsightai/i;
+const REGEX_RESPUESTA_CREADOR =
+  /(?:fui creado por\s+twentyninedevs|twentyninedevs\s+es\s+el\s+equipo|equipo\s+que\s+desarroll[oó]\s+finsightai|equipo\s+que\s+cre[oó]\s+finsightai)/i;
 const MENSAJE_CON_QUE_SEGUIMOS = "¿Con qué seguimos?";
 
 interface Message {
@@ -83,6 +84,12 @@ function puedeMostrarExplicameMas(texto: string): boolean {
   const limpio = texto.trim();
 
   if (!limpio) {
+    return false;
+  }
+
+  // Las respuestas sobre el equipo/creadores tienen su propio flujo interactivo
+  // con botones "Sí / No"; no deben mostrar el follow-up "Explícame más".
+  if (REGEX_RESPUESTA_CREADOR.test(limpio)) {
     return false;
   }
 
@@ -1645,7 +1652,7 @@ export default function AsistenteIA() {
                         REGEX_RESPUESTA_CREADOR.test(message.text) && (
                           <div className="mt-3 flex w-full flex-col items-center gap-2">
                             <p className="text-theme-sm text-gray-600 dark:text-gray-300">
-                              ¿Quieres conocer más a detalle al equipo?
+                              ¿Quieres conocer al equipo detrás de FinSightAI?
                             </p>
                             <div className="flex items-center justify-center gap-3">
                               <button

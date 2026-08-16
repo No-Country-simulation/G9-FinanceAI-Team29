@@ -1,8 +1,121 @@
 import { ChangeEvent, useState } from 'react';
+import { createPortal } from 'react-dom';
 import PageMeta from '../../components/common/PageMeta';
-import { importarCsv, ImportacionCsvResponse } from '../../services/api';
+import { importarCsv, ImportacionCsvResponse, obtenerUsuario } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useGamification } from '../../context/GamificationContext';
+
+type CelebracionPerfil = "observacion" | "saludable" | null;
+
+function normalizarPerfil(valor: unknown): string {
+  return String(valor ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function detectarCelebracionPerfil(
+  perfilAnterior: unknown,
+  perfilNuevo: unknown,
+): CelebracionPerfil {
+  const anterior = normalizarPerfil(perfilAnterior);
+  const nuevo = normalizarPerfil(perfilNuevo);
+
+  // Llegar a Saludable tiene prioridad absoluta. Si el usuario salta
+  // directamente de En riesgo a Saludable, solo mostramos esta celebración.
+  if (
+    nuevo === "saludable" &&
+    (anterior === "en observacion" || anterior === "en riesgo")
+  ) {
+    return "saludable";
+  }
+
+  if (anterior === "en riesgo" && nuevo === "en observacion") {
+    return "observacion";
+  }
+
+  return null;
+}
+
+function CelebracionPerfilFullscreen({
+  tipo,
+  onFinish,
+}: {
+  tipo: Exclude<CelebracionPerfil, null>;
+  onFinish: () => void;
+}) {
+  const [mostrarTexto, setMostrarTexto] = useState(false);
+
+  const esSaludable = tipo === "saludable";
+
+  const videoSrc = esSaludable
+    ? "/images/task/finsi-celebration.mp4"
+    : "/images/task/finsi-moon.mp4";
+
+  const titulo = "¡Felicitaciones!";
+
+  const contenido = (
+    <div className="fixed inset-0 z-[99999] overflow-hidden bg-black">
+      <video
+        src={videoSrc}
+        autoPlay
+        playsInline
+        preload="auto"
+        className="h-full w-full object-cover"
+        onTimeUpdate={(event) => {
+          const video = event.currentTarget;
+
+          if (
+            Number.isFinite(video.duration) &&
+            video.duration > 0 &&
+            video.duration - video.currentTime <= 2.8
+          ) {
+            setMostrarTexto(true);
+          }
+        }}
+        onEnded={onFinish}
+        onError={onFinish}
+      />
+
+      <div
+        className={`pointer-events-none absolute inset-0 flex items-end justify-center px-4 pb-[8vh] transition-all duration-700 ${
+          mostrarTexto
+            ? "translate-y-0 opacity-100"
+            : "translate-y-5 opacity-0"
+        }`}
+      >
+        <div className="max-w-3xl rounded-3xl border border-white/20 bg-black/50 px-7 py-5 text-center shadow-2xl backdrop-blur-md sm:px-10 sm:py-7">
+          <h2 className="text-3xl font-black tracking-tight text-white drop-shadow-lg sm:text-5xl">
+            {titulo}
+          </h2>
+
+          <p className="mt-3 text-base font-semibold text-white/95 drop-shadow-md sm:text-2xl">
+            {esSaludable ? (
+              <>
+                Alcanzaste un perfil financiero{" "}
+                <span className="font-bold text-success-400">
+                  Saludable
+                </span>
+                .
+              </>
+            ) : (
+              <>
+                Tu perfil financiero mejoró a{" "}
+                <span className="font-bold text-warning-400">
+                  En observación
+                </span>
+                .
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(contenido, document.body);
+}
 
 export default function ImportarCsv() {
   const { usuarioId } = useAuth();
@@ -12,6 +125,8 @@ export default function ImportarCsv() {
   const [resultado, setResultado] =
     useState<ImportacionCsvResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [celebracionPerfil, setCelebracionPerfil] =
+    useState<CelebracionPerfil>(null);
 
   const seleccionarArchivo = (event: ChangeEvent<HTMLInputElement>) => {
     const archivoSeleccionado = event.target.files?.[0] ?? null;
@@ -48,6 +163,22 @@ export default function ImportarCsv() {
         );
       }
 
+      // Guardamos el perfil anterior ANTES de importar. El trigger de
+      // celebración solo depende de una mejora causada por esta carga CSV.
+      let perfilAnterior: string | null = null;
+
+      try {
+        const perfilActual = await obtenerUsuario(usuarioId);
+        perfilAnterior = perfilActual?.perfilFinanciero ?? null;
+      } catch (perfilError) {
+        // Si por algún motivo no podemos leer el estado anterior, permitimos
+        // igualmente la importación pero evitamos disparar una celebración falsa.
+        console.warn(
+          "No se pudo obtener el perfil anterior antes de importar el CSV:",
+          perfilError,
+        );
+      }
+
       const data = await importarCsv(usuarioId, archivo);
 
       if (!data) {
@@ -62,6 +193,15 @@ export default function ImportarCsv() {
 
       setResultado(data);
       registrarEvento('csv_importado');
+
+      const celebracion = detectarCelebracionPerfil(
+        perfilAnterior,
+        data.perfilFinanciero,
+      );
+
+      if (celebracion) {
+        setCelebracionPerfil(celebracion);
+      }
     } catch (err) {
       const mensaje =
         err instanceof Error
@@ -99,8 +239,7 @@ export default function ImportarCsv() {
           </h1>
 
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Cargá un CSV para actualizar el perfil financiero de{' '}
-            <strong>{usuarioId || 'tu cuenta'}</strong>. Todos los importes se procesan en
+            Cargá un CSV para actualizar tu perfil financiero. Todos los importes se procesan en
             dólares estadounidenses.
           </p>
         </div>
@@ -178,7 +317,7 @@ export default function ImportarCsv() {
               <img src="/images/mascot/finsight-bird-import-success.png" alt="Finsi confirma la importación" className="h-28 w-24 shrink-0 object-contain sm:h-36 sm:w-32" />
               <div><h2 className="text-lg font-semibold text-success-700 dark:text-success-300">CSV importado correctamente</h2>
 
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{resultado.usuarioId ?? usuarioId} quedó listo para usar en el dashboard y el asistente IA.</p></div>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">Tus movimientos quedaron listos para usar en el dashboard y el asistente IA.</p></div>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -207,15 +346,33 @@ export default function ImportarCsv() {
               />
             </div>
 
-            <div className="mt-5 rounded-lg bg-white/70 p-4 text-sm dark:bg-gray-900/40">
-              Perfil calculado:{' '}
-              <strong>
-                {resultado.perfilFinanciero ?? 'Sin determinar'}
-              </strong>
+            <div
+              className={`mt-5 rounded-lg bg-white/70 p-4 text-sm font-semibold dark:bg-gray-900/40 ${
+                normalizarPerfil(resultado.perfilFinanciero) === "saludable"
+                  ? "text-success-400"
+                  : normalizarPerfil(resultado.perfilFinanciero) === "en observacion"
+                    ? "text-warning-400"
+                    : normalizarPerfil(resultado.perfilFinanciero) === "en riesgo"
+                      ? "text-error-400"
+                      : "text-gray-900 dark:text-white"
+              }`}
+              style={{
+                textShadow:
+                  "-1px -1px 0 rgba(0,0,0,0.75), 1px -1px 0 rgba(0,0,0,0.75), -1px 1px 0 rgba(0,0,0,0.75), 1px 1px 0 rgba(0,0,0,0.75)",
+              }}
+            >
+              Perfil calculado: {resultado.perfilFinanciero ?? 'Sin determinar'}
             </div>
           </div>
         )}
       </div>
+
+      {celebracionPerfil && (
+        <CelebracionPerfilFullscreen
+          tipo={celebracionPerfil}
+          onFinish={() => setCelebracionPerfil(null)}
+        />
+      )}
     </>
   );
 }

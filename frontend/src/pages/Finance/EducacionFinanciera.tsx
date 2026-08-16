@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import { useAuth } from "../../context/AuthContext";
-import { obtenerUsuario } from "../../services/api";
-import type { PerfilUsuario } from "../../types/finance";
+import { analizarFinanzas, obtenerTransacciones, obtenerUsuario } from "../../services/api";
+import type { AnalisisResponse, PerfilUsuario } from "../../types/finance";
+import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
 
 type ConceptoId =
   | "capacidad-ahorro"
@@ -32,6 +33,7 @@ type RecomendacionEducativa = {
 
 function obtenerRecomendacionEducativa(
   perfil: PerfilUsuario | null,
+  analisis: AnalisisResponse | null,
 ): RecomendacionEducativa {
   if (!perfil) {
     return {
@@ -41,12 +43,28 @@ function obtenerRecomendacionEducativa(
     };
   }
 
-  const perfilNormalizado = (perfil.perfilFinanciero ?? "").trim().toLowerCase();
+  const perfilNormalizado = (
+    analisis?.perfilFinanciero ??
+    perfil.perfilFinanciero ??
+    ""
+  )
+    .trim()
+    .toLowerCase();
+
   const nivelEndeudamiento = Number(perfil.nivelEndeudamiento ?? 0);
-  const ingresoMensual = Number(perfil.ingresoMensual ?? 0);
-  const ahorroEstimado = Number(perfil.ahorroEstimado ?? 0);
-  const porcentajeAhorro =
-    ingresoMensual > 0 ? (ahorroEstimado / ingresoMensual) * 100 : 0;
+  const ingresoMensual = Number(
+    analisis?.totalIngresos ??
+    perfil.ingresoMensual ??
+    0,
+  );
+  const porcentajeAhorro = Number(
+    analisis?.porcentajeAhorro ??
+    (
+      ingresoMensual > 0
+        ? (Number(perfil.ahorroEstimado ?? 0) / ingresoMensual) * 100
+        : 0
+    ),
+  );
 
   // Si el endeudamiento es especialmente alto, priorizamos entender primero
   // cuánto del ingreso está comprometido, sin importar la etiqueta general.
@@ -204,16 +222,44 @@ export default function EducacionFinanciera() {
   const { usuarioId } = useAuth();
   const [conceptoAbierto, setConceptoAbierto] = useState<Concepto | null>(null);
   const [perfilUsuario, setPerfilUsuario] = useState<PerfilUsuario | null>(null);
+  const [analisisUsuario, setAnalisisUsuario] = useState<AnalisisResponse | null>(null);
+
+  useEffect(() => {
+    if (!usuarioId) {
+      return;
+    }
+
+    localStorage.setItem(
+      `finsight:educacion-financiera:visto:${usuarioId}`,
+      "true",
+    );
+
+    window.dispatchEvent(
+      new Event("finsight:educacion-financiera-vista"),
+    );
+  }, [usuarioId]);
 
   useEffect(() => {
     let cancelado = false;
 
-    const cargarPerfil = async () => {
+    const cargarDatosEducativos = async () => {
       try {
-        const perfil = await obtenerUsuario(usuarioId);
+        const [perfil, transacciones] = await Promise.all([
+          obtenerUsuario(usuarioId),
+          obtenerTransacciones(usuarioId),
+        ]);
+
+        const analisis =
+          transacciones.length > 0
+            ? await analizarFinanzas(
+                construirAnalisisRequest(perfil, transacciones),
+                usuarioId,
+              )
+            : null;
 
         if (!cancelado) {
           setPerfilUsuario(perfil);
+          setAnalisisUsuario(analisis);
         }
       } catch (error) {
         console.warn(
@@ -223,12 +269,15 @@ export default function EducacionFinanciera() {
 
         if (!cancelado) {
           setPerfilUsuario(null);
+          setAnalisisUsuario(null);
         }
       }
     };
 
     if (usuarioId) {
-      void cargarPerfil();
+      setPerfilUsuario(null);
+      setAnalisisUsuario(null);
+      void cargarDatosEducativos();
     }
 
     return () => {
@@ -237,8 +286,8 @@ export default function EducacionFinanciera() {
   }, [usuarioId]);
 
   const recomendacion = useMemo(
-    () => obtenerRecomendacionEducativa(perfilUsuario),
-    [perfilUsuario],
+    () => obtenerRecomendacionEducativa(perfilUsuario, analisisUsuario),
+    [perfilUsuario, analisisUsuario],
   );
 
   const recomendado = useMemo(

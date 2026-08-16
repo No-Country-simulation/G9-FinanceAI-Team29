@@ -15,6 +15,7 @@ class AgentRoute(StrEnum):
 class AgentRouter:
     _INTERNAL = {
         Intent.GREETING, Intent.THANKS, Intent.FAREWELL, Intent.CAPABILITIES,
+        Intent.CREATOR_INFO,
         Intent.UNKNOWN, Intent.OUT_OF_SCOPE, Intent.NON_FINANCIAL_CALCULATION,
         Intent.PRIVACY_RESTRICTED, Intent.SECURITY_RESTRICTED,
     }
