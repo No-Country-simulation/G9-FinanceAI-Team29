@@ -27,6 +27,7 @@ import { GamificationProvider } from "./context/GamificationContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { usePageVisibilityTitle } from "./hooks/usePageVisibilityTitle";
 import { ConsoleBanner } from "./components/common/ConsoleBanner";
+import EducacionFinanciera from "./pages/Finance/EducacionFinanciera";
 
 function TabTitleManager() {
   usePageVisibilityTitle();
@@ -47,6 +48,7 @@ export default function App() {
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index path="/" element={<Home />} />
             <Route path="/calendario-financiero" element={<Calendar />} />
+            <Route path="/educacion-financiera" element={<EducacionFinanciera />} />
 
             {/* Finance Pages */}
             <Route path="/transacciones" element={<Transacciones />} />

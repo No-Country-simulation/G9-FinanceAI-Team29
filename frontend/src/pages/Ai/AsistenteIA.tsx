@@ -82,7 +82,18 @@ const MENSAJE_DESCANSO =
 function puedeMostrarExplicameMas(texto: string): boolean {
   const limpio = texto.trim();
 
-  if (!limpio || limpio.length < 80) {
+  if (!limpio) {
+    return false;
+  }
+
+  // Las respuestas de educación financiera suelen ser deliberadamente breves
+  // (aprox. 50–80 palabras). No exigimos 80 caracteres de forma ciega: si el
+  // contenido tiene señales financieras/educativas, permitimos el follow-up
+  // desde una longitud mínima razonable.
+  const pareceContenidoFinanciero =
+    /\b(ahorro|ahorrar|fondo de emergencia|inflaci[oó]n|inter[eé]s|riesgo|liquidez|diversificaci[oó]n|deuda|cr[eé]dito|inversi[oó]n|acciones?|bonos?|etfs?|fondos?|cripto(?:monedas?)?|bitcoin|ethereum|stablecoins?|presupuesto|ingresos?|gastos?|perfil financiero|puntaje financiero|metas? financieras?)\b/i.test(limpio);
+
+  if (limpio.length < (pareceContenidoFinanciero ? 50 : 80)) {
     return false;
   }
 

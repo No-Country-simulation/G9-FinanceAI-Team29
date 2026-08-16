@@ -401,6 +401,10 @@ class PromptBuilder:
 
             "financial_education": (
                 "Explica el concepto solicitado de forma clara, pedagógica, objetiva y concisa. "
+                "Si el contexto financiero contiene datos del usuario directamente relacionados con el concepto, "
+                "utilízalos para aterrizar la explicación sin convertir la respuesta en un análisis financiero completo. "
+                "Distingue con claridad la explicación general de cualquier observación basada en sus datos y no inventes "
+                "información personal que no esté presente en el contexto. "
                 "En la primera respuesta prioriza una definición autosuficiente de aproximadamente 50 a 80 palabras. "
                 "Incluye solo las características o riesgos imprescindibles para entender el concepto. "
                 "No desarrolles ejemplos extensos, historia, variantes o comparaciones salvo que el usuario los pida. "
@@ -416,6 +420,10 @@ class PromptBuilder:
                 "Puedes comparar alternativas en términos generales según riesgo, liquidez y horizonte "
                 "temporal, pero no indiques qué activo específico comprar ni garantices rentabilidad. "
                 "Si la consulta es puramente educativa, no agregues por rutina un aviso para consultar a un profesional. "
+                "Cuando el concepto explicado esté directamente relacionado con ahorro, planificación o metas financieras "
+                "y la situación disponible permita razonablemente trabajar una meta, puedes cerrar de forma natural con: "
+                "'Si quieres, puedo ayudarte a crear una meta financiera.' No agregues esta invitación si el ahorro es negativo, "
+                "los egresos superan los ingresos o el contexto indica que primero debe recuperarse el equilibrio financiero. "
                 "Si el usuario busca tomar una decisión concreta con dinero real o pide una recomendación personalizada, "
                 "aclara brevemente que la información es educativa y recomienda consultar con un asesor financiero o contador. "
                 "Si pregunta por una promesa de rentabilidad garantizada, una inversión sin riesgo, dinero fácil, esquemas "

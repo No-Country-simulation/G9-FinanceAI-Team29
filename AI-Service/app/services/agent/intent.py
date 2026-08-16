@@ -534,23 +534,26 @@ class IntentDetector:
         # del usuario, no una definición educativa genérica. Estas reglas se evalúan
         # antes de _is_financial_education para que expresiones como "mi capacidad
         # de ahorro" no se interpreten como una pregunta conceptual.
-        if self._contains_any(
-            normalized,
-            {
-                "mi capacidad de ahorro",
-                "capacidad de ahorro actual",
-                "cual es mi capacidad de ahorro",
-                "cuanto es mi capacidad de ahorro",
-                "cuanto puedo ahorrar",
-                "cuanto puedo ahorrar por mes",
-                "cuanto puedo ahorrar al mes",
-                "cuanto dinero puedo ahorrar",
-                "cuanto dinero puedo ahorrar por mes",
-                "cuanto dinero puedo ahorrar al mes",
-                "cuanto me queda para ahorrar",
-                "tengo capacidad de ahorro",
-                "como esta mi capacidad de ahorro",
-            },
+        if (
+            not self._is_financial_education(normalized)
+            and self._contains_any(
+                normalized,
+                {
+                    "mi capacidad de ahorro",
+                    "capacidad de ahorro actual",
+                    "cual es mi capacidad de ahorro",
+                    "cuanto es mi capacidad de ahorro",
+                    "cuanto puedo ahorrar",
+                    "cuanto puedo ahorrar por mes",
+                    "cuanto puedo ahorrar al mes",
+                    "cuanto dinero puedo ahorrar",
+                    "cuanto dinero puedo ahorrar por mes",
+                    "cuanto dinero puedo ahorrar al mes",
+                    "cuanto me queda para ahorrar",
+                    "tengo capacidad de ahorro",
+                    "como esta mi capacidad de ahorro",
+                },
+            )
         ):
             return IntentResult(
                 intent=Intent.SAVINGS,
@@ -616,6 +619,16 @@ class IntentDetector:
                 matched_terms=matched_summary,
             )
 
+        # Una intención educativa explícita debe prevalecer sobre expresiones
+        # generales como "situación financiera". Por ejemplo:
+        # "Quiero aprender sobre fondos de emergencia según mi situación financiera".
+        if self._is_financial_education(normalized):
+            return IntentResult(
+                intent=Intent.FINANCIAL_EDUCATION,
+                mode=QueryMode.ANALYTICAL,
+                matched_terms=("financial_education",),
+            )
+
         # Las frases explícitas de análisis completo deben prevalecer sobre
         # saludos como "hola" o "buenas" presentes al inicio.
         full_analysis_terms = next(
@@ -642,13 +655,16 @@ class IntentDetector:
 
         # Las consultas que hablan explícitamente de metas deben conservar
         # GOALS aunque también incluyan palabras como ahorro o recomendaciones.
-        if self._contains_any(
-            normalized,
-            {
-                "mi meta", "mis metas", "meta mas cercana", "metas de ahorro",
-                "objetivo financiero", "objetivos financieros",
-                "alcanzar mi meta", "cumplir mi meta",
-            },
+        if (
+            not self._is_financial_education(normalized)
+            and self._contains_any(
+                normalized,
+                {
+                    "mi meta", "mis metas", "meta mas cercana", "metas de ahorro",
+                    "objetivo financiero", "objetivos financieros",
+                    "alcanzar mi meta", "cumplir mi meta",
+                },
+            )
         ):
             return IntentResult(
                 intent=Intent.GOALS,
@@ -1040,6 +1056,21 @@ class IntentDetector:
             "que tipos de inversion",
             "como comparo",
             "como comparar",
+            "que es",
+            "que son",
+            "que significa",
+            "que significan",
+            "explicame",
+            "explica",
+            "quiero aprender",
+            "quiero aprender sobre",
+            "quiero entender",
+            "quiero entender mejor",
+            "aprender sobre",
+            "como funciona",
+            "como funcionan",
+            "para que sirve",
+            "para que sirven",
         }
 
         has_financial_topic = self._contains_any(

@@ -29,6 +29,7 @@ export const navItems: NavItem[] = [
     subItems: [
       { name: "Resumen Financiero", path: "/", pro: false },
       { name: "Calendario Financiero", path: "/calendario-financiero", pro: false },
+      { name: "Educación Financiera", path: "/educacion-financiera", pro: false, new: true },
     ],
   },
   {

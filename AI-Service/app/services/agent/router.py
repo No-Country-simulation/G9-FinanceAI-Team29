@@ -33,7 +33,7 @@ class AgentRouter:
         if result.intent == Intent.FINANCIAL_CALCULATION:
             return AgentRoute.CALCULATOR
         if result.intent == Intent.FINANCIAL_EDUCATION:
-            return AgentRoute.LLM_WITHOUT_CONTEXT
+            return AgentRoute.LLM_WITH_CONTEXT
         if result.intent in cls._DIRECT_FINANCIAL:
             return (
                 AgentRoute.LLM_WITH_CONTEXT

@@ -229,6 +229,61 @@ class FinSightAgentService:
 
         query = self._prepare_query(question)
 
+        # Detectamos la intención lo antes posible para que Educación Financiera
+        # no sea interceptada por responders determinísticos de ahorro, gastos,
+        # deuda o metas.
+        early_intent = self.intent_detector.detect_result(query.corrected)
+
+        # Educación financiera tiene un flujo propio y prioritario. Una vez
+        # reconocida esta intención, enseña primero y usa el contexto financiero
+        # antes de cualquier flujo operativo de gastos, ahorro, deuda o metas.
+        if early_intent.intent == Intent.FINANCIAL_EDUCATION:
+            analysis = self._get_analysis(usuario_id)
+            rules = FinancialRulesEngine.evaluate(analysis)
+            education_context = self.context_builder.build(
+                intent=Intent.FINANCIAL_EDUCATION,
+                analysis=analysis,
+                rules=rules,
+            )
+
+            messages = PromptBuilder.build(
+                original_question=query.original,
+                processed_question=query.corrected,
+                corrections=query.corrections,
+                context=education_context,
+                intent=Intent.FINANCIAL_EDUCATION.value,
+            )
+            response = await self.llm.generate(messages=messages, provider=provider)
+            response.metadata.update(
+                {
+                    "intent": Intent.FINANCIAL_EDUCATION.value,
+                    "route": AgentRoute.LLM_WITH_CONTEXT.value,
+                    "used_financial_context": True,
+                    "corrections_count": len(query.corrections),
+                }
+            )
+
+            # Las preguntas educativas sobre crypto conservan el easter egg,
+            # pero la explicación financiera sigue siendo la respuesta principal.
+            if crypto_king_query:
+                first_crypto_for_user = usuario_id not in self._crypto_king_seen_users
+                show_crypto_king = first_crypto_for_user or random.random() < 0.25
+                self._crypto_king_seen_users.add(usuario_id)
+
+                if show_crypto_king:
+                    response.content = (
+                        "👑 Ah... veo que has venido a consultar al Rey de las Crypto.\n\n"
+                        f"{response.content}\n\n"
+                        "!audio[finsi-crypto](/images/task/finsi-crypto.mp3)"
+                    )
+                    response.metadata["easter_egg"] = "finsi_crypto"
+                    response.metadata["crypto_king_decorated"] = True
+                else:
+                    response.metadata["crypto_king_decorated"] = False
+
+            return response
+
+
         # "Explícame más" debe ampliar SIEMPRE la respuesta anterior antes de
         # pasar por el router Advisor/Soporte. De lo contrario, los detectores
         # amplios de soporte pueden interpretar el follow-up como una consulta
@@ -377,11 +432,13 @@ class FinSightAgentService:
         # Flujo conversacional para explicar y crear metas directamente desde Finsi.
         # Se evalúa antes de la consulta general de metas para que preguntas como
         # "¿para qué sirven las metas?" no terminen mostrando solamente el listado.
-        goal_creation_response = self._goal_creation_conversation(
-            usuario_id=usuario_id,
-            question=query.original,
-            previous_answer=previous_answer,
-        )
+        goal_creation_response = None
+        if advisor_intent_result.intent != Intent.FINANCIAL_EDUCATION:
+            goal_creation_response = self._goal_creation_conversation(
+                usuario_id=usuario_id,
+                question=query.original,
+                previous_answer=previous_answer,
+            )
         if goal_creation_response is not None:
             response = self._internal_response(
                 goal_creation_response,
@@ -491,7 +548,6 @@ class FinSightAgentService:
 
         # Detecta primero la intención para impedir que Product Knowledge
         # intercepte consultas válidas de educación financiera.
-        early_intent = self.intent_detector.detect_result(query.corrected)
 
         # Product Knowledge sigue resolviendo consultas informativas sobre
         # FinSightAI y TwentyNineDevs, excepto cuando la intención ya fue
@@ -633,7 +689,10 @@ class FinSightAgentService:
         # Las consultas sobre metas deben usar siempre las metas reales del backend.
         # Se resuelven antes del follow-up genérico para evitar que el LLM responda
         # con consejos hipotéticos cuando FinSightAI ya tiene esos datos.
-        if self._is_direct_goal_query(query.corrected):
+        if (
+            early_intent.intent != Intent.FINANCIAL_EDUCATION
+            and self._is_direct_goal_query(query.corrected)
+        ):
             content = self._direct_goal_response(
                 usuario_id=usuario_id,
                 question=query.corrected,
