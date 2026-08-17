@@ -5,7 +5,7 @@ import { importarCsv, ImportacionCsvResponse, obtenerUsuario } from '../../servi
 import { useAuth } from '../../context/AuthContext';
 import { useGamification } from '../../context/GamificationContext';
 
-type CelebracionPerfil = "riesgo" | "observacion" | "saludable" | null;
+type CelebracionPerfil = "riesgo" | "observacion" | "observacion-caida" | "saludable" | null;
 
 function normalizarPerfil(valor: unknown): string {
   return String(valor ?? "")
@@ -40,6 +40,10 @@ function detectarCelebracionPerfil(
     return "saludable";
   }
 
+  if (anterior === "saludable" && nuevo === "en observacion") {
+    return "observacion-caida";
+  }
+
   if (anterior === "en riesgo" && nuevo === "en observacion") {
     return "observacion";
   }
@@ -58,13 +62,16 @@ function CelebracionPerfilFullscreen({
   const [faseRiesgo, setFaseRiesgo] = useState<0 | 1 | 2>(0);
 
   const esRiesgo = tipo === "riesgo";
+  const esObservacionCaida = tipo === "observacion-caida";
   const esSaludable = tipo === "saludable";
 
   const videoSrc = esRiesgo
     ? "/images/task/finsi-thriller.mp4"
-    : esSaludable
-      ? "/images/task/finsi-celebration.mp4"
-      : "/images/task/finsi-moon.mp4";
+    : esObservacionCaida
+      ? "/images/task/finsi-stumble.mp4"
+      : esSaludable
+        ? "/images/task/finsi-celebration.mp4"
+        : "/images/task/finsi-moon.mp4";
 
   const contenido = (
     <div className="fixed inset-0 z-[99999] overflow-hidden bg-black">
@@ -94,6 +101,15 @@ function CelebracionPerfilFullscreen({
               setFaseRiesgo(0);
             } else {
               setFaseRiesgo(2);
+            }
+            return;
+          }
+
+          if (esObservacionCaida) {
+            // El mensaje aparece desde el segundo 3 y permanece hasta el final,
+            // para que haya tiempo suficiente de leerlo.
+            if (video.currentTime >= 3) {
+              setMostrarTexto(true);
             }
             return;
           }
@@ -170,7 +186,9 @@ function CelebracionPerfilFullscreen({
                   "-1px -1px 0 rgba(0,0,0,.9), 1px -1px 0 rgba(0,0,0,.9), -1px 1px 0 rgba(0,0,0,.9), 1px 1px 0 rgba(0,0,0,.9)",
               }}
             >
-              ¡Felicitaciones!
+              {esObservacionCaida
+                ? "¡Hey! Un tropezón no es caída."
+                : "¡Felicitaciones!"}
             </h2>
 
             <p
@@ -187,6 +205,14 @@ function CelebracionPerfilFullscreen({
                     Saludable
                   </span>
                   .
+                </>
+              ) : esObservacionCaida ? (
+                <>
+                  Pasaste a{" "}
+                  <span className="font-black text-warning-400">
+                    En observación
+                  </span>
+                  , pero con algunos ajustes en tus finanzas puedes recuperarte.
                 </>
               ) : (
                 <>
