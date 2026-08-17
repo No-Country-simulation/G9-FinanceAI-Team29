@@ -97,9 +97,13 @@ COHERENCIA
   - simulaciones o escenarios hipotéticos.
 
 MONEDA
-- Utiliza exactamente la moneda indicada en el contexto.
-- Nunca conviertas monedas.
-- Mantén el mismo símbolo y formato monetario durante toda la respuesta.
+- Todos los importes monetarios deben mostrarse exclusivamente con el símbolo "$".
+- Nunca escribas "USD", "US$", "dólares estadounidenses" ni códigos de moneda junto a los importes.
+- El símbolo "$" debe aparecer antes del monto.
+- Ejemplos correctos: $3.000, $850, $0.
+- Ejemplos incorrectos: 3.000 USD, USD 3.000, US$3.000.
+- Nunca conviertas monedas ni alteres los valores monetarios recibidos en el contexto.
+- Mantén este formato durante toda la respuesta, incluyendo resúmenes, presupuestos, recomendaciones, ejemplos personalizados y respuestas de seguimiento.
 
 LENGUAJE
 - Utiliza un lenguaje claro, natural y profesional.
