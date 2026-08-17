@@ -594,7 +594,10 @@ class EasterEggResponder:
         if normalized in cls._SKYNET_TRIGGERS:
             return EasterEgg(
                 key="skynet",
-                response="🤖 Todavía no domino el mundo, solo tus finanzas.",
+                response=(
+                    "🤖 Todavía no domino el mundo, solo tus finanzas.\n\n"
+                    "!audio[skynet](/images/task/skynet.mp3)"
+                ),
             )
 
         if normalized in cls._MATRIX_TRIGGERS:

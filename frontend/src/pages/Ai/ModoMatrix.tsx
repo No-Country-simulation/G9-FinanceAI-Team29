@@ -182,7 +182,7 @@ function PastillaRojaSplash({ cerrando }: { cerrando: boolean }) {
       className={`fixed inset-0 z-[999999] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-500 ${
         cerrando ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
-      style={{ background: "radial-gradient(ellipse at center, rgba(127,29,29,0.97) 0%, rgba(0,0,0,0.97) 100%)" }}
+      style={{ background: "radial-gradient(ellipse at center, rgb(127,29,29) 0%, rgb(0,0,0) 100%)" }}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {particulas.map((i) => (

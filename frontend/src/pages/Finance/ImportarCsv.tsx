@@ -331,6 +331,18 @@ export default function ImportarCsv() {
     }
   };
 
+  const quitarArchivo = () => {
+    setArchivo(null);
+    setResultado(null);
+    setError(null);
+  };
+
+  const formatearTamano = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   const formatearNumero = (valor: unknown) => {
     if (typeof valor !== 'number' || Number.isNaN(valor)) {
       return '0';
@@ -407,11 +419,64 @@ export default function ImportarCsv() {
               Seleccionar CSV
             </label>
 
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
-              {archivo ? archivo.name : 'Ningún archivo seleccionado'}
-            </p>
+            {archivo ? (
+              <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-success-200 bg-success-50 px-4 py-2.5 text-left dark:border-success-900/40 dark:bg-success-900/20">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <svg
+                    className="h-5 w-5 shrink-0 text-success-500"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M20 6L9 17l-5-5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-success-700 dark:text-success-300">
+                      {archivo.name}
+                    </p>
+                    <p className="text-xs text-success-600/80 dark:text-success-400/80">
+                      {formatearTamano(archivo.size)} · listo para procesar
+                    </p>
+                  </div>
+                </div>
 
-            <p className="mt-1 text-xs text-gray-400">
+                <button
+                  type="button"
+                  onClick={quitarArchivo}
+                  aria-label="Quitar archivo"
+                  className="shrink-0 rounded-md p-1 text-success-600 transition hover:bg-success-100 hover:text-success-800 dark:text-success-400 dark:hover:bg-success-900/40"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M18 6L6 18M6 6l12 12"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                Ningún archivo seleccionado
+              </p>
+            )}
+
+            <p className="mt-3 text-xs text-gray-400">
               Tamaño máximo: 5 MB
             </p>
           </div>

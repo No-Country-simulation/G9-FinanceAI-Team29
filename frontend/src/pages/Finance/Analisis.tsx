@@ -46,6 +46,7 @@ export default function Analisis() {
   // El formulario se llena con el perfil y las transacciones reales de la
   // cuenta activa. Al cambiar de usuario se vuelve a pedir todo.
   useEffect(() => {
+    let cancelado = false;
     // El análisis anterior deja de ser válido al cambiar de usuario.
     setResultado(null);
     setCargandoDatos(true);
@@ -56,28 +57,35 @@ export default function Analisis() {
           obtenerUsuario(usuarioId),
           obtenerTransacciones(usuarioId),
         ]);
+        if (cancelado) return;
 
         if (transacciones.length === 0) {
           setFormData(null);
           if (!isTourActive) {
+            setCargandoDatos(false);
             await mostrarInfo(
               'Todavía no tienes datos financieros',
               'Carga tus movimientos para poder analizar tus finanzas. Te llevamos al resumen financiero.',
             );
-            navigate('/');
+            if (!cancelado) navigate('/');
+            return;
           }
           return;
         }
 
         setFormData(construirAnalisisRequest(perfil, transacciones));
       } catch (err) {
+        if (cancelado) return;
         console.error(err);
         setFormData(null);
         mostrarError('No se pudieron cargar tus datos', 'Verifica que el backend esté disponible e intenta de nuevo.');
       } finally {
-        setCargandoDatos(false);
+        if (!cancelado) setCargandoDatos(false);
       }
     }
+    return () => {
+      cancelado = true;
+    };
   }, [usuarioId, isTourActive, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -17,6 +17,7 @@ import {
 } from '../services/api';
 import { setAvatar, setAvatarUrl } from '../services/authSession';
 import UserAvatar from '../components/common/UserAvatar';
+import AvatarCropModal from '../components/common/AvatarCropModal';
 import LevelCard from '../components/gamificacion/LevelCard';
 import { useGamification } from '../context/GamificationContext';
 import { AVATAR_OPTIONS } from '../utils/avatarOptions';
@@ -196,7 +197,7 @@ function PerfilSkeleton() {
 
 export default function UserProfiles() {
   const { usuarioId, email, avatarIcon, signOut, refreshSession } = useAuth();
-  const { perfil, transacciones, resumen, loading, actualizarPerfilLocal } = usePerfilData();
+  const { perfil, transacciones, resumen, loading, actualizarPerfilLocal, refrescar } = usePerfilData();
   const { health, puntos, rangoPuntos } = useGamification();
   const { isOpen, openModal, closeModal } = useModal();
   const [guardando, setGuardando] = useState(false);
@@ -205,6 +206,7 @@ export default function UserProfiles() {
   const [correo, setCorreo] = useState('');
   const [avatarSeleccionado, setAvatarSeleccionado] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [imagenParaRecortar, setImagenParaRecortar] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const nombreCompleto = useMemo(() => {
@@ -224,25 +226,62 @@ export default function UserProfiles() {
     setNombre(perfil.nombre ?? '');
     setApellido(perfil.apellido ?? '');
     setCorreo(perfil.email ?? '');
-    // La foto vive en el backend: la reflejamos en la sesión para que se vea en toda la app.
-    if (perfil.avatarUrl) {
-      setAvatarUrl(perfil.avatarUrl);
-    }
+    // La foto vive en el backend: la reflejamos en la sesión para que se vea en
+    // toda la app. Si este usuario no tiene foto propia, limpiamos también lo
+    // que hubiera quedado en localStorage de una sesión anterior (no está
+    // namespaced por usuario).
+    setAvatarUrl(perfil.avatarUrl ?? null);
   }, [perfil]);
 
+  // El perfil se cachea por sesión (PerfilDataContext), pero su estado y
+  // clasificación financiera se recalculan en el backend a partir de acciones
+  // hechas en otras pantallas. Refrescamos en segundo plano cada vez que se
+  // visita esta página para no mostrar datos desactualizados.
+  useEffect(() => {
+    void refrescar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const TIPOS_IMAGEN_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp'];
+  const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+
+  // El input de archivo solo abre el recorte; la subida real pasa por
+  // confirmarRecorte() una vez que el usuario ajusta el encuadre.
   const handleSubirFoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      await Swal.fire('Archivo inválido', 'Elegí una imagen (PNG, JPG, WEBP).', 'error');
+
+    if (!TIPOS_IMAGEN_PERMITIDOS.includes(file.type)) {
+      await Swal.fire('Formato no soportado', 'Usá una imagen JPG, PNG o WebP.', 'error');
       return;
     }
 
+    if (file.size > MAX_AVATAR_BYTES) {
+      await Swal.fire('Imagen muy pesada', 'El archivo debe pesar como máximo 5 MB.', 'error');
+      return;
+    }
+
+    setImagenParaRecortar(URL.createObjectURL(file));
+  };
+
+  const cerrarRecorte = () => {
+    if (imagenParaRecortar) URL.revokeObjectURL(imagenParaRecortar);
+    setImagenParaRecortar(null);
+  };
+
+  const confirmarRecorte = async (recorte: Blob) => {
+    const archivo = new File([recorte], 'avatar.jpg', { type: 'image/jpeg' });
+    await subirFotoPerfil(archivo);
+    cerrarRecorte();
+  };
+
+  const subirFotoPerfil = async (archivo: File) => {
     setSubiendoFoto(true);
     try {
-      const url = await subirAvatar(usuarioId, file);
+      const url = await subirAvatar(usuarioId, archivo);
       setAvatarUrl(url);
+      actualizarPerfilLocal({ avatarUrl: url });
       await refreshSession();
       await Swal.fire('Foto actualizada', 'Tu foto de perfil ya está activa.', 'success');
     } catch (err) {
@@ -550,27 +589,10 @@ export default function UserProfiles() {
         <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex flex-col items-center gap-5 xl:flex-row">
-              <div className="flex flex-col items-center gap-2">
-                <UserAvatar
-                  className="h-20 w-20 border border-gray-200 dark:border-gray-700"
-                  emojiClassName="text-4xl"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={subiendoFoto}
-                  className="text-xs font-medium text-brand-500 hover:text-brand-600 disabled:opacity-60"
-                >
-                  {subiendoFoto ? 'Subiendo…' : 'Subir foto'}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleSubirFoto}
-                  className="hidden"
-                />
-              </div>
+              <UserAvatar
+                className="h-20 w-20 border border-gray-200 dark:border-gray-700"
+                emojiClassName="text-4xl"
+              />
               <div className="text-center xl:text-left">
                 <h4 className="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">{nombreCompleto}</h4>
                 <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
@@ -688,6 +710,29 @@ export default function UserProfiles() {
             <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">Editar información personal</h4>
             <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">Actualiza tus datos para mantener tu perfil al día.</p>
           </div>
+
+          <div className="px-2 pb-5">
+            <Label>Foto de perfil</Label>
+            <div className="mb-3 flex items-center gap-4">
+              <UserAvatar
+                className="h-16 w-16 border border-gray-200 dark:border-gray-700"
+                emojiClassName="text-3xl"
+                status="none"
+              />
+              <label className="cursor-pointer text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400">
+                {subiendoFoto ? 'Subiendo...' : 'Subir foto'}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={subiendoFoto}
+                  onChange={handleSubirFoto}
+                />
+              </label>
+            </div>
+          </div>
+
           <form onSubmit={guardarPerfil} className="flex flex-col">
             <div className="custom-scrollbar overflow-y-auto px-2 pb-3">
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
@@ -704,7 +749,7 @@ export default function UserProfiles() {
                   <Input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} />
                 </div>
                 <div className="lg:col-span-2">
-                  <Label>Foto de perfil</Label>
+                  <Label>O elegí un emoji</Label>
                   <div className="custom-scrollbar grid max-h-48 grid-cols-8 gap-2 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-700">
                     {AVATAR_OPTIONS.map((emoji) => (
                       <button
@@ -733,6 +778,15 @@ export default function UserProfiles() {
           </form>
         </div>
       </Modal>
+
+      {imagenParaRecortar && (
+        <AvatarCropModal
+          imagenSrc={imagenParaRecortar}
+          onConfirmar={(blob) => void confirmarRecorte(blob)}
+          onCancelar={cerrarRecorte}
+          procesando={subiendoFoto}
+        />
+      )}
     </>
   );
 }

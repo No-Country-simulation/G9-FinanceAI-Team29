@@ -92,7 +92,7 @@ export default function ProfileCard({
       <div className="space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-500 dark:text-gray-400">
-            Usuario
+            Nombre
           </span>
 
           <span className="font-medium text-gray-800 dark:text-white/90">

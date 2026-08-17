@@ -12,6 +12,7 @@ import { Modal } from "../components/ui/modal";
 import { useModal } from "../hooks/useModal";
 import PageMeta from "../components/common/PageMeta";
 import { useAuth } from "../context/AuthContext";
+import { useGamification } from "../context/GamificationContext";
 import {
   obtenerMetas,
   obtenerTransacciones,
@@ -460,6 +461,7 @@ function EventIcon({ calendar, className = "h-4 w-4" }: { calendar: string; clas
 
 const Calendar: React.FC = () => {
   const { usuarioId } = useAuth();
+  const { desbloquearLogro } = useGamification();
   const navigate = useNavigate();
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
     null
@@ -677,6 +679,7 @@ const Calendar: React.FC = () => {
         // Crear evento manual nuevo en el backend
         const creado = await crearEventoCalendario(datos, usuarioId);
         setEvents((prevEvents) => [...prevEvents, construirEventoDesdeManual(creado)]);
+        desbloquearLogro('tarea_calendario');
         closeModal();
         resetModalFields();
         mostrarExito("Evento creado", "Tu evento se agregó al calendario.");
@@ -823,6 +826,7 @@ const Calendar: React.FC = () => {
       const token = await obtenerTokenCalendario();
       const urlHttp = `${window.location.origin}/api/calendario-ics?token=${token}`;
       window.open(urlHttp.replace(/^https?:\/\//, "webcal://"), "_blank");
+      desbloquearLogro('calendario_sincronizado');
     } catch (error) {
       mostrarError(
         "No se pudo generar el enlace",

@@ -1,0 +1,27 @@
+# Overlay de desarrollo: corre el frontend con `vite dev` (HMR) en vez de
+# nginx con el build estático, montando el código como volumen.
+#
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# No reemplaza a docker-compose.yml (ese sigue siendo el de producción/OCI);
+# hay que pasar ambos -f explícitamente para activar este modo.
+
+services:
+  frontend:
+    build:
+      target: dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    expose:
+      - "5173"
+    environment:
+      # El propio Vite ya expone VITE_* desde frontend/.env; nada que agregar acá.
+      CHOKIDAR_USEPOLLING: "true"
+
+  caddy:
+    volumes:
+      - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config

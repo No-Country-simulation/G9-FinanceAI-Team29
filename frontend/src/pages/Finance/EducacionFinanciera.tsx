@@ -1,10 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { useNavigate } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import { useAuth } from "../../context/AuthContext";
 import { analizarFinanzas, obtenerTransacciones, obtenerUsuario } from "../../services/api";
 import type { AnalisisResponse, PerfilUsuario } from "../../types/finance";
 import { construirAnalisisRequest } from "../../utils/construirAnalisisRequest";
+import {
+  DollarLineIcon,
+  InfoIcon,
+  ListIcon,
+  LockIcon,
+  PieChartIcon,
+  ShootingStarIcon,
+  TaskIcon,
+} from "../../icons";
 
 type ConceptoId =
   | "capacidad-ahorro"
@@ -15,7 +24,7 @@ type ConceptoId =
 
 type Concepto = {
   id: ConceptoId;
-  icono: string;
+  icono: ComponentType<{ className?: string }>;
   titulo: string;
   resumen: string;
   queEs: string;
@@ -117,18 +126,18 @@ function obtenerRecomendacionEducativa(
 const conceptos: Concepto[] = [
   {
     id: "capacidad-ahorro",
-    icono: "💰",
+    icono: DollarLineIcon,
     titulo: "Capacidad de ahorro",
     resumen:
-      "Entendé qué parte de tus ingresos queda disponible después de cubrir tus gastos.",
+      "Entiende qué parte de tus ingresos queda disponible después de cubrir tus gastos.",
     queEs:
-      "La capacidad de ahorro representa cuánto dinero o qué proporción de tus ingresos podés conservar después de cubrir tus gastos habituales.",
+      "La capacidad de ahorro representa cuánto dinero o qué proporción de tus ingresos puedes conservar después de cubrir tus gastos habituales.",
     porQueImporta:
-      "Te ayuda a saber cuánto margen tenés para enfrentar imprevistos, crear un fondo de emergencia o avanzar hacia metas financieras.",
+      "Te ayuda a saber cuánto margen tienes para enfrentar imprevistos, crear un fondo de emergencia o avanzar hacia metas financieras.",
     ejemplo:
-      "Si ingresás $2.000 y tus gastos del período son $1.600, te quedan $400 disponibles. Eso equivale a una capacidad de ahorro del 20%.",
+      "Si ingresas $2.000 y tus gastos del período son $1.600, te quedan $400 disponibles. Eso equivale a una capacidad de ahorro del 20%.",
     claves: [
-      "No depende solo de cuánto ganás, sino también de cuánto gastás.",
+      "No depende solo de cuánto ganas, sino también de cuánto gastas.",
       "Puede variar de un mes a otro.",
       "Mejorarla aumenta tu margen para afrontar gastos inesperados y objetivos futuros.",
     ],
@@ -137,16 +146,16 @@ const conceptos: Concepto[] = [
   },
   {
     id: "deuda-ingreso",
-    icono: "💳",
+    icono: PieChartIcon,
     titulo: "Relación deuda/ingreso",
     resumen:
-      "Descubrí qué parte de tus ingresos está comprometida en pagos de deuda.",
+      "Descubre qué parte de tus ingresos está comprometida en pagos de deuda.",
     queEs:
-      "La relación deuda/ingreso compara los pagos que destinás a deudas con tus ingresos del mismo período.",
+      "La relación deuda/ingreso compara los pagos que destinas a deudas con tus ingresos del mismo período.",
     porQueImporta:
       "Cuanto mayor sea la proporción de ingresos comprometida, menor margen queda para gastos cotidianos, ahorro y situaciones imprevistas.",
     ejemplo:
-      "Si ingresás $2.000 al mes y destinás $500 al pago de deudas, el 25% de tus ingresos está comprometido en esos pagos.",
+      "Si ingresas $2.000 al mes y destinas $500 al pago de deudas, el 25% de tus ingresos está comprometido en esos pagos.",
     claves: [
       "Sirve para medir cuánto pesan las deudas dentro de tu presupuesto.",
       "Un porcentaje más alto implica menos flexibilidad financiera.",
@@ -157,10 +166,10 @@ const conceptos: Concepto[] = [
   },
   {
     id: "gastos-fijos-variables",
-    icono: "🧾",
+    icono: ListIcon,
     titulo: "Gastos fijos vs. variables",
     resumen:
-      "Aprendé a distinguir los gastos difíciles de modificar de aquellos que ofrecen más margen de ajuste.",
+      "Aprende a distinguir los gastos difíciles de modificar de aquellos que ofrecen más margen de ajuste.",
     queEs:
       "Los gastos fijos suelen repetirse con importes relativamente estables, mientras que los variables cambian según el consumo, las decisiones y las circunstancias de cada período.",
     porQueImporta:
@@ -177,10 +186,10 @@ const conceptos: Concepto[] = [
   },
   {
     id: "fondo-emergencia",
-    icono: "🛟",
+    icono: LockIcon,
     titulo: "Fondo de emergencia",
     resumen:
-      "Entendé por qué reservar dinero para imprevistos puede darte mayor estabilidad.",
+      "Entiende por qué reservar dinero para imprevistos puede darte mayor estabilidad.",
     queEs:
       "Un fondo de emergencia es dinero reservado para gastos inesperados o períodos en los que tus ingresos habituales se reducen.",
     porQueImporta:
@@ -197,16 +206,16 @@ const conceptos: Concepto[] = [
   },
   {
     id: "metas-planificacion",
-    icono: "🎯",
+    icono: TaskIcon,
     titulo: "Metas y planificación financiera",
     resumen:
-      "Convertí una intención futura en un objetivo concreto, medible y con seguimiento.",
+      "Convierte una intención futura en un objetivo concreto, medible y con seguimiento.",
     queEs:
-      "Una meta financiera transforma algo que querés conseguir en un objetivo con un monto, una fecha y un plan de avance.",
+      "Una meta financiera transforma algo que quieres conseguir en un objetivo con un monto, una fecha y un plan de avance.",
     porQueImporta:
-      "Te permite estimar cuánto necesitás reservar, medir tu progreso y adaptar el plan si cambian tus ingresos, gastos o prioridades.",
+      "Te permite estimar cuánto necesitas reservar, medir tu progreso y adaptar el plan si cambian tus ingresos, gastos o prioridades.",
     ejemplo:
-      "En lugar de pensar solamente 'quiero comprar una notebook', podés definir cuánto necesitás, para qué fecha y cuánto deberías reservar periódicamente.",
+      "En lugar de pensar solamente 'quiero comprar una notebook', puedes definir cuánto necesitas, para qué fecha y cuánto deberías reservar periódicamente.",
     claves: [
       "Una meta clara tiene un objetivo concreto.",
       "Definir una fecha ayuda a estimar el ritmo necesario.",
@@ -309,19 +318,19 @@ export default function EducacionFinanciera() {
     <>
       <PageMeta
         title="Educación Financiera | FinSightAI"
-        description="Aprendé los conceptos detrás de tus indicadores financieros"
+        description="Aprende los conceptos detrás de tus indicadores financieros"
       />
 
       <div className="space-y-6">
         <div>
           <p className="mb-2 text-sm font-semibold uppercase tracking-[0.18em] text-brand-500">
-            Aprendé sobre tus finanzas
+            Aprende sobre tus finanzas
           </p>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">
             Educación Financiera
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-500 dark:text-gray-400">
-            Comprendé los conceptos que están detrás de tus indicadores, recomendaciones
+            Comprende los conceptos que están detrás de tus indicadores, recomendaciones
             y decisiones financieras. La idea no es solo saber qué hacer, sino entender por qué.
           </p>
         </div>
@@ -330,12 +339,13 @@ export default function EducacionFinanciera() {
           <div className="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-300">
-                ✨ Recomendado para vos
+                <ShootingStarIcon className="h-3.5 w-3.5" />
+                Recomendado para ti
               </div>
 
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm dark:bg-gray-900">
-                  {recomendado.icono}
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-gray-900">
+                  <recomendado.icono className="h-6 w-6 text-brand-500" />
                 </div>
 
                 <div>
@@ -366,9 +376,14 @@ export default function EducacionFinanciera() {
               <button
                 type="button"
                 onClick={() => preguntarleAFinsi(recomendado)}
-                className="inline-flex items-center justify-center rounded-xl border border-brand-300 bg-white px-5 py-3 text-sm font-semibold text-brand-600 transition hover:bg-brand-50 dark:border-brand-700 dark:bg-white/[0.03] dark:text-brand-300 dark:hover:bg-white/[0.06]"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-brand-300 bg-white px-5 py-3 text-sm font-semibold text-brand-600 transition hover:bg-brand-50 dark:border-brand-700 dark:bg-white/[0.03] dark:text-brand-300 dark:hover:bg-white/[0.06]"
               >
-                🤖 Preguntarle a Finsi
+                <img
+                  src="/images/icons/finsi_icon_sm.png"
+                  alt=""
+                  className="h-5 w-5 rounded-full object-cover"
+                />
+                Preguntarle a Finsi
               </button>
             </div>
           </div>
@@ -390,8 +405,8 @@ export default function EducacionFinanciera() {
                 key={concepto.id}
                 className="flex min-h-[250px] flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-500/40"
               >
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-xl dark:bg-brand-500/10">
-                  {concepto.icono}
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-500/10">
+                  <concepto.icono className="h-5 w-5 text-brand-500" />
                 </div>
                 <h3 className="text-base font-semibold text-gray-800 dark:text-white/90">
                   {concepto.titulo}
@@ -411,9 +426,14 @@ export default function EducacionFinanciera() {
                   <button
                     type="button"
                     onClick={() => preguntarleAFinsi(concepto)}
-                    className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:text-gray-300 dark:hover:border-brand-700 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-700 dark:text-gray-300 dark:hover:border-brand-700 dark:hover:bg-brand-500/10 dark:hover:text-brand-300"
                   >
-                    🤖 Finsi
+                    <img
+                  src="/images/icons/finsi_icon_sm.png"
+                  alt=""
+                  className="h-5 w-5 rounded-full object-cover"
+                />
+                    Finsi
                   </button>
                 </div>
               </article>
@@ -423,7 +443,9 @@ export default function EducacionFinanciera() {
 
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="flex items-start gap-3">
-            <span className="text-xl">💡</span>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-500/10">
+              <InfoIcon className="h-5 w-5 text-brand-500" />
+            </div>
             <div>
               <h3 className="font-semibold text-gray-800 dark:text-white/90">
                 Educación para comprender, no para reemplazar asesoramiento profesional
@@ -449,7 +471,9 @@ export default function EducacionFinanciera() {
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white/95 px-6 py-4 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">{conceptoAbierto.icono}</span>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-500/10">
+                  <conceptoAbierto.icono className="h-5 w-5 text-brand-500" />
+                </div>
                 <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
                   {conceptoAbierto.titulo}
                 </h2>
@@ -513,7 +537,7 @@ export default function EducacionFinanciera() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold text-gray-800 dark:text-white/90">
-                      ¿Querés relacionarlo con tus números?
+                      ¿Quieres relacionarlo con tus números?
                     </p>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                       Finsi puede explicarlo usando el contexto financiero disponible en tu cuenta.
@@ -522,9 +546,14 @@ export default function EducacionFinanciera() {
                   <button
                     type="button"
                     onClick={() => preguntarleAFinsi(conceptoAbierto)}
-                    className="inline-flex shrink-0 items-center justify-center rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-600"
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-600"
                   >
-                    🤖 Preguntarle a Finsi
+                    <img
+                  src="/images/icons/finsi_icon_sm.png"
+                  alt=""
+                  className="h-5 w-5 rounded-full object-cover"
+                />
+                    Preguntarle a Finsi
                   </button>
                 </div>
               </div>

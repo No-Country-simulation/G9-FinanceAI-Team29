@@ -170,7 +170,7 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
     titulo: 'Pastilla azul',
     descripcion: 'Preferiste seguir creyendo lo que quieras creer sobre tus finanzas.',
     emoji: '🔵',
-    imagenUrl: '/images/mascot/finsight-bird-matrix-on.png',
+    imagenUrl: '/images/mascot/Finsight-bird-matrix-on.png',
     categoria: 'especial',
     pista: 'Ofrécele al asistente elegir entre la pastilla roja o la azul, y elegí la azul.',
   },

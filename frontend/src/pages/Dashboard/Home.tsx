@@ -43,6 +43,7 @@ import DashboardSkeleton from "../../components/finance/DashboardSkeleton";
 export default function Home() {
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
   const [nombre, setNombre] = useState<string | null>(null);
+  const [apellido, setApellido] = useState<string | null>(null);
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [resumen, setResumen] = useState<ResumenTransacciones | null>(null);
   const [analisis, setAnalisis] = useState<AnalisisResponse | null>(null);
@@ -114,9 +115,11 @@ export default function Home() {
       try {
         const perfilCompleto = await obtenerPerfilCompleto(usuarioId);
         setNombre(perfilCompleto.nombre ?? null);
+        setApellido(perfilCompleto.apellido ?? null);
       } catch (err) {
         console.warn("No se pudo cargar el nombre del usuario:", err);
         setNombre(null);
+        setApellido(null);
       }
 
       const transData = await obtenerTransacciones(usuarioId);
@@ -452,6 +455,7 @@ if (authLoading) {
             analisis={analisis}
             loading={loading}
             nombre={nombre}
+            apellido={apellido}
           />
         </div>
 

@@ -10,8 +10,11 @@ import {
   getSession,
   saveToken,
   clearToken,
+  setAvatar,
+  setAvatarUrl,
   subscribe,
 } from '../services/authSession';
+import { obtenerPerfilCompleto } from '../services/api';
 import { mostrarSesionExpirada } from '../utils/alerts';
 
 /** Cuentas con rol admin: pueden cambiar entre todos los perfiles. */
@@ -100,6 +103,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // El sub del token ES el usuarioId. El admin puede inspeccionar otros perfiles.
   const usuarioId = isAdmin ? adminUsuarioId : session?.user.id ?? '';
 
+  // La foto de perfil (avatar_url) vive en localStorage sin repoblarse en el
+  // login: PerfilDataContext solo la carga perezosamente cuando se visita
+  // /profile, así que en el resto de la app (header, sidebar) se veía una
+  // foto vieja o ninguna hasta esa visita. Sincronizamos acá, una vez por
+  // usuario activo, para que quede correcta desde el primer render.
+  useEffect(() => {
+    if (!usuarioId) return;
+
+    let cancelado = false;
+
+    obtenerPerfilCompleto(usuarioId)
+      .then((perfil) => {
+        if (!cancelado) setAvatarUrl(perfil.avatarUrl ?? null);
+      })
+      .catch((error) => {
+        console.error('No se pudo sincronizar la foto de perfil:', error);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [usuarioId]);
+
   const cambiarUsuarioId = (id: string) => {
     const idLimpio = id.trim();
 
@@ -144,6 +170,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     clearToken();
+    // El avatar vive en localStorage sin namespacing por usuario: si no se
+    // limpia acá, la próxima cuenta que inicie sesión en este navegador
+    // arranca mostrando la foto/emoji de la sesión anterior.
+    setAvatar(null);
+    setAvatarUrl(null);
     setSession(null);
     setAdminUsuarioId(ADMIN_DEFAULT_USUARIO);
   };

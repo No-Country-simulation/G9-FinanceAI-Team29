@@ -17,4 +17,13 @@ export default defineConfig({
     }),
     apiDevMiddleware(),
   ],
+  server: {
+    watch: {
+      // Bind mounts en Docker Desktop (Windows/Mac) no siempre propagan eventos
+      // inotify entre el host y el container; con polling, chokidar detecta
+      // los cambios igual. Se activa solo dentro del container dev (ver
+      // docker-compose.dev.yml), no afecta a `npm run dev` en el host.
+      usePolling: process.env.CHOKIDAR_USEPOLLING === "true",
+    },
+  },
 });

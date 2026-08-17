@@ -1,3 +1,13 @@
+# --- Etapa dev: vite dev server con HMR (código montado como volumen) ---
+# Se usa solo con docker-compose.dev.yml (`build.target: dev`); no interviene
+# en el build de producción (docker-compose.yml usa el target final por defecto).
+FROM node:20-alpine AS dev
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+EXPOSE 5173
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
 # --- Etapa 1: build del frontend (Vite) ---
 FROM node:20-alpine AS build
 WORKDIR /app

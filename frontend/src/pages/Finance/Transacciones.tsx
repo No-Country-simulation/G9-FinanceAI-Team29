@@ -15,6 +15,8 @@ import TextColumnFilter from "../../components/common/TextColumnFilter";
 import SortToggle from "../../components/common/SortToggle";
 import { mostrarError, mostrarInfo } from "../../utils/alerts";
 import { useAuth } from "../../context/AuthContext";
+import { useGamification } from "../../context/GamificationContext";
+import { useOnboarding } from "../../context/OnboardingContext";
 
 const SIN_SUBCATEGORIA = '(Sin subcategoría)';
 
@@ -81,32 +83,42 @@ export default function Transacciones() {
   const POR_PAGINA = 20;
 
   const { usuarioId } = useAuth();
+  const { desbloquearLogro } = useGamification();
+  const { isTourActive } = useOnboarding();
   const navigate = useNavigate();
 
   useEffect(() => {
+    let cancelado = false;
     setLoading(true);
     const fetchData = async () => {
       try {
         const data = await obtenerTransacciones(usuarioId);
+        if (cancelado) return;
         setTransacciones(data);
 
-        if (data.length === 0) {
+        if (data.length === 0 && !isTourActive) {
+          setLoading(false);
           await mostrarInfo(
             'Todavía no tienes movimientos cargados',
             'Carga tus transacciones para ver esta sección. Te llevamos al resumen financiero.',
           );
-          navigate('/');
+          if (!cancelado) navigate('/');
+          return;
         }
       } catch (err) {
+        if (cancelado) return;
         console.error(err);
         mostrarError('No se pudieron cargar las transacciones', 'Verifica que el backend esté disponible e intenta de nuevo.');
       } finally {
-        setLoading(false);
+        if (!cancelado) setLoading(false);
       }
     };
 
     fetchData();
-  }, [usuarioId, navigate]);
+    return () => {
+      cancelado = true;
+    };
+  }, [usuarioId, navigate, isTourActive]);
 
   // Filtrado en cascada: cada paso acota las opciones disponibles del siguiente filtro (estilo Excel).
   const porTipo = filtro === 'Todos'
@@ -195,9 +207,15 @@ export default function Transacciones() {
               return (
                 <button
                   key={tipo}
-                  disabled={isDisabled}
+                  aria-disabled={isDisabled}
                   title={isDisabled ? 'No combina con el filtro de Monto activo' : undefined}
-                  onClick={() => setFiltro(tipo)}
+                  onClick={() => {
+                    if (isDisabled) {
+                      desbloquearLogro('filtro_imposible');
+                      return;
+                    }
+                    setFiltro(tipo);
+                  }}
                   className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors sm:flex-none ${
                     isDisabled
                       ? 'cursor-not-allowed bg-gray-50 text-gray-300 dark:bg-gray-800/50 dark:text-gray-600'
@@ -400,6 +418,7 @@ export default function Transacciones() {
                             selected={filtro === 'Todos' ? [] : [filtro]}
                             onChange={(vals) => setFiltro(vals.length === 1 ? vals[0] : 'Todos')}
                             disabledOptions={tipoDeshabilitado}
+                            onDisabledOptionClick={() => desbloquearLogro('filtro_imposible')}
                           />
                         </div>
                       </th>
@@ -411,6 +430,7 @@ export default function Transacciones() {
                             selected={filtroSigno}
                             onChange={setFiltroSigno}
                             disabledOptions={signoDeshabilitado}
+                            onDisabledOptionClick={() => desbloquearLogro('filtro_imposible')}
                           />
                         </div>
                       </th>

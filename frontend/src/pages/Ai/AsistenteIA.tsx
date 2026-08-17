@@ -29,6 +29,8 @@ type PasoInteractivo = "sin-datos" | "otra-consulta" | "support-help" | "team-in
 
 const REGEX_RESPUESTA_CREADOR =
   /(?:fui creado por\s+twentyninedevs|twentyninedevs\s+es\s+el\s+equipo|equipo\s+que\s+desarroll[oó]\s+finsightai|equipo\s+que\s+cre[oó]\s+finsightai)/i;
+const REGEX_PREGUNTA_ECONOMIA =
+  /\b(inflaci[oó]n|deflaci[oó]n|pbi|producto bruto|oferta y demanda|tasa de inter[eé]s|tasas? de inter[eé]s|pol[ií]tica monetaria|banco central|econom[ií]a|macroeconom[ií]a|microeconom[ií]a|mercado burs[aá]til|bolsa de valores|devaluaci[oó]n|recesi[oó]n|pib\b)/i;
 const MENSAJE_CON_QUE_SEGUIMOS = "¿Con qué seguimos?";
 
 interface Message {
@@ -79,6 +81,11 @@ const MENSAJE_EXPLICAME_MAS = "Explícame más";
 
 const MENSAJE_DESCANSO =
   "🔥 Llevas un rato por aquí. Descansa junto a la hoguera.\n\n!audio[descanso](/images/task/descanso.mp3)";
+
+// Logro "charlas_con_finsi": 5 idas y vueltas (mensaje + respuesta) dentro del
+// mismo chat. numeroMensajeUsuario ya cuenta la posición del mensaje actual
+// dentro de `messages`, así que se reinicia solo al abrir un chat nuevo.
+const MENSAJES_SEGUIDOS_LOGRO_FINSI = 5;
 
 function puedeMostrarExplicameMas(texto: string): boolean {
   const limpio = texto.trim();
@@ -153,7 +160,7 @@ function puedeMostrarExplicameMas(texto: string): boolean {
   return !respuestasInteractivas;
 }
 
-type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | "wololo1" | "wololo2" | "descanso" | "rickroll" | "isengard" | "albion" | "hello_world" | "mongolia" | "infinite_money" | "ctrl_z_gastos" | "finsi_walking" | "finsi_crypto" | null;
+type EasterEggVisual = "kenobi" | "yoda" | "matrix" | "got" | "wololo1" | "wololo2" | "descanso" | "rickroll" | "isengard" | "albion" | "hello_world" | "mongolia" | "infinite_money" | "ctrl_z_gastos" | "finsi_walking" | "finsi_crypto" | "skynet" | null;
 
 function detectarEasterEggVisual(texto: string): EasterEggVisual {
   if (texto.includes("!audio[general-kenobi]") || /\bGeneral Kenobi\./i.test(texto)) {
@@ -226,6 +233,10 @@ if (texto.includes("!audio[ctrl-z-gastos]")) {
 if (texto.includes("!audio[finsi-crypto]")) {
   return "finsi_crypto";
 }
+
+  if (texto.includes("!audio[skynet]") || /Todavía no domino el mundo/i.test(texto)) {
+    return "skynet";
+  }
 
   return null;
 }
@@ -333,6 +344,13 @@ ctrl_z_gastos: {
     poster: "/images/task/finsi-crypto-poster.webp",
     durationMs: 10000,
     border: "border-yellow-300/60",
+  },
+
+  skynet: {
+    src: "/images/task/skynet.webp",
+    poster: "/images/task/skynet-poster.webp",
+    durationMs: 10000,
+    border: "border-red-500/60",
   },
 
 };  
@@ -650,8 +668,8 @@ function MatrixPillChoice({ onElegir }: { onElegir: (e: "roja" | "azul") => void
 function MatrixPillSplash({ tipo, cerrando }: { tipo: "roja" | "azul"; cerrando: boolean }) {
   const esRoja = tipo === "roja";
 
-  const bgFrom   = esRoja ? "rgba(127,29,29,0.97)"  : "rgba(30,58,138,0.97)";
-  const bgTo     = esRoja ? "rgba(0,0,0,0.97)"       : "rgba(0,0,0,0.97)";
+  const bgFrom   = esRoja ? "rgb(127,29,29)"  : "rgb(30,58,138)";
+  const bgTo     = "rgb(0,0,0)";
   const glowColor = esRoja ? "rgba(239,68,68,0.55)"  : "rgba(59,130,246,0.55)";
   const textColor = esRoja ? "#fca5a5"               : "#93c5fd";
   const pillLabel = esRoja ? "PASTILLA ROJA"         : "PASTILLA AZUL";
@@ -662,7 +680,7 @@ function MatrixPillSplash({ tipo, cerrando }: { tipo: "roja" | "azul"; cerrando:
 
   const contenido = (
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-500 ${cerrando ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+      className={`fixed inset-0 z-[999999] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-500 ${cerrando ? "opacity-0 pointer-events-none" : "opacity-100"}`}
       style={{ background: `radial-gradient(ellipse at center, ${bgFrom} 0%, ${bgTo} 100%)` }}
     >
       {/* Partículas de lluvia tipo Matrix */}
@@ -827,6 +845,7 @@ export default function AsistenteIA() {
       navigate(location.pathname, { replace: true, state: null });
       if (autoPromptTraido && !autoPromptEnviadoRef.current) {
         autoPromptEnviadoRef.current = true;
+        desbloquearLogro('pregunta_finsi_contextual');
         handleSubmit(autoPromptTraido);
       }
     }
@@ -899,7 +918,11 @@ export default function AsistenteIA() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  const toggleVoz = () => setVozActiva((prev) => !prev);
+  const toggleVoz = () => setVozActiva((prev) => {
+    const siguiente = !prev;
+    desbloquearLogro(siguiente ? 'narrador_activado' : 'narrador_desactivado');
+    return siguiente;
+  });
   const toggleSonido = () => setSonidoActivo((prev) => !prev);
 
   const handleSubmit = async (
@@ -930,6 +953,8 @@ export default function AsistenteIA() {
       { id: prev.length + 1, role: "user", text: prompt },
     ]);
 
+    if (REGEX_PREGUNTA_ECONOMIA.test(prompt)) desbloquearLogro('pregunta_economia');
+
     if (esPreguntaRepetida) {
       setAgentTabStatus("💬 El agente está escribiendo...");
       if (sonidoActivo) playSendSound();
@@ -954,6 +979,7 @@ export default function AsistenteIA() {
       if (sonidoActivo) playReceiveSound();
       if (vozActiva) speakText("You just got Rickrolled. Classic.");
       desbloquearLogro("rickroll");
+      if (numeroMensajeUsuario >= MENSAJES_SEGUIDOS_LOGRO_FINSI) desbloquearLogro("charlas_con_finsi");
       return;
     }
 
@@ -999,6 +1025,7 @@ export default function AsistenteIA() {
         setPasoPendiente("team-info");
       }
       registrarEvento("mensaje_asistente");
+      if (numeroMensajeUsuario >= MENSAJES_SEGUIDOS_LOGRO_FINSI) desbloquearLogro("charlas_con_finsi");
       const logroDetectado = detectarLogroEnRespuesta(answer);
       if (logroDetectado) desbloquearLogro(logroDetectado);
       setAgentTabStatus("✅ El agente ha respondido", 2000);
@@ -1107,6 +1134,7 @@ export default function AsistenteIA() {
   const responderConocerEquipo = () => {
     setPasoPendiente(null);
     abrirEquipoModal();
+    desbloquearLogro('equipo_descubierto');
   };
 
   const responderNoConocerEquipo = () => {
@@ -1240,11 +1268,26 @@ export default function AsistenteIA() {
   // Lanza el splash de pantalla completa para la pastilla elegida y luego navega.
   const elegirPastilla = (eleccion: "roja" | "azul") => {
     setMatrixSplash({ tipo: eleccion, fase: "visible" });
-    const ruta = eleccion === "roja" ? "/modo-matrix" : "/";
+
+    if (eleccion === "roja") {
+      desbloquearLogro("matrix");
+      // Modo Matrix tiene su propio splash opaco (PastillaRojaSplash, z-999999)
+      // que arranca visible apenas se monta la página. Por eso acá navegamos
+      // directo al terminar la animación, sin el fade-out intermedio: si
+      // dejáramos que este splash baje a opacity-0 antes de navegar quedaría
+      // un hueco de ~500ms mostrando la página de Asistente IA (con el header)
+      // por debajo, ya transparente pero todavía montada.
+      const navegar = setTimeout(() => {
+        navigate("/modo-matrix", { state: { pastillaRojaSplash: true } });
+        setMatrixSplash(null);
+      }, 1600);
+      return () => clearTimeout(navegar);
+    }
+
+    desbloquearLogro("pastilla_azul");
     const cerrar = setTimeout(() => setMatrixSplash((prev) => prev ? { ...prev, fase: "cerrando" } : null), 1600);
     const navegar = setTimeout(() => {
-      // La pastilla roja entra en la experiencia completa de Modo Matrix (no en el guard).
-      navigate(ruta, eleccion === "roja" ? { state: { pastillaRojaSplash: true } } : undefined);
+      navigate("/");
       setMatrixSplash(null);
     }, 2100);
     return () => { clearTimeout(cerrar); clearTimeout(navegar); };
