@@ -86,6 +86,8 @@ services:
       minio-init:
         condition: service_completed_successfully
     restart: unless-stopped
+    ports:
+      - "8000:8000"
     expose:
       - "8000"
 

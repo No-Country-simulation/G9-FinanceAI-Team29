@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import re
@@ -77,6 +78,7 @@ class ChatRequest(BaseModel):
     previous_answer: str | None = Field(default=None, max_length=6000)
     time_zone: str | None = Field(default=None, max_length=100)
     assistant_mode: str | None = Field(default=None, max_length=50)
+    education_topic: str | None = Field(default=None, max_length=50)
 
     @field_validator("usuario_id", "question")
     @classmethod
@@ -86,7 +88,7 @@ class ChatRequest(BaseModel):
             raise ValueError("El campo no puede estar vacío.")
         return stripped
 
-    @field_validator("previous_answer", "time_zone", "assistant_mode")
+    @field_validator("previous_answer", "time_zone", "assistant_mode", "education_topic")
     @classmethod
     def strip_previous_answer(cls, value: str | None) -> str | None:
         if value is None:
@@ -103,18 +105,36 @@ class ChatResponse(BaseModel):
 agent = FinSightAgentService()
 
 
+def _run_agent_chat(request: "ChatRequest"):
+    """Ejecuta el flujo async del agente fuera del event loop principal.
+
+    El agente usa clientes HTTP síncronos para consultar Spring. Si se ejecuta
+    directamente dentro del event loop de Uvicorn, puede bloquear al propio
+    AI-Service e impedir que Spring consulte /health o /analysis, generando un
+    bloqueo circular. run_in_threadpool + asyncio.run mantiene libre el loop
+    principal para atender esas llamadas internas.
+    """
+    return asyncio.run(
+        agent.chat(
+            usuario_id=request.usuario_id,
+            question=request.question,
+            previous_answer=request.previous_answer,
+            time_zone=request.time_zone,
+            assistant_mode=request.assistant_mode,
+            education_topic=request.education_topic,
+        )
+    )
+
+
 @router.post(
     "/chat",
     response_model=ChatResponse,
 )
 async def chat(request: ChatRequest) -> ChatResponse:
     try:
-        response = await agent.chat(
-            usuario_id=request.usuario_id,
-            question=request.question,
-            previous_answer=request.previous_answer,
-            time_zone=request.time_zone,
-            assistant_mode=request.assistant_mode,
+        response = await run_in_threadpool(
+            _run_agent_chat,
+            request,
         )
         answer = response.content
         if request.previous_answer is None:
@@ -151,12 +171,9 @@ def _sse(event: dict) -> str:
 async def _stream_plain_answer(request: "ChatRequest") -> AsyncIterator[str]:
     """Camino de respaldo: sin pasos narrados, un único evento final."""
     try:
-        response = await agent.chat(
-            usuario_id=request.usuario_id,
-            question=request.question,
-            previous_answer=request.previous_answer,
-            time_zone=request.time_zone,
-            assistant_mode=request.assistant_mode,
+        response = await run_in_threadpool(
+            _run_agent_chat,
+            request,
         )
     except ValueError as error:
         # Propaga el mensaje (p.ej. "no posee transacciones") tal cual lo hace
@@ -180,49 +197,30 @@ async def _stream_plain_answer(request: "ChatRequest") -> AsyncIterator[str]:
 
 
 async def _stream_summary_answer(request: "ChatRequest") -> AsyncIterator[str]:
-    """Ejemplo de flujo narrado (estilo "Finsi está haciendo X") para el
-    caso de "dame mi resumen financiero" cuando hay transacciones cargadas."""
+    """Flujo narrado para el resumen financiero.
+
+    El resultado final delega en FinSightAgentService.chat(), igual que el resto
+    de las consultas. Así el resumen usa el mismo snapshot financiero sincronizado
+    con el Dashboard y evita una segunda ruta de cálculo con métricas históricas.
+    """
     yield _sse(
         {"status": "step", "message": "Finsi está revisando tus datos financieros..."}
     )
-    try:
-        transactions = await run_in_threadpool(fetch_user_transactions, request.usuario_id)
-    except (BackendDataError, ValueError):
-        transactions = []
-
-    if not transactions:
-        async for event in _stream_plain_answer(request):
-            yield event
-        return
-
     yield _sse(
         {"status": "step", "message": "Finsi está analizando tus ingresos y gastos..."}
     )
-    try:
-        analysis = await run_in_threadpool(
-            build_live_analysis, request.usuario_id, transactions
-        )
-    except Exception:
-        async for event in _stream_plain_answer(request):
-            yield event
-        return
+    yield _sse({"status": "step", "message": "Finsi está preparando tu resumen..."})
 
-    yield _sse({"status": "step", "message": "Finsi está redactando tu resumen..."})
     try:
-        rules = FinancialRulesEngine.evaluate(analysis)
-        context = FinancialContextBuilder.build(
-            intent=Intent.SUMMARY, analysis=analysis, rules=rules
+        response = await run_in_threadpool(
+            _run_agent_chat,
+            request,
         )
-        messages = PromptBuilder.build(
-            original_question=request.question,
-            processed_question=request.question,
-            corrections=(),
-            context=context,
-            intent=Intent.SUMMARY.value,
-        )
-        llm_response = await agent.llm.generate(messages=messages)
+    except ValueError as error:
+        yield _sse({"status": "error", "message": str(error)})
+        return
     except Exception:
-        logger.exception("Error al generar el resumen financiero narrado")
+        logger.exception("Error al generar el resumen financiero")
         yield _sse(
             {
                 "status": "error",
@@ -231,10 +229,17 @@ async def _stream_summary_answer(request: "ChatRequest") -> AsyncIterator[str]:
         )
         return
 
-    answer = llm_response.content
+    answer = response.content
     if request.previous_answer is None:
         answer = _first_message_answer(request.question, answer)
-    yield _sse({"status": "done", "answer": answer, "provider": llm_response.provider})
+
+    yield _sse(
+        {
+            "status": "done",
+            "answer": answer,
+            "provider": response.provider,
+        }
+    )
 
 
 @router.post("/chat/stream")

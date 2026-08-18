@@ -310,6 +310,7 @@ export default function EducacionFinanciera() {
     navigate("/asistente-ia", {
       state: {
         autoPrompt: concepto.preguntaFinsi,
+        educationTopic: concepto.id,
       },
     });
   };

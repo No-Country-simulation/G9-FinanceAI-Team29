@@ -37,7 +37,15 @@ class GroqProvider(LLMProvider):
                     index,
                 )
 
-                client = AsyncGroq(api_key=api_key)
+                # No hacemos retries internos del SDK.
+                # Si Groq devuelve 429, timeout u otro error,
+                # probamos inmediatamente la siguiente key.
+                # Si fallan todas, LLMService activa OpenRouter.
+                client = AsyncGroq(
+                    api_key=api_key,
+                    max_retries=0,
+                    timeout=10.0,
+                )
 
                 response = await client.chat.completions.create(
                     model=self.model,

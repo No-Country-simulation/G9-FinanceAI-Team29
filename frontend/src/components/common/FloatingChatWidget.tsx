@@ -37,7 +37,17 @@ function normalizarPreguntaParaComparar(texto: string): string {
 function puedeMostrarExplicameMas(texto: string): boolean {
   const limpio = texto.trim();
 
-  if (!limpio || limpio.length < 80) {
+  if (!limpio) {
+    return false;
+  }
+
+  // Las respuestas financieras pueden ser breves y aun así tener información
+  // útil para ampliar. Permitimos "Explícame más" desde 40 caracteres cuando
+  // detectamos contenido financiero; para el resto conservamos el mínimo de 80.
+  const pareceContenidoFinanciero =
+    /\b(ahorro|ahorrar|fondo de emergencia|inflaci[oó]n|inter[eé]s|riesgo|liquidez|diversificaci[oó]n|deuda|cr[eé]dito|inversi[oó]n|acciones?|bonos?|etfs?|fondos?|cripto(?:monedas?)?|bitcoin|ethereum|stablecoins?|presupuesto|ingresos?|gastos?|perfil financiero|puntaje financiero|metas? financieras?)\b/i.test(limpio);
+
+  if (!pareceContenidoFinanciero && limpio.length < 80) {
     return false;
   }
 
@@ -363,7 +373,7 @@ export default function FloatingChatWidget() {
                             : "border-brand-200 bg-brand-50 text-brand-600 hover:border-brand-300 hover:bg-brand-100 dark:border-brand-800 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
                         }`}
                       >
-                        <span aria-hidden="true">✨</span>
+                  
                         Explícame más
                       </button>
                     )}

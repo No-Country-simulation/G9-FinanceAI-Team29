@@ -27,6 +27,13 @@ import TeamAuroraBackdrop from "../../components/team/TeamAuroraBackdrop";
 
 type PasoInteractivo = "sin-datos" | "otra-consulta" | "support-help" | "team-info" | null;
 
+type EducationTopic =
+  | "capacidad-ahorro"
+  | "deuda-ingreso"
+  | "gastos-fijos-variables"
+  | "fondo-emergencia"
+  | "metas-planificacion";
+
 const REGEX_RESPUESTA_CREADOR =
   /(?:fui creado por\s+twentyninedevs|twentyninedevs\s+es\s+el\s+equipo|equipo\s+que\s+desarroll[oó]\s+finsightai|equipo\s+que\s+cre[oó]\s+finsightai)/i;
 const REGEX_PREGUNTA_ECONOMIA =
@@ -38,6 +45,7 @@ interface Message {
   role: "user" | "assistant";
   text: string;
   isHistory?: boolean;
+  educationTopic?: EducationTopic;
 }
 
 interface ChatGuardado {
@@ -107,7 +115,7 @@ function puedeMostrarExplicameMas(texto: string): boolean {
   const pareceContenidoFinanciero =
     /\b(ahorro|ahorrar|fondo de emergencia|inflaci[oó]n|inter[eé]s|riesgo|liquidez|diversificaci[oó]n|deuda|cr[eé]dito|inversi[oó]n|acciones?|bonos?|etfs?|fondos?|cripto(?:monedas?)?|bitcoin|ethereum|stablecoins?|presupuesto|ingresos?|gastos?|perfil financiero|puntaje financiero|metas? financieras?)\b/i.test(limpio);
 
-  if (limpio.length < (pareceContenidoFinanciero ? 50 : 80)) {
+  if (!pareceContenidoFinanciero && limpio.length < 80) {
     return false;
   }
 
@@ -739,9 +747,14 @@ export default function AsistenteIA() {
   const { registrarEvento, desbloquearLogro } = useGamification();
   const location = useLocation();
   const navigate = useNavigate();
-  const estadoNavegacion = location.state as { messages?: Message[]; autoPrompt?: string } | null;
+  const estadoNavegacion = location.state as {
+    messages?: Message[];
+    autoPrompt?: string;
+    educationTopic?: EducationTopic;
+  } | null;
   const mensajesTraidos = estadoNavegacion?.messages;
   const autoPromptTraido = estadoNavegacion?.autoPrompt;
+  const educationTopicTraido = estadoNavegacion?.educationTopic;
   const [messages, setMessages] = useState<Message[]>(
     (mensajesTraidos ?? []).map(m => ({ ...m, isHistory: true }))
   );
@@ -846,7 +859,12 @@ export default function AsistenteIA() {
       if (autoPromptTraido && !autoPromptEnviadoRef.current) {
         autoPromptEnviadoRef.current = true;
         desbloquearLogro('pregunta_finsi_contextual');
-        handleSubmit(autoPromptTraido);
+        handleSubmit(
+          autoPromptTraido,
+          undefined,
+          undefined,
+          educationTopicTraido,
+        );
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -929,6 +947,7 @@ export default function AsistenteIA() {
     prompt: string,
     modelo?: string,
     previousAnswerOverride?: string | null,
+    educationTopicOverride?: EducationTopic,
   ) => {
     if (enviando) return;
     setPasoPendiente(null);
@@ -948,9 +967,24 @@ export default function AsistenteIA() {
       ultimaPreguntaUsuario !== undefined &&
       normalizarPreguntaParaComparar(ultimaPreguntaUsuario) === normalizarPreguntaParaComparar(prompt);
 
+    const ultimoMensajeAsistente = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant");
+    const esFollowUpExplicativo =
+      normalizarPreguntaParaComparar(prompt) ===
+      normalizarPreguntaParaComparar(MENSAJE_EXPLICAME_MAS);
+    const educationTopicParaRequest =
+      educationTopicOverride ??
+      (esFollowUpExplicativo ? ultimoMensajeAsistente?.educationTopic : undefined);
+
     setMessages((prev) => [
       ...prev,
-      { id: prev.length + 1, role: "user", text: prompt },
+      {
+        id: prev.length + 1,
+        role: "user",
+        text: prompt,
+        educationTopic: educationTopicParaRequest,
+      },
     ]);
 
     if (REGEX_PREGUNTA_ECONOMIA.test(prompt)) desbloquearLogro('pregunta_economia');
@@ -993,7 +1027,7 @@ export default function AsistenteIA() {
     const previousAnswer =
       previousAnswerOverride !== undefined
         ? previousAnswerOverride ?? undefined
-        : [...messages].reverse().find((m) => m.role === "assistant")?.text;
+        : ultimoMensajeAsistente?.text;
     try {
       const { answer } = await preguntarAgenteStream(
         prompt,
@@ -1001,11 +1035,17 @@ export default function AsistenteIA() {
         previousAnswer,
         (paso) => setMensajePensando(paso),
         modoSeleccionado,
+        educationTopicParaRequest,
       );
       setMessages((prev) => {
         const siguientes: Message[] = [
           ...prev,
-          { id: prev.length + 1, role: "assistant", text: answer },
+          {
+            id: prev.length + 1,
+            role: "assistant",
+            text: answer,
+            educationTopic: educationTopicParaRequest,
+          },
         ];
 
         if (debeMostrarDescanso) {
@@ -1105,12 +1145,14 @@ export default function AsistenteIA() {
     const indice = messages.findIndex((m) => m.id === messageId);
     if (indice < 0) return;
 
+    const mensajeEditado = messages[indice];
+
     // Al editar una pregunta, descartamos visualmente todo lo que vino después
     // y reconstruimos la conversación desde ese punto, como en ChatGPT.
     const mensajesPrevios = messages.slice(0, indice);
-    // Una edición crea una rama nueva desde esta pregunta. No reutilizamos
-    // la respuesta anterior como previous_answer porque el backend podría
-    // interpretarla como un follow-up y generar una respuesta expandida.
+    // Conservamos la respuesta previa para que una edición del segundo mensaje
+    // no sea interpretada por el backend como el inicio de una conversación.
+    const respuestaAnteriorAEdicion = [...mensajesPrevios].reverse().find((m) => m.role === "assistant")?.text;
     setMessages(mensajesPrevios);
     setPasoPendiente(null);
     setMensajeEditandoId(null);
@@ -1118,7 +1160,12 @@ export default function AsistenteIA() {
 
     // Reenviar una edición nunca debe contar como "pregunta repetida".
     ignorarProximaRepeticionRef.current = true;
-    void handleSubmit(nuevoTexto, modeloActivo, null);
+    void handleSubmit(
+      nuevoTexto,
+      modeloActivo,
+      respuestaAnteriorAEdicion,
+      mensajeEditado.educationTopic,
+    );
   };
 
   const responderSoporte = (respuesta: "sí" | "no") => {

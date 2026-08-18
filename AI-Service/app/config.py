@@ -1,4 +1,4 @@
-from functools import lru_cache
+﻿from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # LLM
     llm_provider: str = "groq"
     llm_temperature: float = 0.2
-    llm_max_tokens: int = 700
+    llm_max_tokens: int = 1600
 
 
         # Groq
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     groq_api_key_2: str | None = None
     groq_api_key_3: str | None = None
     groq_api_key_4: str | None = None
-    groq_model: str = "openai/gpt-oss-20b"
+    groq_model: str = "openai/gpt-oss-120b"
 
     @property
     def groq_api_keys(self) -> list[str]:
@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     # Secreto compartido con el backend (header X-Service-Token) para auth service-to-service.
     service_token: str = ""
 
-    # Soporte técnico RAG
+    # Soporte tÃ©cnico RAG
     support_email: str = "g9latamteam29@gmail.com"
     support_knowledge_dir: Path = BASE_DIR / "services" / "support" / "docs"
 

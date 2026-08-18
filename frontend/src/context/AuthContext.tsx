@@ -22,12 +22,12 @@ const ADMIN_EMAILS = ['demo.admin@finsight.com'];
 
 /** Lista de cuentas que el admin puede inspeccionar. */
 export const CUENTAS_DEMO = [
-  { usuarioId: 'USR0001', etiqueta: 'En Riesgo · USR0001' },
-  { usuarioId: 'USR0002', etiqueta: 'En Observación · USR0002' },
-  { usuarioId: 'USR0009', etiqueta: 'Saludable · USR0009' },
+  { usuarioId: 'USR0401', etiqueta: 'En Riesgo · USR0401' },
+  { usuarioId: 'USR0114', etiqueta: 'En Observación · USR0114' },
+  { usuarioId: 'USR0615', etiqueta: 'Saludable · USR0615' },
 ];
 
-const ADMIN_DEFAULT_USUARIO = 'USR0001';
+const ADMIN_DEFAULT_USUARIO = 'USR0401';
 
 function normalizarApiBase(url: string): string {
   const limpia = url.replace(/\/$/, '');

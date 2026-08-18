@@ -75,10 +75,11 @@ class AnalisisUsuarioRequest(BaseModel):
             * 100
         )
 
+        # La deuda mensual ya está incluida dentro del gasto mensual promedio.
+        # Restarla nuevamente duplicaría su impacto sobre el ahorro.
         ahorro_calculado = (
             self.ingreso_mensual
             - self.gasto_mensual_promedio
-            - self.deuda_mensual
         )
 
         tolerancia_porcentaje = 0.15
@@ -111,7 +112,7 @@ class AnalisisUsuarioRequest(BaseModel):
         ) > tolerancia_monetaria:
             raise ValueError(
                 "ahorro_mensual_estimado no coincide con "
-                "ingreso - gasto - deuda."
+                "ingreso - gasto."
             )
 
         return self

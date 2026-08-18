@@ -25,6 +25,8 @@ public class TransaccionDTO {
 
     private String recurrente;
 
+    private String categoria;
+
     public TransaccionDTO() {}
 
     public TransaccionDTO(String descripcion, BigDecimal valor) {
@@ -32,18 +34,51 @@ public class TransaccionDTO {
         this.valor = valor;
     }
 
-    public String getDescripcion() { return descripcion; }
-    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+    public String getDescripcion() {
+        return descripcion;
+    }
 
-    public BigDecimal getValor() { return valor; }
-    public void setValor(BigDecimal valor) { this.valor = valor; }
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
 
-    public LocalDate getFecha() { return fecha; }
-    public void setFecha(LocalDate fecha) { this.fecha = fecha; }
+    public BigDecimal getValor() {
+        return valor;
+    }
 
-    public String getMedioPago() { return medioPago; }
-    public void setMedioPago(String medioPago) { this.medioPago = medioPago; }
+    public void setValor(BigDecimal valor) {
+        this.valor = valor;
+    }
 
-    public String getRecurrente() { return recurrente; }
-    public void setRecurrente(String recurrente) { this.recurrente = recurrente; }
+    public LocalDate getFecha() {
+        return fecha;
+    }
+
+    public void setFecha(LocalDate fecha) {
+        this.fecha = fecha;
+    }
+
+    public String getMedioPago() {
+        return medioPago;
+    }
+
+    public void setMedioPago(String medioPago) {
+        this.medioPago = medioPago;
+    }
+
+    public String getRecurrente() {
+        return recurrente;
+    }
+
+    public void setRecurrente(String recurrente) {
+        this.recurrente = recurrente;
+    }
+
+    public String getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+    }
 }

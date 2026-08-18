@@ -438,7 +438,7 @@ class IntentDetector:
         "salario", "sueldo", "cuota", "interes", "descuento", "precio", "costo",
         "economia", "situacion", "perfil", "riesgo", "resumen", "puntaje", "meta",
         "objetivo",
-        "ipc", "inflacion", "deflacion",
+        "ipc", "inflacion", "deflacion", "deficit", "déficit",
         "pbi", "pib", "producto bruto interno", "producto interno bruto",
         "recesion", "estanflacion", "tipo de cambio", "devaluacion",
         "accion", "acciones", "bono", "bonos",
@@ -532,6 +532,86 @@ class IntentDetector:
         if not normalized:
             return IntentResult(Intent.UNKNOWN)
 
+        # Las consultas sobre el puntaje financiero personal deben usar el score
+        # real calculado para el usuario y nunca caer en educación financiera.
+        # Se evalúan con prioridad alta porque expresiones como "cuál es mi puntaje"
+        # pueden ser interpretadas por los detectores conceptuales como una
+        # pregunta educativa genérica.
+        if self._contains_any(
+            normalized,
+            {
+                "cual es mi puntaje financiero",
+                "cual es mi score financiero",
+                "cuanto es mi puntaje financiero",
+                "cuanto es mi score financiero",
+                "que puntaje financiero tengo",
+                "que score financiero tengo",
+                "dime mi puntaje financiero",
+                "decime mi puntaje financiero",
+                "dame mi puntaje financiero",
+                "mi puntaje financiero",
+                "mi score financiero",
+                "por que tengo este puntaje financiero",
+                "por que tengo este score financiero",
+                "por que mi puntaje es este",
+                "que significa mi puntaje financiero",
+                "que significa mi score financiero",
+                "explicame mi puntaje financiero",
+                "explicame mi score financiero",
+            },
+        ):
+            analytical_score = self._contains_any(
+                normalized,
+                {
+                    "por que",
+                    "que significa",
+                    "explicame",
+                    "explica",
+                },
+            )
+
+            return IntentResult(
+                intent=Intent.SCORE,
+                mode=(
+                    QueryMode.ANALYTICAL
+                    if analytical_score
+                    else QueryMode.DIRECT
+                ),
+                matched_terms=("personal_financial_score",),
+            )
+
+        # Frases personales críticas de validación: prioridad máxima para evitar
+        # colisiones con términos genéricos como "ingresos", "ahorro" o "situación".
+        if self._contains_any(normalized, {"cuanto estoy gastando por mes", "cuanto gasto por mes", "cuanto estoy gastando al mes"}):
+            return IntentResult(Intent.EXPENSES, QueryMode.DIRECT, ("monthly_expenses",))
+        if self._contains_any(normalized, {"en que categoria estoy gastando mas", "categoria estoy gastando mas"}):
+            return IntentResult(Intent.TOP_EXPENSE_CATEGORY, QueryMode.DIRECT, ("top_expense_category",))
+        if self._contains_any(normalized, {"que porcentaje de mis ingresos destino a deuda", "porcentaje de mis ingresos destino a deuda"}):
+            return IntentResult(Intent.DEBT, QueryMode.ANALYTICAL, ("debt_percentage",))
+        if self._contains_any(
+            normalized,
+            {
+                "como puedo mejorar mi capacidad de ahorro",
+                "como mejorar mi capacidad de ahorro",
+                "como puedo mejorar mi situacion financiera",
+                "como mejorar mi situacion financiera",
+                "que puedo hacer para mejorar mi situacion financiera",
+                "que deberia mejorar primero en mis finanzas",
+                "que deberia mejorar primero",
+                "que deberia mejorar de mis finanzas",
+                "que puedo mejorar de mis finanzas",
+                "por donde deberia empezar",
+                "por donde empiezo a mejorar mis finanzas",
+                "que deberia priorizar",
+                "cual deberia ser mi prioridad financiera",
+            },
+        ):
+            return IntentResult(
+                Intent.RECOMMENDATIONS,
+                QueryMode.ANALYTICAL,
+                ("personal_improvement",),
+            )
+
         if (
             re.search(r"(?<!\w)hol+a+(?!\w)", normalized)
             and not self._contains_any(normalized, self._FINANCIAL_DOMAIN_TERMS)
@@ -551,6 +631,34 @@ class IntentDetector:
                 intent=Intent.SAVINGS,
                 mode=QueryMode.ANALYTICAL,
                 matched_terms=personal_simulation,
+            )
+
+        # Las consultas personales de ahorro deben resolverse con intención SAVINGS
+        # antes de caer en educación financiera o UNKNOWN. "Cuánto estoy ahorrando"
+        # representa ahorro real del período cuando TransactionQueryEngine puede
+        # calcularlo a partir de movimientos; "capacidad de ahorro" representa la
+        # métrica estimada del análisis financiero.
+        if self._contains_any(
+            normalized,
+            {
+                "cuanto estoy ahorrando",
+                "cuanto ahorro",
+                "cuanto ahorre",
+                "cuanto estoy ahorrando este mes",
+                "cuanto ahorro este mes",
+                "cuanto ahorre este mes",
+                "cuanto estoy ahorrando por mes",
+                "cuanto ahorro por mes",
+                "ahorro mensual",
+                "mi ahorro mensual",
+                "cuanto estoy ahorrando al mes",
+                "cuanto ahorro al mes",
+            },
+        ):
+            return IntentResult(
+                intent=Intent.SAVINGS,
+                mode=QueryMode.DIRECT,
+                matched_terms=("personal_savings",),
             )
 
         # Las consultas sobre datos financieros personales deben usar los datos reales
@@ -642,9 +750,94 @@ class IntentDetector:
                 matched_terms=matched_summary,
             )
 
+        # Consultas personales frecuentes de la batería de validación.
+        if self._contains_any(normalized, {"principales categorias de gastos", "principales categorias de gasto", "categorias de gastos", "categorias de gasto", "que porcentaje de mis ingresos estoy gastando", "porcentaje de mis ingresos estoy gastando"}):
+            return IntentResult(Intent.EXPENSES, QueryMode.ANALYTICAL, ("expense_breakdown",))
+        if self._contains_any(normalized, {"cuanto me queda despues de mis gastos", "cuanto me queda luego de mis gastos", "cuanto me sobra despues de mis gastos"}):
+            return IntentResult(Intent.SAVINGS, QueryMode.DIRECT, ("remaining_after_expenses",))
+        if self._contains_any(normalized, {"estoy gastando mas de lo que ingreso", "gasto mas de lo que ingreso"}):
+            return IntentResult(Intent.EXPENSES, QueryMode.ANALYTICAL, ("expenses_vs_income",))
+        if self._contains_any(
+            normalized,
+            {
+                "por que estoy en este perfil financiero",
+                "por que estoy en este perfil",
+                "porque estoy en este perfil financiero",
+                "porque estoy en este perfil",
+                "por que tengo este perfil financiero",
+                "por que tengo este perfil",
+                "porque tengo este perfil financiero",
+                "porque tengo este perfil",
+                "por que tengo este perfil de riesgo",
+                "porque tengo este perfil de riesgo",
+                "que significa mi perfil financiero",
+                "que significa mi perfil",
+                "explicame mi perfil financiero",
+                "explicame mi perfil",
+            },
+        ):
+            return IntentResult(
+                Intent.PROFILE,
+                QueryMode.ANALYTICAL,
+                ("profile_explanation",),
+            )
+        if self._contains_any(normalized, {"como puedo mejorar mi capacidad de ahorro", "como mejorar mi capacidad de ahorro", "como puedo mejorar mi situacion financiera", "como mejorar mi situacion financiera", "como puedo ordenar mejor mis deudas", "como ordenar mejor mis deudas"}):
+            return IntentResult(Intent.RECOMMENDATIONS, QueryMode.ANALYTICAL, ("personal_improvement",))
+
+        # Consultas puntuales sobre transacciones: deben evaluarse antes de
+        # la intención genérica EXPENSES para no devolver el promedio mensual.
+        expense_detail_rules = (
+            (Intent.HIGHEST_EXPENSE_DAY, self._HIGHEST_EXPENSE_DAY_TERMS),
+            (Intent.LARGEST_EXPENSE, self._LARGEST_EXPENSE_TERMS),
+            (Intent.TOP_EXPENSE_CATEGORY, self._TOP_EXPENSE_CATEGORY_TERMS),
+            (Intent.HIGHEST_EXPENSE_MONTH, self._HIGHEST_EXPENSE_MONTH_TERMS),
+        )
+        for specific_intent, terms in expense_detail_rules:
+            matched = tuple(
+                term for term in terms if self._contains_term(normalized, term)
+            )
+            if matched:
+                return IntentResult(
+                    intent=specific_intent,
+                    mode=QueryMode.DIRECT,
+                    matched_terms=matched,
+                )
+
         # Una intención educativa explícita debe prevalecer sobre expresiones
         # generales como "situación financiera". Por ejemplo:
         # "Quiero aprender sobre fondos de emergencia según mi situación financiera".
+                # Consultas personales sobre la última transacción registrada.
+        # Deben llegar al motor transaccional y no clasificarse como
+        # educación financiera.
+        if self._contains_any(
+            normalized,
+            {
+                "ultimo gasto",
+                "mi ultimo gasto",
+                "cual fue mi ultimo gasto",
+            },
+        ):
+            return IntentResult(
+                Intent.EXPENSES,
+                QueryMode.DIRECT,
+                ("latest_expense",),
+            )
+
+        if self._contains_any(
+            normalized,
+            {
+                "ultimo ingreso",
+                "mi ultimo ingreso",
+                "cual fue mi ultimo ingreso",
+            },
+        ):
+            return IntentResult(
+                Intent.INCOME,
+                QueryMode.DIRECT,
+                ("latest_income",),
+            )
+
+
         if self._is_financial_education(normalized):
             return IntentResult(
                 intent=Intent.FINANCIAL_EDUCATION,
@@ -826,25 +1019,6 @@ class IntentDetector:
                 matched_terms=creator_terms,
             )
 
-        # Consultas puntuales sobre transacciones: deben evaluarse antes de
-        # la intención genérica EXPENSES para no devolver el promedio mensual.
-        expense_detail_rules = (
-            (Intent.HIGHEST_EXPENSE_DAY, self._HIGHEST_EXPENSE_DAY_TERMS),
-            (Intent.LARGEST_EXPENSE, self._LARGEST_EXPENSE_TERMS),
-            (Intent.TOP_EXPENSE_CATEGORY, self._TOP_EXPENSE_CATEGORY_TERMS),
-            (Intent.HIGHEST_EXPENSE_MONTH, self._HIGHEST_EXPENSE_MONTH_TERMS),
-        )
-        for specific_intent, terms in expense_detail_rules:
-            matched = tuple(
-                term for term in terms if self._contains_term(normalized, term)
-            )
-            if matched:
-                return IntentResult(
-                    intent=specific_intent,
-                    mode=QueryMode.DIRECT,
-                    matched_terms=matched,
-                )
-
         # Las consultas por gastos recientes deben evaluarse antes de la regla
         # genérica de gastos para no devolver solamente el promedio mensual.
         recent_expenses = tuple(
@@ -950,9 +1124,9 @@ class IntentDetector:
         personal_data_patterns = (
             r"\b(?:mi|mis)\s+(?:deuda|deudas|saldo|saldos|ingreso|ingresos|"
             r"gasto|gastos|ahorro|ahorros|presupuesto|presupuestos|meta|metas|"
-            r"patrimonio|perfil|capacidad de ahorro)\b",
+            r"patrimonio|perfil|puntaje|score|capacidad de ahorro)\b",
             r"\bcuanto\s+(?:debo|gasto|gaste|ahorro|ahorre|ingreso|ingrese)\b",
-            r"\bcual\s+es\s+mi\s+(?:deuda|saldo|nivel|ratio|ahorro|presupuesto|patrimonio)\b",
+            r"\bcual\s+es\s+mi\s+(?:deuda|saldo|nivel|ratio|ahorro|presupuesto|patrimonio|puntaje|score)\b",
             r"\bmostrame\s+(?:mi|mis)\b",
         )
         explicitly_personal = any(

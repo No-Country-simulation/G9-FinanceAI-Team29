@@ -1,4 +1,4 @@
-
+﻿
 import re
 import random
 from datetime import date, datetime
@@ -64,6 +64,7 @@ class FinSightAgentService:
         previous_answer: str | None = None,
         time_zone: str | None = None,
         assistant_mode: str | None = None,
+        education_topic: str | None = None,
     ) -> LLMResponse:
         # El selector de "modelo" del composer puede forzar el flujo de
         # soporte directamente, sin pasar por la detección de intención
@@ -229,15 +230,205 @@ class FinSightAgentService:
 
         query = self._prepare_query(question)
 
+        # Fecha actual local del usuario. Se resuelve de forma determinística para
+        # no depender del conocimiento temporal del LLM ni mezclarla con finanzas.
+        normalized_date_query = QueryNormalizer.normalize(query.corrected).strip()
+        date_query_markers = {
+            "que dia es hoy",
+            "cual es la fecha de hoy",
+            "que fecha es hoy",
+            "fecha de hoy",
+        }
+        if normalized_date_query in date_query_markers:
+            local_today = self._today_for_time_zone(time_zone)
+            weekday_names = (
+                "lunes", "martes", "miércoles", "jueves",
+                "viernes", "sábado", "domingo",
+            )
+            month_names = (
+                "enero", "febrero", "marzo", "abril", "mayo", "junio",
+                "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+            )
+            content = (
+                f"Hoy es {weekday_names[local_today.weekday()]} "
+                f"{local_today.day} de {month_names[local_today.month - 1]} de {local_today.year}."
+            )
+            response = self._internal_response(
+                content,
+                Intent.UNKNOWN,
+                query,
+                used_financial_context=False,
+            )
+            response.metadata["route"] = "local_date_deterministic"
+            return response
+
+        # Las tarjetas de Educación Financiera envían un identificador explícito.
+        # Si la misma pregunta se escribe manualmente en el chat, inferimos únicamente
+        # los cinco prompts canónicos para reutilizar exactamente la misma respuesta
+        # contextual, sin ampliar la detección a consultas financieras ambiguas.
+        if not education_topic:
+            normalized_education_query = QueryNormalizer.normalize(query.corrected).strip()
+            manual_education_topics = {
+                "quiero entender mejor mi capacidad de ahorro. explicame que significa, como se calcula y como se relaciona con mis finanzas actuales.": "capacidad-ahorro",
+                "quiero entender mejor mi relacion deuda/ingreso. explicame que significa y como influye en mi situacion financiera actual.": "deuda-ingreso",
+                "quiero entender la diferencia entre gastos fijos y variables y como se refleja en mis gastos actuales.": "gastos-fijos-variables",
+                "quiero aprender sobre fondos de emergencia. explicame para que sirven y como podria pensar uno segun mi situacion financiera actual.": "fondo-emergencia",
+                "quiero entender mejor como planificar una meta financiera y como relacionarla con mi capacidad de ahorro actual.": "metas-planificacion",
+            }
+            education_topic = manual_education_topics.get(normalized_education_query)
+
+        if education_topic:
+            education_topic_answer = self._education_topic_response(
+                usuario_id=usuario_id,
+                topic=education_topic,
+                question=query.corrected,
+            )
+            if education_topic_answer is not None:
+                response = self._internal_response(
+                    education_topic_answer,
+                    Intent.FINANCIAL_EDUCATION,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "education_topic_contextual"
+                response.metadata["education_topic"] = education_topic
+                return response
+
         # Detectamos la intención lo antes posible para que Educación Financiera
         # no sea interceptada por responders determinísticos de ahorro, gastos,
         # deuda o metas.
         early_intent = self.intent_detector.detect_result(query.corrected)
 
+        # Recomendaciones y presupuesto canónicos con ruta local prioritaria.
+        # Se evalúan por la pregunta misma para no depender de cómo el detector
+        # clasifique frases como "reducir mis gastos".
+        normalized_local_advice_query = QueryNormalizer.normalize(query.corrected).strip()
+        local_advice_markers = (
+            "que deberia mejorar primero",
+            "que gastos deberia revisar",
+            "como puedo mejorar mi capacidad de ahorro",
+            "que puedo hacer para reducir mis gastos",
+            "que puedo hacer para mejorar mi situacion financiera",
+            "como puedo ordenar mejor mis deudas",
+            "armar un presupuesto mensual",
+            "ayudarme a armar un presupuesto",
+        )
+        if any(marker in normalized_local_advice_query for marker in local_advice_markers):
+            analysis = self._get_analysis(usuario_id)
+            inferred_local_intent = (
+                Intent.BUDGET
+                if "presupuesto" in normalized_local_advice_query
+                else Intent.RECOMMENDATIONS
+            )
+            local_advice = self._local_recommendation_or_budget_response(
+                query.corrected,
+                intent=inferred_local_intent,
+                analysis=analysis,
+            )
+            if local_advice is not None:
+                response = self._internal_response(
+                    local_advice,
+                    inferred_local_intent,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = (
+                    "budget_local_priority"
+                    if inferred_local_intent == Intent.BUDGET
+                    else "recommendations_local_priority"
+                )
+                return response
+
+        # Educación financiera esencial con respuesta local.
+        # Las preguntas canónicas de validación no dependen de Groq/OpenRouter.
+        local_education = self._local_financial_education_response(
+            query.corrected,
+            previous_answer=previous_answer,
+        )
+        if (
+            early_intent.intent == Intent.FINANCIAL_EDUCATION
+            and local_education is not None
+        ):
+            response = self._internal_response(
+                local_education,
+                Intent.FINANCIAL_EDUCATION,
+                query,
+                used_financial_context=False,
+            )
+            response.metadata["route"] = "financial_education_local"
+            return response
+
+        # Follow-up educativo determinístico para DÉFICIT.
+        # Debe resolverse ANTES del flujo general de educación financiera,
+        # porque "Explícame más" puede clasificarse como FINANCIAL_EDUCATION
+        # y, de otro modo, llamar a Groq antes del responder determinístico.
+        early_follow_up = QueryNormalizer.normalize(query.corrected).strip()
+        early_previous = QueryNormalizer.normalize(previous_answer or "")
+        if (
+            previous_answer
+            and early_follow_up in {
+                "explicame mas",
+                "explica mas",
+                "amplia",
+                "amplia eso",
+                "ampliame",
+                "ampliame eso",
+                "dame mas detalles",
+                "mas detalles",
+                "profundiza",
+                "profundiza mas",
+                "quiero saber mas",
+                "contame mas",
+                "cuentame mas",
+            }
+            and "deficit" in early_previous
+        ):
+            content = (
+                "Un **déficit** ocurre cuando, durante un período, tus gastos superan tus ingresos.\n\n"
+                "La diferencia entre ambos representa el monto que falta para equilibrar ese período. "
+                "Por ejemplo, si ingresas **$4.000** y gastas **$4.500**, tienes un déficit de **$500**.\n\n"
+                "Un déficit puntual no significa necesariamente un problema permanente. "
+                "Si se repite durante varios períodos, puede reducir el ahorro disponible o hacer necesario "
+                "cubrir la diferencia con ahorros, deuda u otros recursos.\n\n"
+                "El déficit describe el resultado de un período concreto y no debe confundirse con la "
+                "capacidad de ahorro mensual estimada, que es una métrica diferente."
+            )
+            response = self._internal_response(
+                content,
+                Intent.FINANCIAL_EDUCATION,
+                query,
+                used_financial_context=False,
+            )
+            response.metadata["route"] = "deficit_follow_up_early_deterministic"
+            return response
+
         # Educación financiera tiene un flujo propio y prioritario. Una vez
         # reconocida esta intención, enseña primero y usa el contexto financiero
         # antes de cualquier flujo operativo de gastos, ahorro, deuda o metas.
-        if early_intent.intent == Intent.FINANCIAL_EDUCATION:
+        early_explicit_expand = (
+            previous_answer
+            and QueryNormalizer.normalize(query.corrected).strip()
+            in {
+                "explicame mas",
+                "explica mas",
+                "amplia",
+                "amplia eso",
+                "ampliame",
+                "ampliame eso",
+                "dame mas detalles",
+                "mas detalles",
+                "profundiza",
+                "profundiza mas",
+                "quiero saber mas",
+                "contame mas",
+                "cuentame mas",
+            }
+        )
+
+        if (
+            early_intent.intent == Intent.FINANCIAL_EDUCATION
+            and not early_explicit_expand
+        ):
             analysis = self._get_analysis(usuario_id)
             rules = FinancialRulesEngine.evaluate(analysis)
             education_context = self.context_builder.build(
@@ -305,16 +496,1417 @@ class FinSightAgentService:
             "cuentame mas",
         }
         if previous_answer and normalized_follow_up in explicit_expand_follow_ups:
-            messages = PromptBuilder.build_follow_up(
-                question=query.original,
+            # Si la consulta educativa se escribió manualmente, el frontend no tiene
+            # education_topic para reenviarlo. Recuperamos el tema únicamente a partir
+            # de la firma específica de la respuesta contextual generada por Finsi.
+            inferred_previous_education_topic = (
+                self._infer_education_topic_from_previous_answer(previous_answer)
+            )
+            if inferred_previous_education_topic is not None:
+                education_follow_up = self._education_topic_response(
+                    usuario_id=usuario_id,
+                    topic=inferred_previous_education_topic,
+                    question=query.corrected,
+                )
+                if education_follow_up is not None:
+                    response = self._internal_response(
+                        education_follow_up,
+                        Intent.FINANCIAL_EDUCATION,
+                        query,
+                        used_financial_context=True,
+                    )
+                    response.metadata["route"] = "education_topic_follow_up_inferred"
+                    response.metadata["education_topic"] = inferred_previous_education_topic
+                    return response
+
+            # Primero preservamos respuestas financieras estructuradas. Así evitamos
+            # que una mención incidental a "fondo de emergencia", "déficit", etc.
+            # dentro de un resumen sea interpretada como el tema principal educativo.
+            normalized_previous_summary_priority = QueryNormalizer.normalize(previous_answer)
+
+            if (
+                "resumen" in normalized_previous_summary_priority
+                and "ingresos mensuales" in normalized_previous_summary_priority
+                and "gastos mensuales" in normalized_previous_summary_priority
+                and "perfil financiero" in normalized_previous_summary_priority
+            ):
+                analysis = self._get_analysis(usuario_id)
+                metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
+                metrics = metrics if isinstance(metrics, dict) else {}
+
+                ingreso = metrics.get("ingreso_mensual")
+                gasto = metrics.get("gasto_mensual_promedio")
+                ahorro = metrics.get("ahorro_mensual_estimado")
+                deuda = metrics.get("deuda_mensual")
+                ratio_deuda = metrics.get("ratio_deuda_ingreso")
+                perfil = analysis.get("perfil_financiero") if isinstance(analysis, dict) else None
+                riesgo = analysis.get("nivel_riesgo") if isinstance(analysis, dict) else None
+                score = analysis.get("financial_score") if isinstance(analysis, dict) else None
+
+                parts: list[str] = []
+                if ingreso is not None and gasto is not None:
+                    ingreso_d = Decimal(str(ingreso))
+                    gasto_d = Decimal(str(gasto))
+                    if ingreso_d > 0:
+                        ratio_gasto = (gasto_d / ingreso_d * Decimal("100")).quantize(
+                            Decimal("0.1"), rounding=ROUND_HALF_UP
+                        )
+                        ratio_gasto_text = str(ratio_gasto).replace(".", ",")
+                        parts.append(
+                            f"Tus ingresos mensuales son **{self._format_money(ingreso_d)}** y tus gastos "
+                            f"mensuales son **{self._format_money(gasto_d)}**, equivalentes aproximadamente "
+                            f"al **{ratio_gasto_text}% de tus ingresos**."
+                        )
+
+                if ahorro is not None:
+                    parts.append(
+                        f"El margen mensual estimado es **{self._format_money(Decimal(str(ahorro)))}**."
+                    )
+
+                if deuda is not None:
+                    deuda_text = (
+                        f"Tu deuda mensual registrada es "
+                        f"**{self._format_money(Decimal(str(deuda)))}**"
+                    )
+                    if ratio_deuda is not None:
+                        ratio = Decimal(str(ratio_deuda))
+                        if ratio <= 1:
+                            ratio *= Decimal("100")
+                        ratio = ratio.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                        deuda_text += (
+                            f", equivalente al **{str(ratio).replace('.', ',')}% de tus ingresos**"
+                        )
+                    parts.append(deuda_text + ".")
+
+                if perfil or riesgo or score is not None:
+                    estado = []
+                    if perfil:
+                        estado.append(f"perfil **{perfil}**")
+                    if riesgo:
+                        estado.append(f"riesgo **{riesgo}**")
+                    if score is not None:
+                        estado.append(f"puntaje **{score}**")
+                    parts.append(
+                        "En conjunto, estos indicadores se reflejan en tu "
+                        + ", ".join(estado)
+                        + "."
+                    )
+
+                response = self._internal_response(
+                    "\n\n".join(parts),
+                    Intent.FULL_ANALYSIS,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "full_analysis_follow_up_priority"
+                return response
+
+            # Si no era una respuesta financiera estructurada, recién entonces
+            # intentamos reconocer un concepto educativo libre por su contenido.
+            local_education_follow_up = self._local_financial_education_response(
+                query.corrected,
                 previous_answer=previous_answer,
             )
-            response = await self.llm.generate(messages=messages, provider=provider)
+            if local_education_follow_up is not None:
+                response = self._internal_response(
+                    local_education_follow_up,
+                    Intent.FINANCIAL_EDUCATION,
+                    query,
+                    used_financial_context=False,
+                )
+                response.metadata["route"] = "financial_education_follow_up_local"
+                return response
+
+            # Follow-up determinístico para la fecha actual. Evita que "Explícame más"
+            # después de "¿Qué día es hoy?" caiga en el resumen financiero genérico.
+            normalized_previous_date = QueryNormalizer.normalize(previous_answer).strip()
+            if re.match(
+                r"^hoy es (?:lunes|martes|miercoles|jueves|viernes|sabado|domingo) "
+                r"\d{1,2} de (?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) "
+                r"de \d{4}\.?$",
+                normalized_previous_date,
+            ):
+                local_today = self._today_for_time_zone(time_zone)
+                content = (
+                    f"La fecha corresponde al día local de tu navegador: **{local_today.strftime('%d/%m/%Y')}**. "
+                    "FinSightAI usa esa fecha local para interpretar consultas como **este mes**, **hoy** "
+                    "o **hasta hoy**, evitando incluir movimientos de fechas futuras."
+                )
+                response = self._internal_response(
+                    content,
+                    Intent.UNKNOWN,
+                    query,
+                    used_financial_context=False,
+                )
+                response.metadata["route"] = "local_date_follow_up_deterministic"
+                return response
+
+            # Follow-up local para recomendaciones y presupuesto.
+            # Evita que "Explícame más" vuelva a depender de Groq/OpenRouter.
+            normalized_previous_advice = QueryNormalizer.normalize(previous_answer)
+            advice_follow_up_markers = (
+                "revisar el gasto de mayor peso",
+                "deberias revisar principalmente",
+                "revisa con mayor detalle las tres categorias",
+                "para mejorar tu capacidad de ahorro",
+                "para reducir tus gastos",
+                "tus prioridades actuales pueden ordenarse",
+                "para ordenar mejor tus deudas",
+                "base para tu presupuesto mensual",
+                "empieza controlando",
+            )
+            if any(marker in normalized_previous_advice for marker in advice_follow_up_markers):
+                analysis = self._get_analysis(usuario_id)
+                metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
+                metrics = metrics if isinstance(metrics, dict) else {}
+
+                ingreso = metrics.get("ingreso_mensual")
+                gasto = metrics.get("gasto_mensual_promedio")
+                deuda = metrics.get("deuda_mensual")
+                ahorro = metrics.get("ahorro_mensual_estimado")
+                ratio_gasto = metrics.get("ratio_gasto_ingreso")
+                ratio_deuda = metrics.get("ratio_deuda_ingreso")
+
+                def local_pct(value: Any) -> str | None:
+                    if value is None:
+                        return None
+                    try:
+                        number = Decimal(str(value))
+                    except (InvalidOperation, ValueError, TypeError):
+                        return None
+                    if abs(number) <= Decimal("1"):
+                        number *= Decimal("100")
+                    number = number.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+                    return str(number).replace(".", ",")
+
+                gasto_pct = local_pct(ratio_gasto)
+                deuda_pct = local_pct(ratio_deuda)
+
+                categorias = analysis.get("categorias_principales") if isinstance(analysis, dict) else []
+                categorias = categorias if isinstance(categorias, list) else []
+                cat_parts = []
+                for item in categorias[:3]:
+                    if not isinstance(item, dict):
+                        continue
+                    nombre = str(item.get("categoria") or "").strip()
+                    monto = item.get("monto")
+                    porcentaje = item.get("porcentaje")
+                    if not nombre:
+                        continue
+                    detalle = f"**{nombre}**"
+                    if monto is not None:
+                        detalle += f" ({self._format_money(Decimal(str(monto)))}"
+                        if porcentaje is not None:
+                            try:
+                                p = Decimal(str(porcentaje)).quantize(
+                                    Decimal("1"), rounding=ROUND_HALF_UP
+                                )
+                                detalle += f", {p}% del gasto"
+                            except (InvalidOperation, ValueError, TypeError):
+                                pass
+                        detalle += ")"
+                    cat_parts.append(detalle)
+
+                parts = []
+                if cat_parts:
+                    parts.append(
+                        "Las áreas con mayor impacto son " + ", ".join(cat_parts) + "."
+                    )
+
+                if ingreso is not None and gasto is not None:
+                    sentence = (
+                        f"Tus ingresos mensuales son **{self._format_money(Decimal(str(ingreso)))}** "
+                        f"y tus gastos mensuales son **{self._format_money(Decimal(str(gasto)))}**"
+                    )
+                    if gasto_pct:
+                        sentence += f", aproximadamente el **{gasto_pct}% de tus ingresos**"
+                    parts.append(sentence + ".")
+
+                if deuda is not None:
+                    sentence = (
+                        f"Tu deuda mensual registrada es **{self._format_money(Decimal(str(deuda)))}**"
+                    )
+                    if deuda_pct:
+                        sentence += f", aproximadamente el **{deuda_pct}% de tus ingresos**"
+                    parts.append(sentence + ".")
+
+                if ahorro is not None:
+                    parts.append(
+                        f"El margen mensual estimado es **{self._format_money(Decimal(str(ahorro)))}**. "
+                        "Cualquier ajuste sostenible del gasto aumenta ese margen, siempre que los ingresos "
+                        "y las demás obligaciones se mantengan."
+                    )
+
+                debt_topic_markers = (
+                    "ordenar mejor tus deudas",
+                    "ordenar mis deudas",
+                    "saldo pendiente, tasa o costo",
+                    "prioriza las obligaciones de mayor costo",
+                )
+                budget_topic_markers = (
+                    "base para tu presupuesto mensual",
+                    "armar un presupuesto mensual",
+                    "empieza controlando",
+                    "el objetivo del presupuesto",
+                )
+
+                if any(marker in normalized_previous_advice for marker in debt_topic_markers):
+                    parts.append(
+                        "Para decidir el orden exacto de pago todavía hacen falta saldo pendiente, tasa o costo "
+                        "y plazo de cada deuda; sin esos datos FinSightAI no debería inventar una prioridad específica."
+                    )
+                elif any(marker in normalized_previous_advice for marker in budget_topic_markers):
+                    parts.append(
+                        "En un presupuesto, esos valores sirven como punto de partida: el objetivo es asignar límites "
+                        "por categoría y mantener el total de gastos dentro del ingreso disponible."
+                    )
+                else:
+                    parts.append(
+                        "La prioridad es actuar primero sobre los rubros de mayor peso y medir el efecto de cada cambio "
+                        "antes de asumir nuevos objetivos o compromisos."
+                    )
+
+                content = "\n\n".join(parts)
+                response = self._internal_response(
+                    content,
+                    Intent.RECOMMENDATIONS,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "recommendations_follow_up_local"
+                return response
+
+            # Follow-up determinístico para totales REALES del mes actual.
+            # Debe ir antes de los handlers de métricas mensuales del Dashboard para
+            # no convertir "gasté/ingresé este mes" en promedios del análisis general.
+            current_month_follow_up = self._current_month_transaction_follow_up_response(
+                usuario_id=usuario_id,
+                previous_answer=previous_answer,
+                today=self._today_for_time_zone(time_zone),
+            )
+            if current_month_follow_up is not None:
+                response = self._internal_response(
+                    current_month_follow_up,
+                    Intent.EXPENSES
+                    if "gastaste" in QueryNormalizer.normalize(previous_answer)
+                    else Intent.INCOME,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "current_month_transaction_follow_up"
+                return response
+
+            # Follow-up determinístico para períodos relativos de gasto.
+            # Debe evaluarse antes del handler de "último gasto", porque respuestas
+            # como "No tuviste gastos ayer. Tu último gasto fue..." contienen ambas cosas.
+            normalized_previous_period = QueryNormalizer.normalize(previous_answer)
+
+            if "no tuviste gastos registrados ayer" in normalized_previous_period:
+                local_today_period = self._today_for_time_zone(time_zone)
+                yesterday = local_today_period.fromordinal(local_today_period.toordinal() - 1)
+                content = (
+                    f"Ayer, **{yesterday.strftime('%d/%m/%Y')}**, no tuviste gastos registrados.\n\n"
+                    "Por eso el total de gastos de ese día fue **$0,00**. "
+                    "La mención al último gasto disponible solo sirve como referencia adicional "
+                    "y corresponde a una fecha anterior, no a ayer."
+                )
+                response = self._internal_response(
+                    content,
+                    Intent.EXPENSES,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "yesterday_expenses_follow_up_deterministic"
+                return response
+
+            week_total_match = re.search(
+                r"Gastaste\s+(\$[\d\.]+,\d{2})\s+esta semana en\s+(\d+)\s+movimiento",
+                previous_answer,
+                flags=re.IGNORECASE,
+            )
+            if week_total_match:
+                amount = week_total_match.group(1)
+                count = int(week_total_match.group(2))
+                local_today_period = self._today_for_time_zone(time_zone)
+                week_start = local_today_period.fromordinal(
+                    local_today_period.toordinal() - local_today_period.weekday()
+                )
+                movement_word = "movimiento" if count == 1 else "movimientos"
+                content = (
+                    f"Esta semana, desde el **{week_start.strftime('%d/%m/%Y')}** hasta el "
+                    f"**{local_today_period.strftime('%d/%m/%Y')}**, llevas registrados "
+                    f"**{amount}** en gastos, distribuidos en **{count} {movement_word}**.\n\n"
+                    "El cálculo usa únicamente las transacciones registradas dentro de la semana actual "
+                    "hasta hoy; no corresponde al promedio mensual del análisis general."
+                )
+                response = self._internal_response(
+                    content,
+                    Intent.EXPENSES,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "current_week_expenses_follow_up_deterministic"
+                return response
+
+            # Follow-up determinístico para ÚLTIMO GASTO / ÚLTIMO INGRESO.
+            # Conserva la transacción puntual de la respuesta anterior y evita
+            # caer al resumen financiero genérico.
+            latest_transaction_match = re.search(
+                r"Tu último (gasto|ingreso) fue\s+(\$[\d\.]+,\d{2})\s+por\s+(.+?)\s+\((.+?)\)\s+el\s+(\d{2}/\d{2}/\d{4})\.?",
+                previous_answer,
+                flags=re.IGNORECASE,
+            )
+            if latest_transaction_match:
+                movement_type = latest_transaction_match.group(1).lower()
+                amount = latest_transaction_match.group(2)
+                description = latest_transaction_match.group(3).strip()
+                category = latest_transaction_match.group(4).strip()
+                movement_date = latest_transaction_match.group(5)
+
+                if movement_type == "gasto":
+                    content = (
+                        f"Tu último gasto registrado hasta la fecha consultada fue **{amount}** "
+                        f"por **{description}**, dentro de la categoría **{category}**, "
+                        f"el **{movement_date}**.\n\n"
+                        "Al decir **último gasto**, FinSightAI toma la transacción de gasto "
+                        "más reciente por fecha dentro de tus movimientos registrados. "
+                        "No significa que sea tu gasto de mayor monto."
+                    )
+                    follow_up_intent = Intent.EXPENSES
+                    follow_up_route = "latest_expense_follow_up_deterministic"
+                else:
+                    content = (
+                        f"Tu último ingreso registrado hasta la fecha consultada fue **{amount}** "
+                        f"por **{description}**, dentro de la categoría **{category}**, "
+                        f"el **{movement_date}**.\n\n"
+                        "Al decir **último ingreso**, FinSightAI toma la transacción de ingreso "
+                        "más reciente por fecha dentro de tus movimientos registrados. "
+                        "Este dato corresponde a una transacción puntual y no al ingreso mensual "
+                        "promedio del análisis general."
+                    )
+                    follow_up_intent = Intent.INCOME
+                    follow_up_route = "latest_income_follow_up_deterministic"
+
+                response = self._internal_response(
+                    content,
+                    follow_up_intent,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = follow_up_route
+                return response
+
+            # Follow-up determinístico para INGRESOS / GASTOS mensuales.
+            normalized_previous_metric = QueryNormalizer.normalize(previous_answer)
+
+            if "tu ingreso mensual registrado es" in normalized_previous_metric:
+                analysis = self._get_analysis(usuario_id)
+                metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
+                metrics = metrics if isinstance(metrics, dict) else {}
+                ingreso = metrics.get("ingreso_mensual")
+                gasto = metrics.get("gasto_mensual_promedio")
+                ahorro = metrics.get("ahorro_mensual_estimado")
+
+                parts = []
+                if ingreso is not None:
+                    parts.append(
+                        f"Tu ingreso mensual registrado es **{self._format_money(Decimal(str(ingreso)))}**."
+                    )
+                if gasto is not None and ingreso is not None:
+                    ingreso_d = Decimal(str(ingreso))
+                    gasto_d = Decimal(str(gasto))
+                    if ingreso_d > 0:
+                        pct = (gasto_d / ingreso_d * Decimal("100")).quantize(
+                            Decimal("0.1"), rounding=ROUND_HALF_UP
+                        )
+                        parts.append(
+                            f"De ese ingreso, tus gastos mensuales representan aproximadamente "
+                            f"el **{str(pct).replace('.', ',')}%**."
+                        )
+                if ahorro is not None:
+                    parts.append(
+                        f"El margen mensual estimado después de gastos es "
+                        f"**{self._format_money(Decimal(str(ahorro)))}**."
+                    )
+                response = self._internal_response(
+                    "\n\n".join(parts),
+                    Intent.INCOME,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "income_follow_up_deterministic"
+                return response
+
+            if "tu gasto mensual promedio es" in normalized_previous_metric:
+                analysis = self._get_analysis(usuario_id)
+                metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
+                metrics = metrics if isinstance(metrics, dict) else {}
+                ingreso = metrics.get("ingreso_mensual")
+                gasto = metrics.get("gasto_mensual_promedio")
+                ahorro = metrics.get("ahorro_mensual_estimado")
+
+                parts = []
+                if gasto is not None:
+                    parts.append(
+                        f"Tu gasto mensual promedio es **{self._format_money(Decimal(str(gasto)))}**."
+                    )
+                if ingreso is not None and gasto is not None:
+                    ingreso_d = Decimal(str(ingreso))
+                    gasto_d = Decimal(str(gasto))
+                    if ingreso_d > 0:
+                        pct = (gasto_d / ingreso_d * Decimal("100")).quantize(
+                            Decimal("0.1"), rounding=ROUND_HALF_UP
+                        )
+                        parts.append(
+                            f"Ese gasto equivale aproximadamente al "
+                            f"**{str(pct).replace('.', ',')}% de tus ingresos**."
+                        )
+                if ahorro is not None:
+                    parts.append(
+                        f"Con tus valores actuales, el margen mensual estimado es "
+                        f"**{self._format_money(Decimal(str(ahorro)))}**."
+                    )
+                response = self._internal_response(
+                    "\n\n".join(parts),
+                    Intent.EXPENSES,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "expenses_follow_up_deterministic"
+                return response
+
+            # Antes de enviar "Explícame más" al LLM, intenta conservar un contexto
+            # transaccional real de la respuesta anterior. Esto evita mezclar, por
+            # ejemplo, el ahorro real de un mes con las métricas promedio del análisis.
+            try:
+                transactions = fetch_user_transactions(usuario_id)
+
+                try:
+                    analysis_for_follow_up = fetch_live_analysis(usuario_id)
+                except (BackendDataError, ValueError):
+                    analysis_for_follow_up = None
+
+                try:
+                    profile = fetch_user_profile(usuario_id)
+                    user_name = str(profile.get("nombre") or "").strip() or None
+                except (BackendDataError, ValueError):
+                    user_name = None
+
+                transaction_follow_up = TransactionQueryEngine.answer(
+                    query.corrected,
+                    transactions,
+                    user_name=user_name,
+                    analysis=analysis_for_follow_up,
+                    previous_answer=previous_answer,
+                    today=self._today_for_time_zone(time_zone),
+                )
+
+                if transaction_follow_up is not None:
+                    response = self._internal_response(
+                        transaction_follow_up.content,
+                        early_intent.intent
+                        if early_intent.intent != Intent.UNKNOWN
+                        else Intent.SAVINGS,
+                        query,
+                        used_financial_context=True,
+                    )
+                    response.metadata["route"] = "transaction_contextual_follow_up"
+                    response.metadata["transaction_action"] = (
+                        transaction_follow_up.action
+                    )
+                    return response
+
+            except (BackendDataError, ValueError):
+                pass
+
+            largest_expense_follow_up = self._largest_expense_follow_up_response(
+                usuario_id=usuario_id,
+                previous_answer=previous_answer,
+            )
+            if largest_expense_follow_up is not None:
+                response = self._internal_response(
+                    largest_expense_follow_up,
+                    Intent.EXPENSES,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "largest_expense_follow_up_deterministic"
+                return response
+
+            debt_follow_up = self._debt_follow_up_response(
+                usuario_id=usuario_id,
+                previous_answer=previous_answer,
+            )
+            if debt_follow_up is not None:
+                response = self._internal_response(
+                    debt_follow_up,
+                    Intent.DEBT,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "debt_follow_up_deterministic"
+                return response
+
+            # Follow-up determinístico para educación financiera: DÉFICIT.
+            # Evita depender de Groq cuando el usuario pide "Explícame más"
+            # después de una definición de déficit.
+            normalized_previous_education = QueryNormalizer.normalize(previous_answer)
+            deficit_follow_up_markers = (
+                "el deficit es la situacion",
+                "un deficit ocurre",
+                "saldo negativo",
+                "equilibrar el presupuesto",
+            )
+            if (
+                "deficit" in normalized_previous_education
+                and any(
+                    marker in normalized_previous_education
+                    for marker in deficit_follow_up_markers
+                )
+            ):
+                content = (
+                    "Un **déficit** ocurre cuando, durante un período, tus gastos superan tus ingresos.\n\n"
+                    "La diferencia entre ambos representa el monto que falta para equilibrar ese período. "
+                    "Por ejemplo, si ingresas **$4.000** y gastas **$4.500**, tienes un déficit de **$500**.\n\n"
+                    "Un déficit puntual no significa necesariamente un problema permanente. "
+                    "Sin embargo, si se repite durante varios períodos, puede reducir el ahorro disponible "
+                    "o hacer necesario cubrir la diferencia con ahorros, deuda u otros recursos.\n\n"
+                    "El concepto de déficit describe el resultado de un período concreto y no debe confundirse "
+                    "con la capacidad de ahorro mensual estimada, que es una métrica diferente."
+                )
+                response = self._internal_response(
+                    content,
+                    Intent.FINANCIAL_EDUCATION,
+                    query,
+                    used_financial_context=False,
+                )
+                response.metadata["route"] = "deficit_follow_up_deterministic"
+                return response
+
+            # Follow-up determinístico para SAVINGS. Evita depender de Groq
+            # cuando el usuario pide "Explícame más" después de una respuesta
+            # sobre capacidad de ahorro mensual estimada.
+            normalized_previous_savings = QueryNormalizer.normalize(previous_answer)
+            savings_follow_up_markers = (
+                "puedes ahorrar aproximadamente",
+                "capacidad de ahorro estimada",
+                "capacidad de ahorro mensual",
+            )
+            if any(
+                marker in normalized_previous_savings
+                for marker in savings_follow_up_markers
+            ):
+                analysis = self._get_analysis(usuario_id)
+                metrics = (
+                    analysis.get("metricas")
+                    if isinstance(analysis, dict)
+                    else {}
+                )
+                metrics = metrics if isinstance(metrics, dict) else {}
+
+                ingreso = metrics.get("ingreso_mensual")
+                gasto = metrics.get("gasto_mensual_promedio")
+                ahorro = metrics.get("ahorro_mensual_estimado")
+                ratio_gasto = metrics.get("ratio_gasto_ingreso")
+                ratio_ahorro = metrics.get("ratio_ahorro_ingreso")
+
+                def savings_pct(value: Any) -> str | None:
+                    if value is None:
+                        return None
+                    try:
+                        numeric = float(value)
+                    except (TypeError, ValueError):
+                        return None
+                    if abs(numeric) <= 1:
+                        numeric *= 100
+                    return f"{numeric:.1f}".replace(".", ",")
+
+                parts: list[str] = []
+
+                ahorro_pct = savings_pct(ratio_ahorro)
+                gasto_pct = savings_pct(ratio_gasto)
+
+                if ahorro is not None and ahorro_pct is not None:
+                    parts.append(
+                        f"Tu capacidad de ahorro estimada es "
+                        f"**{self._format_money(Decimal(str(ahorro)))} al mes**, "
+                        f"equivalente aproximadamente al **{ahorro_pct}% de tus ingresos**."
+                    )
+                elif ahorro is not None:
+                    parts.append(
+                        f"Tu capacidad de ahorro estimada es "
+                        f"**{self._format_money(Decimal(str(ahorro)))} al mes**."
+                    )
+
+                if ingreso is not None and gasto is not None:
+                    parts.append(
+                        f"Se obtiene de la diferencia entre tus ingresos mensuales de "
+                        f"**{self._format_money(Decimal(str(ingreso)))}** y tus gastos mensuales de "
+                        f"**{self._format_money(Decimal(str(gasto)))}**."
+                    )
+
+                if gasto_pct is not None:
+                    parts.append(
+                        f"Tus gastos representan aproximadamente el **{gasto_pct}% de tus ingresos**, "
+                        "por lo que el margen disponible para ahorrar es reducido."
+                    )
+
+                parts.append(
+                    "Este dato corresponde a la **capacidad de ahorro mensual estimada** del análisis general "
+                    "de FinSightAI y no al balance real de un mes específico."
+                )
+
+                content = "\n\n".join(parts)
+                response = self._internal_response(
+                    content,
+                    Intent.SAVINGS,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "savings_follow_up_deterministic"
+                return response
+
+            # Follow-up determinístico para RESUMEN / FULL_ANALYSIS.
+            # Debe evaluarse antes de PROFILE porque el resumen también contiene
+            # una línea con el perfil financiero.
+            normalized_previous_summary = QueryNormalizer.normalize(previous_answer)
+            if (
+                "resumen" in normalized_previous_summary
+                and "ingresos mensuales" in normalized_previous_summary
+                and "gastos mensuales" in normalized_previous_summary
+                and "perfil financiero" in normalized_previous_summary
+            ):
+                analysis = self._get_analysis(usuario_id)
+                metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
+                metrics = metrics if isinstance(metrics, dict) else {}
+
+                ingreso = metrics.get("ingreso_mensual")
+                gasto = metrics.get("gasto_mensual_promedio")
+                ahorro = metrics.get("ahorro_mensual_estimado")
+                deuda = metrics.get("deuda_mensual")
+                ratio_deuda = metrics.get("ratio_deuda_ingreso")
+                perfil = analysis.get("perfil_financiero") if isinstance(analysis, dict) else None
+                riesgo = analysis.get("nivel_riesgo") if isinstance(analysis, dict) else None
+                score = analysis.get("financial_score") if isinstance(analysis, dict) else None
+
+                parts: list[str] = []
+                if ingreso is not None and gasto is not None:
+                    ingreso_d = Decimal(str(ingreso))
+                    gasto_d = Decimal(str(gasto))
+                    if ingreso_d > 0:
+                        ratio_gasto = (gasto_d / ingreso_d * Decimal("100")).quantize(
+                            Decimal("0.1"), rounding=ROUND_HALF_UP
+                        )
+                        ratio_gasto_text = str(ratio_gasto).replace(".", ",")
+                        parts.append(
+                            f"Tus ingresos mensuales son **{self._format_money(ingreso_d)}** y tus gastos "
+                            f"mensuales son **{self._format_money(gasto_d)}**, equivalentes aproximadamente "
+                            f"al **{ratio_gasto_text}% de tus ingresos**."
+                        )
+
+                if ahorro is not None:
+                    parts.append(
+                        f"El margen mensual estimado es **{self._format_money(Decimal(str(ahorro)))}**."
+                    )
+
+                if deuda is not None:
+                    deuda_text = f"Tu deuda mensual registrada es **{self._format_money(Decimal(str(deuda)))}**"
+                    if ratio_deuda is not None:
+                        ratio = Decimal(str(ratio_deuda))
+                        if ratio <= 1:
+                            ratio *= Decimal("100")
+                        ratio = ratio.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                        deuda_text += f", equivalente al **{str(ratio).replace('.', ',')}% de tus ingresos**"
+                    parts.append(deuda_text + ".")
+
+                if perfil or riesgo or score is not None:
+                    estado = []
+                    if perfil:
+                        estado.append(f"perfil **{perfil}**")
+                    if riesgo:
+                        estado.append(f"riesgo **{riesgo}**")
+                    if score is not None:
+                        estado.append(f"puntaje **{score}**")
+                    parts.append(
+                        "En conjunto, estos indicadores se reflejan en tu "
+                        + ", ".join(estado)
+                        + "."
+                    )
+
+                content = "\n\n".join(parts)
+                response = self._internal_response(
+                    content,
+                    Intent.FULL_ANALYSIS,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "full_analysis_follow_up_deterministic"
+                return response
+
+            # Follow-up determinístico para PROFILE. Evita depender de Groq
+            # cuando el usuario pide "Explícame más" después de consultar o
+            # explicar su perfil financiero.
+            normalized_previous_profile = QueryNormalizer.normalize(previous_answer)
+            profile_follow_up_markers = (
+                "tu perfil financiero actual es",
+                "tu perfil esta clasificado como",
+                "tu perfil financiero es",
+                "perfil en riesgo",
+                "nivel de riesgo es critico",
+            )
+            if any(
+                marker in normalized_previous_profile
+                for marker in profile_follow_up_markers
+            ):
+                analysis = self._get_analysis(usuario_id)
+                metrics = (
+                    analysis.get("metricas")
+                    if isinstance(analysis, dict)
+                    else {}
+                )
+                metrics = metrics if isinstance(metrics, dict) else {}
+
+                perfil = str(
+                    analysis.get("perfil_financiero") or "Sin clasificar"
+                )
+                riesgo = str(
+                    analysis.get("nivel_riesgo") or "Sin clasificar"
+                )
+                score = analysis.get("financial_score")
+                status = analysis.get("score_status")
+
+                ingreso = metrics.get("ingreso_mensual")
+                gasto = metrics.get("gasto_mensual_promedio")
+                deuda = metrics.get("deuda_mensual")
+                ahorro = metrics.get("ahorro_mensual_estimado")
+                ratio_gasto = metrics.get("ratio_gasto_ingreso")
+                ratio_deuda = metrics.get("ratio_deuda_ingreso")
+                ratio_ahorro = metrics.get("ratio_ahorro_ingreso")
+
+                def pct(value: Any) -> str | None:
+                    if value is None:
+                        return None
+                    try:
+                        numeric = float(value)
+                    except (TypeError, ValueError):
+                        return None
+                    if abs(numeric) <= 1:
+                        numeric *= 100
+                    return f"{numeric:.1f}".replace(".", ",")
+
+                parts: list[str] = [
+                    f"Tu perfil financiero es **{perfil}** y tu nivel de riesgo es **{riesgo}**."
+                ]
+
+                indicadores: list[str] = []
+                gasto_pct = pct(ratio_gasto)
+                deuda_pct = pct(ratio_deuda)
+                ahorro_pct = pct(ratio_ahorro)
+
+                if ingreso is not None and gasto is not None and gasto_pct is not None:
+                    indicadores.append(
+                        f"tus gastos mensuales son {self._format_money(Decimal(str(gasto)))} "
+                        f"sobre ingresos de {self._format_money(Decimal(str(ingreso)))}, "
+                        f"aproximadamente el {gasto_pct}%"
+                    )
+                if deuda is not None and deuda_pct is not None:
+                    indicadores.append(
+                        f"la deuda mensual es {self._format_money(Decimal(str(deuda)))} "
+                        f"y representa aproximadamente el {deuda_pct}% de tus ingresos"
+                    )
+                if ahorro is not None and ahorro_pct is not None:
+                    indicadores.append(
+                        f"tu capacidad de ahorro estimada es "
+                        f"{self._format_money(Decimal(str(ahorro)))} al mes, "
+                        f"aproximadamente el {ahorro_pct}% de tus ingresos"
+                    )
+
+                if indicadores:
+                    parts.append(
+                        "Los indicadores que más explican esa clasificación son: "
+                        + "; ".join(indicadores)
+                        + "."
+                    )
+
+                if score is not None:
+                    score_text = f"Tu puntaje financiero es **{score}**"
+                    if status:
+                        score_text += f" (**{status}**)"
+                    score_text += (
+                        ", y resume la combinación de gasto, deuda y capacidad de ahorro "
+                        "que FinSightAI observa en tu situación actual."
+                    )
+                    parts.append(score_text)
+
+                categorias = (
+                    analysis.get("categorias_principales", [])
+                    if isinstance(analysis, dict)
+                    else []
+                )
+                if isinstance(categorias, list) and categorias:
+                    top = []
+                    for item in categorias[:3]:
+                        if not isinstance(item, dict):
+                            continue
+                        categoria = str(item.get("categoria") or "").strip()
+                        porcentaje = item.get("porcentaje")
+                        if not categoria or porcentaje is None:
+                            continue
+                        try:
+                            pct_cat = round(float(porcentaje))
+                        except (TypeError, ValueError):
+                            continue
+                        top.append(f"{categoria} ({pct_cat}% del gasto total)")
+                    if top:
+                        parts.append(
+                            "Las categorías principales muestran dónde se concentra el gasto: "
+                            + ", ".join(top)
+                            + ". Sus porcentajes son sobre el gasto total, no sobre el ingreso."
+                        )
+
+                content = "\n\n".join(parts)
+                response = self._internal_response(
+                    content,
+                    Intent.PROFILE,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "profile_follow_up_deterministic"
+                return response
+
+            # Follow-up determinístico para PRINCIPALES CATEGORÍAS.
+            # Mantiene el foco en las categorías mostradas en la respuesta anterior
+            # y evita caer al resumen financiero genérico.
+            normalized_previous_categories = QueryNormalizer.normalize(previous_answer)
+            if (
+                "tus tres categorias principales son" in normalized_previous_categories
+                or "tus tres categorias de gasto principales son" in normalized_previous_categories
+                or "tus tres categorias de gastos principales son" in normalized_previous_categories
+                or "principales categorias de gastos" in normalized_previous_categories
+            ):
+                analysis = self._get_analysis(usuario_id)
+                categorias = (
+                    analysis.get("categorias_principales", [])
+                    if isinstance(analysis, dict)
+                    else []
+                )
+
+                parts: list[str] = []
+                if isinstance(categorias, list):
+                    for item in categorias[:3]:
+                        if not isinstance(item, dict):
+                            continue
+
+                        nombre = str(item.get("categoria") or "").strip()
+                        monto = item.get("monto")
+                        porcentaje = item.get("porcentaje")
+
+                        if not nombre:
+                            continue
+
+                        detalle = f"**{nombre}**"
+                        if monto is not None:
+                            detalle += f": **{self._format_money(Decimal(str(monto)))}**"
+
+                        if porcentaje is not None:
+                            try:
+                                pct_value = Decimal(str(porcentaje))
+                                pct_value = pct_value.quantize(
+                                    Decimal("0.1"), rounding=ROUND_HALF_UP
+                                )
+                                pct_text = str(pct_value).replace(".", ",")
+                                if pct_text.endswith(",0"):
+                                    pct_text = pct_text[:-2]
+                                detalle += f", aproximadamente el **{pct_text}% del gasto total**"
+                            except (InvalidOperation, ValueError, TypeError):
+                                pass
+
+                        parts.append(detalle + ".")
+
+                if parts:
+                    parts.insert(
+                        0,
+                        "Estas son las categorías que concentran la mayor parte de tus gastos actuales:"
+                    )
+                    parts.append(
+                        "Los porcentajes indican qué parte de tu **gasto total** corresponde a cada categoría. "
+                        "No representan el porcentaje de tus ingresos."
+                    )
+                    parts.append(
+                        "Revisarlas por separado permite entender dónde se concentra tu gasto sin asumir "
+                        "que todos los movimientos de esas categorías sean reducibles o prescindibles."
+                    )
+
+                    response = self._internal_response(
+                        "\n\n".join(parts),
+                        Intent.EXPENSES,
+                        query,
+                        used_financial_context=True,
+                    )
+                    response.metadata["route"] = "top_categories_follow_up_deterministic"
+                    return response
+
+            # Follow-up determinístico para PORCENTAJE DE INGRESOS GASTADO.
+            # Explica específicamente la relación gasto/ingreso en vez de devolver
+            # el resumen financiero genérico.
+            normalized_previous_spending_ratio = QueryNormalizer.normalize(previous_answer)
+            spending_ratio_markers = (
+                "estas gastando aproximadamente el",
+                "estas gastando el",
+                "estas destinando el",
+                "estas destinando aproximadamente el",
+                "porcentaje de mis ingresos",
+                "gasto mensual promedio",
+                "gasto promedio",
+                "saldo despues de los gastos",
+            )
+            if (
+                "ingreso mensual" in normalized_previous_spending_ratio
+                and "gasto" in normalized_previous_spending_ratio
+                and any(
+                    marker in normalized_previous_spending_ratio
+                    for marker in spending_ratio_markers
+                )
+            ):
+                analysis = self._get_analysis(usuario_id)
+                metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
+                metrics = metrics if isinstance(metrics, dict) else {}
+
+                ingreso = metrics.get("ingreso_mensual")
+                gasto = metrics.get("gasto_mensual_promedio")
+                ahorro = metrics.get("ahorro_mensual_estimado")
+
+                if ingreso is not None and gasto is not None:
+                    ingreso_d = Decimal(str(ingreso))
+                    gasto_d = Decimal(str(gasto))
+
+                    if ingreso_d > 0:
+                        ratio = (gasto_d / ingreso_d * Decimal("100")).quantize(
+                            Decimal("0.1"), rounding=ROUND_HALF_UP
+                        )
+                        ratio_text = str(ratio).replace(".", ",")
+
+                        if ahorro is not None:
+                            margen_d = Decimal(str(ahorro))
+                        else:
+                            margen_d = ingreso_d - gasto_d
+
+                        margen_ratio = (
+                            margen_d / ingreso_d * Decimal("100")
+                        ).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+                        margen_ratio_text = str(margen_ratio).replace(".", ",")
+
+                        content = (
+                            f"Estás destinando aproximadamente el **{ratio_text}% de tus ingresos a gastos**.\n\n"
+                            f"Esto surge de comparar tus gastos mensuales de "
+                            f"**{self._format_money(gasto_d)}** con tus ingresos mensuales de "
+                            f"**{self._format_money(ingreso_d)}**.\n\n"
+                            f"Después de esos gastos queda un margen estimado de "
+                            f"**{self._format_money(margen_d)}**, equivalente aproximadamente al "
+                            f"**{margen_ratio_text}% de tus ingresos**.\n\n"
+                            "En otras palabras, la mayor parte de tus ingresos ya está comprometida por tus "
+                            "gastos actuales, aunque el balance mensual estimado todavía es positivo."
+                        )
+
+                        response = self._internal_response(
+                            content,
+                            Intent.EXPENSES,
+                            query,
+                            used_financial_context=True,
+                        )
+                        response.metadata["route"] = "spending_ratio_follow_up_deterministic"
+                        return response
+
+            # Follow-up determinístico prioritario para categoría de mayor gasto.
+            # Conserva exactamente categoría y monto de la respuesta anterior.
+            normalized_previous_top_category = QueryNormalizer.normalize(previous_answer)
+            if (
+                "categoria en la que mas gastaste fue" in normalized_previous_top_category
+                or "categoria con mayor gasto" in normalized_previous_top_category
+                or "categoria de mayor gasto" in normalized_previous_top_category
+            ):
+                category_match = re.search(
+                    r"categor(?:ia|ía).*?(?:es|fue)\s+\*\*?([^,*\n]+?)\*\*?,?\s+con\s+\*\*?\$([\d\.]+,\d{2})",
+                    previous_answer,
+                    flags=re.IGNORECASE,
+                )
+                if category_match:
+                    categoria = category_match.group(1).strip().strip("*")
+                    monto = category_match.group(2).strip()
+                    content = (
+                        f"Tu categoría con mayor gasto es **{categoria}**, con **${monto}**. "
+                        "Ese monto corresponde al mismo período y conjunto de movimientos usados en la respuesta anterior. "
+                        "Representa la suma de los gastos clasificados en esa categoría, no una única compra."
+                    )
+                    response = self._internal_response(
+                        content,
+                        Intent.TOP_EXPENSE_CATEGORY,
+                        query,
+                        used_financial_context=True,
+                    )
+                    response.metadata["route"] = "top_expense_category_reuse_previous"
+                    return response
+
+            # Follow-ups determinísticos adicionales para respuestas financieras
+            # frecuentes. Si reconocemos el tipo de respuesta anterior, ampliamos
+            # con datos reales y evitamos depender de Groq.
+            normalized_previous_generic = QueryNormalizer.normalize(previous_answer)
+
+            # Categoría de mayor gasto acumulado.
+            if (
+                "categoria en la que mas gastaste fue" in normalized_previous_generic
+                or "categoria de mayor gasto es" in normalized_previous_generic
+                or "categoria con mas gastos" in normalized_previous_generic
+            ):
+                analysis = self._get_analysis(usuario_id)
+                categorias = (
+                    analysis.get("categorias_principales", [])
+                    if isinstance(analysis, dict)
+                    else []
+                )
+
+                if isinstance(categorias, list) and categorias:
+                    principal = next(
+                        (
+                            item for item in categorias
+                            if isinstance(item, dict)
+                            and str(item.get("categoria") or "").strip()
+                        ),
+                        None,
+                    )
+                else:
+                    principal = None
+
+                if isinstance(principal, dict):
+                    nombre = str(principal.get("categoria") or "").strip()
+                    monto = principal.get("monto")
+                    porcentaje = principal.get("porcentaje")
+
+                    parts = [
+                        f"Tu categoría con mayor gasto acumulado es **{nombre}**"
+                        + (
+                            f", con **{self._format_money(Decimal(str(monto)))}**."
+                            if monto is not None
+                            else "."
+                        )
+                    ]
+
+                    if porcentaje is not None:
+                        try:
+                            pct_value = float(porcentaje)
+                            pct_text = (
+                                f"{pct_value:.0f}"
+                                if float(pct_value).is_integer()
+                                else f"{pct_value:.1f}".replace(".", ",")
+                            )
+                            parts.append(
+                                f"Esa categoría representa aproximadamente el **{pct_text}% del gasto total**."
+                            )
+                        except (TypeError, ValueError):
+                            pass
+
+                    parts.append(
+                        "Este dato representa la suma de las transacciones clasificadas en esa categoría, "
+                        "no una única compra."
+                    )
+
+                    content = "\n\n".join(parts)
+                    response = self._internal_response(
+                        content,
+                        Intent.TOP_EXPENSE_CATEGORY,
+                        query,
+                        used_financial_context=True,
+                    )
+                    response.metadata["route"] = "top_expense_category_follow_up_deterministic"
+                    return response
+
+            # Resumen general de situación financiera.
+            if (
+                "resumen" in normalized_previous_generic
+                and (
+                    "ingresos mensuales" in normalized_previous_generic
+                    or "gastos mensuales" in normalized_previous_generic
+                )
+                and "perfil financiero" in normalized_previous_generic
+            ):
+                analysis = self._get_analysis(usuario_id)
+                content = DeterministicFinancialResponder.full_analysis(analysis)
+                response = self._internal_response(
+                    content,
+                    Intent.FULL_ANALYSIS,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "full_analysis_follow_up_deterministic"
+                return response
+
+            # Puntaje financiero.
+            if (
+                "puntaje financiero actual es" in normalized_previous_generic
+                or "puntaje financiero es" in normalized_previous_generic
+            ):
+                analysis = self._get_analysis(usuario_id)
+                metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
+                metrics = metrics if isinstance(metrics, dict) else {}
+
+                score = analysis.get("financial_score") if isinstance(analysis, dict) else None
+                status = analysis.get("score_status") if isinstance(analysis, dict) else None
+                ingreso = metrics.get("ingreso_mensual")
+                gasto = metrics.get("gasto_mensual_promedio")
+                deuda = metrics.get("deuda_mensual")
+                ahorro = metrics.get("ahorro_mensual_estimado")
+                ratio_gasto = metrics.get("ratio_gasto_ingreso")
+                ratio_deuda = metrics.get("ratio_deuda_ingreso")
+                ratio_ahorro = metrics.get("ratio_ahorro_ingreso")
+
+                def _pct_local(value: Any) -> str | None:
+                    if value is None:
+                        return None
+                    try:
+                        numeric = float(value)
+                    except (TypeError, ValueError):
+                        return None
+                    if abs(numeric) <= 1:
+                        numeric *= 100
+                    return f"{numeric:.1f}".replace(".", ",")
+
+                parts = []
+                if score is not None:
+                    score_text = f"Tu puntaje financiero es **{score}**"
+                    if status:
+                        score_text += f" (**{status}**)"
+                    score_text += "."
+                    parts.append(score_text)
+
+                indicadores = []
+                gasto_pct = _pct_local(ratio_gasto)
+                deuda_pct = _pct_local(ratio_deuda)
+                ahorro_pct = _pct_local(ratio_ahorro)
+
+                if ingreso is not None and gasto is not None and gasto_pct is not None:
+                    indicadores.append(
+                        f"gastos de {self._format_money(Decimal(str(gasto)))} sobre ingresos de "
+                        f"{self._format_money(Decimal(str(ingreso)))}, aproximadamente el {gasto_pct}%"
+                    )
+                if deuda is not None and deuda_pct is not None:
+                    indicadores.append(
+                        f"deuda mensual de {self._format_money(Decimal(str(deuda)))}, aproximadamente el "
+                        f"{deuda_pct}% de tus ingresos"
+                    )
+                if ahorro is not None and ahorro_pct is not None:
+                    indicadores.append(
+                        f"capacidad de ahorro estimada de {self._format_money(Decimal(str(ahorro)))} al mes, "
+                        f"aproximadamente el {ahorro_pct}% de tus ingresos"
+                    )
+
+                if indicadores:
+                    parts.append(
+                        "Los principales indicadores que influyen en ese puntaje son: "
+                        + "; ".join(indicadores)
+                        + "."
+                    )
+
+                content = "\n\n".join(parts)
+                response = self._internal_response(
+                    content,
+                    Intent.SCORE,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "score_follow_up_deterministic"
+                return response
+
+            # Follow-up determinístico para "¿Estoy gastando más de lo que ingreso?".
+            # Mantiene el foco en la comparación ingreso/gasto y evita caer al
+            # fallback financiero genérico.
+            overspending_follow_up_markers = (
+                "tus gastos no superan tus ingresos",
+                "no, tus gastos no superan tus ingresos",
+                "saldo positivo",
+                "despues de cubrir todos los desembolsos",
+            )
+            if any(
+                marker in normalized_previous_generic
+                for marker in overspending_follow_up_markers
+            ):
+                analysis = self._get_analysis(usuario_id)
+                metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
+                metrics = metrics if isinstance(metrics, dict) else {}
+
+                ingreso = metrics.get("ingreso_mensual")
+                gasto = metrics.get("gasto_mensual_promedio")
+
+                if ingreso is not None and gasto is not None:
+                    ingreso_d = Decimal(str(ingreso))
+                    gasto_d = Decimal(str(gasto))
+                    balance = ingreso_d - gasto_d
+
+                    if ingreso_d > 0:
+                        gasto_ratio = (
+                            gasto_d / ingreso_d * Decimal("100")
+                        ).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+                        margen_ratio = (
+                            balance / ingreso_d * Decimal("100")
+                        ).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+
+                        gasto_ratio_text = str(gasto_ratio).replace(".", ",")
+                        margen_ratio_text = str(margen_ratio).replace(".", ",")
+
+                        if balance >= 0:
+                            content = (
+                                f"No estás gastando más de lo que ingresas: tus ingresos mensuales son "
+                                f"**{self._format_money(ingreso_d)}** y tus gastos mensuales son "
+                                f"**{self._format_money(gasto_d)}**.\n\n"
+                                f"Eso significa que estás utilizando aproximadamente el "
+                                f"**{gasto_ratio_text}% de tus ingresos** y conservas un margen estimado de "
+                                f"**{self._format_money(balance)}**, equivalente aproximadamente al "
+                                f"**{margen_ratio_text}% de tus ingresos**.\n\n"
+                                "El balance mensual estimado sigue siendo positivo, aunque el margen disponible "
+                                "es reducido porque la mayor parte de tus ingresos ya está destinada a gastos.\n\n"
+                                "Estos valores corresponden al análisis financiero general de FinSightAI y no al "
+                                "resultado real de un mes específico."
+                            )
+                        else:
+                            deficit = abs(balance)
+                            content = (
+                                f"Sí, actualmente tus gastos mensuales de **{self._format_money(gasto_d)}** "
+                                f"superan tus ingresos mensuales de **{self._format_money(ingreso_d)}**.\n\n"
+                                f"Estás utilizando aproximadamente el **{gasto_ratio_text}% de tus ingresos** "
+                                f"y el déficit mensual estimado es **{self._format_money(deficit)}**.\n\n"
+                                "Estos valores corresponden al análisis financiero general de FinSightAI y no al "
+                                "resultado real de un mes específico."
+                            )
+                    else:
+                        content = DeterministicFinancialResponder.remaining_after_expenses(analysis)
+                else:
+                    content = DeterministicFinancialResponder.remaining_after_expenses(analysis)
+
+                response = self._internal_response(
+                    content,
+                    Intent.EXPENSES,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "overspending_follow_up_deterministic"
+                return response
+
+            # Balance después de gastos.
+            if (
+                "despues de tus gastos mensuales te quedan" in normalized_previous_generic
+                or "te queda un margen aproximado" in normalized_previous_generic
+            ):
+                analysis = self._get_analysis(usuario_id)
+                metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
+                metrics = metrics if isinstance(metrics, dict) else {}
+
+                ingreso = metrics.get("ingreso_mensual")
+                gasto = metrics.get("gasto_mensual_promedio")
+
+                if ingreso is not None and gasto is not None:
+                    ingreso_d = Decimal(str(ingreso))
+                    gasto_d = Decimal(str(gasto))
+                    balance = ingreso_d - gasto_d
+                    content = (
+                        f"El monto que te queda después de tus gastos mensuales se calcula restando "
+                        f"**{self._format_money(gasto_d)}** de gastos a **{self._format_money(ingreso_d)}** "
+                        f"de ingresos.\n\n"
+                        f"El resultado es **{self._format_money(balance)}**. "
+                        "Este valor corresponde al balance mensual estimado del análisis general y no al "
+                        "resultado real de un mes específico."
+                    )
+                else:
+                    content = DeterministicFinancialResponder.remaining_after_expenses(analysis)
+
+                response = self._internal_response(
+                    content,
+                    Intent.SAVINGS,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "remaining_after_expenses_follow_up_deterministic"
+                return response
+
+            # Follow-up determinístico para educación financiera canónica.
+            normalized_previous_education = QueryNormalizer.normalize(previous_answer)
+
+            local_education_followups = {
+                "fondo de emergencia": (
+                    "Un **fondo de emergencia** es una reserva separada para cubrir imprevistos sin depender "
+                    "de deuda. Lo importante es que sea accesible y esté diferenciada del dinero de uso cotidiano. "
+                    "El objetivo no es maximizar rendimiento, sino disponer de liquidez cuando aparece una necesidad inesperada."
+                ),
+                "interes compuesto": (
+                    "El **interés compuesto** hace que los intereses generados se incorporen al capital. "
+                    "En períodos posteriores, los nuevos intereses pueden calcularse sobre una base mayor. "
+                    "Por eso el tiempo y la reinversión influyen mucho en el resultado."
+                ),
+                "etf": (
+                    "Un **ETF** reúne activos dentro de una cartera y sus participaciones se negocian en mercado. "
+                    "Puede seguir un índice, un sector, bonos u otras estrategias. "
+                    "Su riesgo depende de los activos que contiene y de cómo esté construido."
+                ),
+                "stablecoin": (
+                    "Una **stablecoin** intenta mantener un valor de referencia relativamente estable, "
+                    "pero esa estabilidad no está garantizada. Su riesgo depende del mecanismo de respaldo, "
+                    "las reservas, la liquidez y las contrapartes involucradas."
+                ),
+                "diversificar": (
+                    "**Diversificar** significa repartir la exposición entre distintos activos en lugar de concentrarla "
+                    "en uno solo. Reduce el riesgo de concentración, aunque no elimina la posibilidad de pérdidas."
+                ),
+                "bono": (
+                    "Un **bono** es deuda emitida por una entidad. Quien invierte presta dinero bajo ciertas condiciones "
+                    "y espera recibir pagos según lo acordado. El riesgo principal es que el emisor no cumpla o que "
+                    "el valor del bono cambie antes de su vencimiento."
+                ),
+                "accion": (
+                    "Una **acción** representa participación en una empresa. Su precio puede subir o bajar y no existe "
+                    "una rentabilidad garantizada. Algunas empresas reparten dividendos, pero tampoco son obligatorios."
+                ),
+                "ahorrar": (
+                    "**Ahorrar** busca reservar dinero y mantener disponibilidad. **Invertir** implica colocar dinero "
+                    "en activos con expectativa de rendimiento, aceptando algún nivel de riesgo. Son herramientas distintas."
+                ),
+            }
+
+            for marker, explanation in local_education_followups.items():
+                if marker in normalized_previous_education:
+                    response = self._internal_response(
+                        explanation,
+                        Intent.FINANCIAL_EDUCATION,
+                        query,
+                        used_financial_context=False,
+                    )
+                    response.metadata["route"] = "financial_education_follow_up_local"
+                    return response
+
+
+            # Último fallback para "Explícame más": SIEMPRE local.
+            # A partir de este punto ningún follow-up explícito depende de
+            # Groq/OpenRouter. Los responders específicos anteriores conservan
+            # prioridad; este bloque solo cubre lo que no reconocieron.
+            try:
+                follow_up_analysis = self._get_analysis(usuario_id)
+            except (BackendDataError, ValueError):
+                follow_up_analysis = {}
+
+            content = self._generic_local_expand_response(
+                previous_answer=previous_answer,
+                analysis=follow_up_analysis,
+            )
+            response = self._internal_response(
+                content,
+                early_intent.intent
+                if early_intent.intent != Intent.UNKNOWN
+                else Intent.FULL_ANALYSIS,
+                query,
+                used_financial_context=bool(follow_up_analysis),
+            )
             response.metadata.update(
                 {
                     "intent": "follow_up",
-                    "route": "llm_follow_up_expand",
-                    "used_financial_context": True,
+                    "route": "local_follow_up_expand",
+                    "used_financial_context": bool(follow_up_analysis),
                     "corrections_count": len(query.corrections),
                 }
             )
@@ -705,15 +2297,30 @@ class FinSightAgentService:
             )
             response.metadata["route"] = "goals_direct"
             return response
-
+         
         if (
             previous_answer
             and early_intent.intent == Intent.UNKNOWN
             and self._is_follow_up(query.corrected)
+            and not is_financial_query
         ):
+            
+            follow_up_context: dict[str, Any] = {}
+            try:
+                follow_up_analysis = self._get_analysis(usuario_id)
+                follow_up_rules = FinancialRulesEngine.evaluate(follow_up_analysis)
+                follow_up_context = self.context_builder.build(
+                    intent=Intent.FULL_ANALYSIS,
+                    analysis=follow_up_analysis,
+                    rules=follow_up_rules,
+                )
+            except (BackendDataError, ValueError):
+                follow_up_context = {}
+
             messages = PromptBuilder.build_follow_up(
                 question=query.original,
                 previous_answer=previous_answer,
+                context=follow_up_context,
             )
             response = await self.llm.generate(messages=messages, provider=provider)
             response.metadata.update(
@@ -727,6 +2334,69 @@ class FinSightAgentService:
             return response
 
         intent_result = self.intent_detector.detect_result(query.corrected)
+
+        # Recomendaciones y presupuesto con fallback local real.
+        # Estas respuestas usan únicamente el análisis calculado por FinSightAI
+        # y siguen funcionando aunque Groq y OpenRouter estén sin cuota.
+        if intent_result.intent in {Intent.RECOMMENDATIONS, Intent.BUDGET}:
+            analysis = self._get_analysis(usuario_id)
+            local_advice = self._local_recommendation_or_budget_response(
+                query.corrected,
+                intent=intent_result.intent,
+                analysis=analysis,
+            )
+            if local_advice is not None:
+                response = self._internal_response(
+                    local_advice,
+                    intent_result.intent,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = (
+                    "budget_local_deterministic"
+                    if intent_result.intent == Intent.BUDGET
+                    else "recommendations_local_deterministic"
+                )
+                return response
+
+        # Los resúmenes/situación actual deben ser matemáticamente deterministas
+        # y usar exactamente el snapshot sincronizado con el Dashboard. Dejar estas
+        # respuestas al LLM permitía contradicciones como afirmar déficit cuando
+        # ingreso > gasto.
+        if intent_result.intent in {Intent.SUMMARY, Intent.FULL_ANALYSIS}:
+            analysis = self._get_analysis(usuario_id)
+            content = DeterministicFinancialResponder.respond(
+                intent=intent_result.intent,
+                analysis=analysis,
+            )
+            response = self._internal_response(
+                content,
+                intent_result.intent,
+                query,
+                used_financial_context=True,
+            )
+            response.metadata["route"] = "dashboard_snapshot_deterministic"
+            return response
+
+        # "Cuánto me queda después de mis gastos" pregunta por el balance, no
+        # por la capacidad genérica de ahorro.
+        if (
+            intent_result.intent == Intent.SAVINGS
+            and any(
+                marker in set(intent_result.matched_terms or ())
+                for marker in {"remaining_after_expenses", "saldo despues de gastos"}
+            )
+        ):
+            analysis = self._get_analysis(usuario_id)
+            content = DeterministicFinancialResponder.remaining_after_expenses(analysis)
+            response = self._internal_response(
+                content,
+                intent_result.intent,
+                query,
+                used_financial_context=True,
+            )
+            response.metadata["route"] = "dashboard_balance_deterministic"
+            return response
 
         # Consultas transaccionales específicas: totales por período, máximos,
         # categorías, comparaciones, insights, predicciones y acciones. Se
@@ -760,6 +2430,31 @@ class FinSightAgentService:
                 else previous_answer
             )
 
+            # "¿Cuánto ingresé este mes?" debe usar las transacciones reales del
+            # mes actual, no `ingreso_mensual` del snapshot general. El motor ya
+            # resuelve correctamente el equivalente de gastos; protegemos aquí
+            # específicamente el ingreso mensual para evitar el fallback genérico.
+            normalized_transaction_query = QueryNormalizer.normalize(query.corrected)
+            if (
+                re.search(r"\bcuanto\s+(?:ingrese|ingreso|cobre|gane)\b", normalized_transaction_query)
+                and re.search(r"\beste\s+mes\b", normalized_transaction_query)
+            ):
+                current_month_income = self._current_month_transaction_response(
+                    transactions=transactions,
+                    transaction_type="INGRESO",
+                    today=local_today,
+                )
+                if current_month_income is not None:
+                    response = self._internal_response(
+                        current_month_income,
+                        Intent.INCOME,
+                        query,
+                        used_financial_context=True,
+                    )
+                    response.metadata["route"] = "current_month_income_transactions"
+                    response.metadata["transaction_action"] = "current_month_income"
+                    return response
+        
             transaction_answer = TransactionQueryEngine.answer(
                 query.corrected,
                 transactions,
@@ -820,10 +2515,54 @@ class FinSightAgentService:
                 content = DeterministicGoalResponder.respond(goals)
             else:
                 analysis = self._get_analysis(usuario_id)
-                content = DeterministicFinancialResponder.respond(
-                    intent=intent_result.intent,
-                    analysis=analysis,
+
+                # PROFILE necesita distinguir entre preguntar cuál es el perfil
+                # y preguntar por qué se obtuvo ese perfil. El router mantiene
+                # ambas consultas en deterministic para no depender del LLM,
+                # pero la segunda debe explicar los indicadores que lo sustentan.
+                normalized_profile_question = QueryNormalizer.normalize(query.corrected)
+                asks_profile_reason = (
+                    intent_result.intent == Intent.PROFILE
+                    and any(
+                        marker in normalized_profile_question
+                        for marker in (
+                            "por que tengo este perfil",
+                            "por que tengo ese perfil",
+                            "por que tengo el perfil",
+                            "por que estoy en este perfil financiero",
+                            "por que estoy en este perfil",
+                            "por que estoy en ese perfil financiero",
+                            "por que estoy en ese perfil",
+                            "por que mi perfil",
+                            "por que estoy en riesgo",
+                            "por que soy en riesgo",
+                            "por que me da este perfil",
+                            "por que me da ese perfil",
+                            "por que me aparece este perfil",
+                            "por que me aparece ese perfil",
+                        )
+                    )
                 )
+
+                if asks_profile_reason:
+                    profile_content = DeterministicFinancialResponder.respond(
+                        intent=Intent.PROFILE,
+                        analysis=analysis,
+                    )
+                    summary_content = DeterministicFinancialResponder.respond(
+                        intent=Intent.SUMMARY,
+                        analysis=analysis,
+                    )
+                    content = (
+                        f"{profile_content}\n\n"
+                        "Este perfil se obtiene a partir de tus indicadores financieros actuales:\n\n"
+                        f"{summary_content}"
+                    )
+                else:
+                    content = DeterministicFinancialResponder.respond(
+                        intent=intent_result.intent,
+                        analysis=analysis,
+                    )
             return self._internal_response(
                 content,
                 intent_result.intent,
@@ -877,6 +2616,1037 @@ class FinSightAgentService:
 
         return response
 
+
+    @classmethod
+    def _generic_local_expand_response(
+        cls,
+        *,
+        previous_answer: str,
+        analysis: dict[str, Any],
+    ) -> str:
+        """Amplía localmente una respuesta previa sin inventar datos.
+
+        Se usa únicamente como último fallback de un follow-up explícito como
+        "Explícame más". Los responders contextuales específicos tienen prioridad.
+        """
+        previous = (previous_answer or "").strip()
+        normalized = QueryNormalizer.normalize(previous)
+        analysis = analysis if isinstance(analysis, dict) else {}
+        metrics = analysis.get("metricas")
+        metrics = metrics if isinstance(metrics, dict) else {}
+
+        # Educación financiera general: ampliar el concepto previo sin mezclar
+        # automáticamente los datos personales del usuario.
+        educational_markers = {
+            "fondo de emergencia": (
+                "La idea central es separar una reserva para imprevistos del dinero de uso cotidiano. "
+                "Debe poder utilizarse cuando aparece una necesidad inesperada, evitando depender "
+                "inmediatamente de deuda."
+            ),
+            "interes compuesto": (
+                "La diferencia frente al interés simple es que los intereses generados pueden incorporarse "
+                "al capital. En los períodos siguientes, esa base mayor puede generar nuevos intereses."
+            ),
+            "ahorrar": (
+                "Ahorrar prioriza reservar dinero y conservar disponibilidad; invertir implica asumir algún "
+                "nivel de riesgo buscando un rendimiento. Una misma persona puede usar ambas herramientas "
+                "para objetivos diferentes."
+            ),
+            "etf": (
+                "Un ETF es un vehículo que reúne activos dentro de una cartera y cuyas participaciones se "
+                "negocian en mercado. El riesgo depende de los activos que contiene y de la estrategia que sigue."
+            ),
+            "bono": (
+                "Al comprar un bono estás financiando al emisor bajo determinadas condiciones. "
+                "El resultado depende, entre otras cosas, de que el emisor cumpla sus pagos y de cómo cambie "
+                "el valor del instrumento en el mercado."
+            ),
+            "accion": (
+                "Una acción representa participación en una empresa. Su precio puede variar y no existe una "
+                "rentabilidad garantizada; el resultado depende de la empresa y de las condiciones del mercado."
+            ),
+            "stablecoin": (
+                "Una stablecoin intenta mantener una referencia de valor, pero puede perderla. "
+                "Su riesgo depende del mecanismo de respaldo, la liquidez, las reservas y las contrapartes involucradas."
+            ),
+            "diversificar": (
+                "Diversificar reduce la concentración: en lugar de depender de un solo activo, distribuye la exposición. "
+                "Eso puede disminuir el impacto de un problema puntual, aunque no elimina el riesgo de pérdida."
+            ),
+            "deficit": (
+                "El déficit describe un período en el que los gastos superan los ingresos. "
+                "Si se repite, la diferencia debe cubrirse con ahorros, deuda u otros recursos."
+            ),
+        }
+        for marker, explanation in educational_markers.items():
+            if marker in normalized:
+                return explanation
+
+        # Si la respuesta anterior ya es financiera/personal, ampliar con las
+        # métricas verificadas disponibles sin reinterpretarlas.
+        ingreso = metrics.get("ingreso_mensual")
+        gasto = metrics.get("gasto_mensual_promedio")
+        deuda = metrics.get("deuda_mensual")
+        ahorro = metrics.get("ahorro_mensual_estimado")
+        ratio_gasto = metrics.get("ratio_gasto_ingreso")
+        ratio_deuda = metrics.get("ratio_deuda_ingreso")
+        ratio_ahorro = metrics.get("ratio_ahorro_ingreso")
+
+        def pct(value: Any) -> str | None:
+            if value is None:
+                return None
+            try:
+                number = Decimal(str(value))
+            except (InvalidOperation, ValueError, TypeError):
+                return None
+            if abs(number) <= Decimal("1"):
+                number *= Decimal("100")
+            number = number.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+            return str(number).replace(".", ",")
+
+        parts: list[str] = []
+
+        # Contextualiza primero la respuesta previa sin repetirla literalmente.
+        if previous:
+            parts.append(
+                "La respuesta anterior se basa en los datos que FinSightAI tiene registrados "
+                "para tu análisis actual."
+            )
+
+        if ingreso is not None and gasto is not None:
+            gasto_pct = pct(ratio_gasto)
+            sentence = (
+                f"Tus ingresos mensuales son **{cls._format_money(Decimal(str(ingreso)))}** "
+                f"y tus gastos mensuales son **{cls._format_money(Decimal(str(gasto)))}**"
+            )
+            if gasto_pct:
+                sentence += f", aproximadamente el **{gasto_pct}% de tus ingresos**"
+            parts.append(sentence + ".")
+
+        if deuda is not None:
+            deuda_pct = pct(ratio_deuda)
+            sentence = (
+                f"Tu deuda mensual registrada es **{cls._format_money(Decimal(str(deuda)))}**"
+            )
+            if deuda_pct:
+                sentence += f", aproximadamente el **{deuda_pct}% de tus ingresos**"
+            parts.append(sentence + ".")
+
+        if ahorro is not None:
+            ahorro_pct = pct(ratio_ahorro)
+            sentence = (
+                f"Tu capacidad de ahorro mensual estimada es "
+                f"**{cls._format_money(Decimal(str(ahorro)))}**"
+            )
+            if ahorro_pct:
+                sentence += f", aproximadamente el **{ahorro_pct}% de tus ingresos**"
+            parts.append(sentence + ".")
+
+        if not parts:
+            return (
+                "Puedo ampliar la respuesta anterior, pero no tengo datos adicionales verificados "
+                "para agregar sin inventar información."
+            )
+
+        parts.append(
+            "Estos valores describen el análisis general actual. Si la respuesta anterior se refería "
+            "a un período o transacción específica, ese contexto puntual tiene prioridad sobre estos promedios."
+        )
+        return "\n\n".join(parts)
+
+    @staticmethod
+    def _infer_education_topic_from_previous_answer(
+        previous_answer: str | None,
+    ) -> str | None:
+        if not previous_answer:
+            return None
+
+        # Quitamos marcas Markdown antes de normalizar porque las respuestas
+        # contextuales resaltan conceptos con **negrita**. Sin esto, una firma como
+        # "la capacidad de ahorro..." no coincide con "la **capacidad de ahorro**...".
+        previous_clean = re.sub(r"[`*_~]+", "", previous_answer)
+        previous = QueryNormalizer.normalize(previous_clean).strip()
+
+        # /agent/chat y /agent/chat/stream agregan el saludo de Finsi al primer
+        # mensaje de una conversación. El servicio directo no lo agrega, por eso
+        # las pruebas internas funcionaban pero el flujo real del frontend no.
+        greeting_prefix = (
+            "hola, soy finsi, el asistente de finsightai. "
+            "puedo ayudarte a entender tus finanzas y a resolver dudas sobre la aplicacion."
+        )
+        if previous.startswith(greeting_prefix):
+            previous = previous[len(greeting_prefix):].strip()
+
+        # Usamos firmas deliberadamente específicas de las respuestas que genera
+        # _education_topic_response(). No inferimos por palabras sueltas para evitar
+        # falsos positivos como "fondo de emergencia" mencionado dentro de un resumen.
+        signatures = (
+            (
+                "capacidad-ahorro",
+                (
+                    "la capacidad de ahorro representa cuanto dinero queda disponible despues de cubrir tus gastos mensuales",
+                    "la capacidad de ahorro es el margen que queda despues de comparar tus ingresos mensuales con tus gastos mensuales",
+                ),
+            ),
+            (
+                "deuda-ingreso",
+                (
+                    "la relacion deuda/ingreso indica que porcentaje de tus ingresos mensuales esta comprometido en pagos de deuda",
+                    "la relacion deuda/ingreso compara los pagos mensuales de deuda con los ingresos mensuales",
+                ),
+            ),
+            (
+                "gastos-fijos-variables",
+                (
+                    "los gastos fijos suelen repetirse con importes relativamente estables",
+                    "los gastos fijos suelen repetirse y ser relativamente previsibles",
+                ),
+            ),
+            (
+                "fondo-emergencia",
+                (
+                    "un fondo de emergencia es dinero reservado para afrontar imprevistos",
+                    "un fondo de emergencia es una reserva separada del dinero de uso cotidiano",
+                ),
+            ),
+            (
+                "metas-planificacion",
+                (
+                    "planificar una meta financiera significa convertir una intencion en un objetivo",
+                    "una meta financiera se vuelve planificable cuando defines tres datos",
+                ),
+            ),
+        )
+
+        for topic, openings in signatures:
+            if any(previous.startswith(opening) for opening in openings):
+                return topic
+
+        return None
+
+    def _education_topic_response(
+        self,
+        *,
+        usuario_id: str,
+        topic: str,
+        question: str,
+    ) -> str | None:
+        allowed_topics = {
+            "capacidad-ahorro",
+            "deuda-ingreso",
+            "gastos-fijos-variables",
+            "fondo-emergencia",
+            "metas-planificacion",
+        }
+        if topic not in allowed_topics:
+            return None
+
+        analysis = self._get_analysis(usuario_id)
+        metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
+        metrics = metrics if isinstance(metrics, dict) else {}
+
+        ingreso = metrics.get("ingreso_mensual")
+        gasto = metrics.get("gasto_mensual_promedio")
+        deuda = metrics.get("deuda_mensual")
+        ahorro = metrics.get("ahorro_mensual_estimado")
+        ratio_deuda = metrics.get("ratio_deuda_ingreso")
+        ratio_ahorro = metrics.get("ratio_ahorro_ingreso")
+
+        def money(value: Any) -> str | None:
+            if value is None:
+                return None
+            try:
+                return self._format_money(Decimal(str(value)))
+            except (InvalidOperation, ValueError, TypeError):
+                return None
+
+        def pct(value: Any, decimals: int = 1) -> str | None:
+            if value is None:
+                return None
+            try:
+                number = Decimal(str(value))
+            except (InvalidOperation, ValueError, TypeError):
+                return None
+            if abs(number) <= Decimal("1"):
+                number *= Decimal("100")
+            quantum = Decimal("1") if decimals == 0 else Decimal("0.1")
+            number = number.quantize(quantum, rounding=ROUND_HALF_UP)
+            text = f"{number:.{decimals}f}" if decimals else f"{number:.0f}"
+            return text.replace(".", ",")
+
+        ingreso_text = money(ingreso)
+        gasto_text = money(gasto)
+        deuda_text = money(deuda)
+        ahorro_text = money(ahorro)
+        deuda_pct = pct(ratio_deuda)
+        ahorro_pct = pct(ratio_ahorro)
+
+        q = QueryNormalizer.normalize(question).strip()
+        expand_terms = {
+            "explicame mas",
+            "explica mas",
+            "amplia",
+            "amplia eso",
+            "ampliame",
+            "ampliame eso",
+            "dame mas detalles",
+            "mas detalles",
+            "profundiza",
+            "profundiza mas",
+            "quiero saber mas",
+            "contame mas",
+            "cuentame mas",
+        }
+        expanded = q in expand_terms
+
+        categorias = analysis.get("categorias_principales") if isinstance(analysis, dict) else []
+        categorias = categorias if isinstance(categorias, list) else []
+        category_names = [
+            str(item.get("categoria") or "").strip()
+            for item in categorias[:3]
+            if isinstance(item, dict) and str(item.get("categoria") or "").strip()
+        ]
+        categories_text = ", ".join(f"**{name}**" for name in category_names)
+
+        if topic == "deuda-ingreso":
+            if expanded:
+                parts = [
+                    "La **relación deuda/ingreso** compara los pagos mensuales de deuda con los ingresos mensuales. "
+                    "Se calcula dividiendo la deuda mensual por el ingreso mensual y multiplicando el resultado por 100."
+                ]
+                if deuda_text and ingreso_text and deuda_pct:
+                    parts.append(
+                        f"En tu análisis actual, registras **{deuda_text}** de pagos de deuda por mes "
+                        f"sobre ingresos de **{ingreso_text}**. Eso equivale aproximadamente al "
+                        f"**{deuda_pct}% de tus ingresos**."
+                    )
+                parts.append(
+                    "Cuanto mayor es esta proporción, menos margen queda para gastos cotidianos, ahorro e imprevistos. "
+                    "El indicador muestra el peso mensual de la deuda, pero no permite saber por sí solo qué deuda "
+                    "conviene cancelar primero: para eso harían falta saldos, tasas, costos y plazos de cada obligación."
+                )
+                return "\n\n".join(parts)
+
+            parts = [
+                "La **relación deuda/ingreso** indica qué porcentaje de tus ingresos mensuales está comprometido "
+                "en pagos de deuda."
+            ]
+            if deuda_text and ingreso_text and deuda_pct:
+                parts.append(
+                    f"En tu situación actual, FinSightAI registra **{deuda_text}** de deuda mensual sobre "
+                    f"**{ingreso_text}** de ingresos, aproximadamente el **{deuda_pct}%**."
+                )
+            parts.append(
+                "Este indicador influye en tu flexibilidad financiera: cuanto más ingreso se destina a deuda, "
+                "menos margen queda para otros gastos, ahorro y objetivos."
+            )
+            return "\n\n".join(parts)
+
+        if topic == "capacidad-ahorro":
+            if expanded:
+                parts = [
+                    "La **capacidad de ahorro** es el margen que queda después de comparar tus ingresos mensuales "
+                    "con tus gastos mensuales. En términos simples: **ingresos - gastos = margen estimado de ahorro**."
+                ]
+                if ingreso_text and gasto_text and ahorro_text:
+                    parts.append(
+                        f"Con tus valores actuales, **{ingreso_text} - {gasto_text} = {ahorro_text}** de margen mensual estimado."
+                    )
+                if ahorro_pct:
+                    parts.append(
+                        f"Ese margen representa aproximadamente el **{ahorro_pct}% de tus ingresos**."
+                    )
+                parts.append(
+                    "Es una estimación del análisis general y no el saldo real de un mes específico. "
+                    "Sirve para medir cuánto espacio existe para imprevistos, metas o ahorro sin comprometer "
+                    "los gastos ya considerados."
+                )
+                return "\n\n".join(parts)
+
+            parts = [
+                "La **capacidad de ahorro** representa cuánto dinero queda disponible después de cubrir tus gastos mensuales."
+            ]
+            if ingreso_text and gasto_text and ahorro_text:
+                parts.append(
+                    f"En tu análisis actual, tus ingresos son **{ingreso_text}**, tus gastos mensuales "
+                    f"**{gasto_text}** y tu margen estimado es **{ahorro_text}**."
+                )
+            if ahorro_pct:
+                parts.append(
+                    f"Eso equivale aproximadamente al **{ahorro_pct}% de tus ingresos**."
+                )
+            parts.append(
+                "Cuanto mayor sea ese margen, más flexibilidad tienes para afrontar imprevistos o avanzar hacia objetivos."
+            )
+            return "\n\n".join(parts)
+
+        if topic == "gastos-fijos-variables":
+            if expanded:
+                parts = [
+                    "Los **gastos fijos** suelen repetirse y ser relativamente previsibles, mientras que los "
+                    "**gastos variables** cambian según el consumo, las decisiones y las circunstancias de cada período."
+                ]
+                if gasto_text:
+                    parts.append(
+                        f"Tu gasto mensual promedio actual es **{gasto_text}**."
+                    )
+                if categories_text:
+                    parts.append(
+                        f"Las categorías con mayor peso son {categories_text}. Estas categorías ayudan a ubicar "
+                        "dónde se concentra el gasto, pero una categoría completa no debe considerarse automáticamente "
+                        "fija o variable."
+                    )
+                parts.append(
+                    "FinSightAI también puede registrar si un movimiento es recurrente, pero **recurrente no significa "
+                    "necesariamente fijo**. Para clasificar correctamente conviene revisar cada obligación: alquileres "
+                    "o cuotas suelen ser más previsibles; compras discrecionales, ocio o consumos que cambian de monto "
+                    "suelen tener mayor componente variable."
+                )
+                return "\n\n".join(parts)
+
+            parts = [
+                "Los **gastos fijos** suelen repetirse con importes relativamente estables; los **variables** cambian "
+                "más según el consumo y las decisiones de cada período."
+            ]
+            if gasto_text:
+                parts.append(
+                    f"En tu caso, el gasto mensual promedio registrado es **{gasto_text}**."
+                )
+            if categories_text:
+                parts.append(
+                    f"Hoy el mayor peso está en {categories_text}. Eso muestra dónde se concentra el gasto, "
+                    "pero FinSightAI no debería etiquetar una categoría completa como fija o variable sin revisar "
+                    "sus movimientos."
+                )
+            return "\n\n".join(parts)
+
+        if topic == "fondo-emergencia":
+            if expanded:
+                parts = [
+                    "Un **fondo de emergencia** es una reserva separada del dinero de uso cotidiano para cubrir "
+                    "imprevistos o una reducción temporal de ingresos sin depender inmediatamente de nueva deuda."
+                ]
+                if ahorro_text:
+                    parts.append(
+                        f"Tu capacidad de ahorro estimada actual es **{ahorro_text} al mes**. Ese valor puede servir "
+                        "como referencia para pensar aportes graduales, siempre que no comprometan gastos y obligaciones."
+                    )
+                parts.append(
+                    "El tamaño adecuado depende de cuáles sean tus gastos esenciales, la estabilidad de tus ingresos "
+                    "y otras fuentes de respaldo. FinSightAI no debería inventar una meta exacta si no tiene identificado "
+                    "qué parte de tus gastos es verdaderamente esencial."
+                )
+                return "\n\n".join(parts)
+
+            parts = [
+                "Un **fondo de emergencia** es dinero reservado para afrontar imprevistos sin tener que recurrir "
+                "de inmediato a deuda o desarmar otros objetivos."
+            ]
+            if ahorro_text:
+                parts.append(
+                    f"Según tu análisis actual, dispones de un margen estimado de **{ahorro_text} al mes**. "
+                    "Ese margen puede ayudarte a construir una reserva de forma progresiva."
+                )
+            parts.append(
+                "La meta concreta debe adaptarse a tus gastos esenciales y a la estabilidad de tus ingresos."
+            )
+            return "\n\n".join(parts)
+
+        if topic == "metas-planificacion":
+            if expanded:
+                parts = [
+                    "Una **meta financiera** se vuelve planificable cuando defines tres datos: qué quieres lograr, "
+                    "cuánto necesitas y para cuándo quieres alcanzarlo."
+                ]
+                if ahorro_text:
+                    parts.append(
+                        f"Tu capacidad de ahorro mensual estimada es **{ahorro_text}**. Puede usarse como referencia "
+                        "para comparar cuánto podrías reservar con el aporte que exigiría una meta."
+                    )
+                parts.append(
+                    "Una forma sencilla de estimar el ritmo es dividir el monto que falta por la cantidad de meses "
+                    "disponibles. Si el aporte necesario supera tu margen actual, puedes ajustar el plazo, el monto "
+                    "del objetivo o buscar mejorar el margen antes de comprometerte."
+                )
+                parts.append(
+                    "La capacidad de ahorro es una referencia, no una garantía: puede variar si cambian tus ingresos, "
+                    "gastos u obligaciones."
+                )
+                return "\n\n".join(parts)
+
+            parts = [
+                "Planificar una **meta financiera** significa convertir una intención en un objetivo con monto, fecha "
+                "y un ritmo de ahorro medible."
+            ]
+            if ahorro_text:
+                parts.append(
+                    f"En tu situación actual, FinSightAI estima una capacidad de ahorro de **{ahorro_text} al mes**. "
+                    "Ese margen sirve como punto de comparación para evaluar si el aporte mensual de una meta es realista."
+                )
+            parts.append(
+                "Si una meta exige más de lo que tu margen permite, conviene ajustar el plazo o el objetivo en lugar "
+                "de asumir un compromiso que no encaje con tus finanzas actuales."
+            )
+            return "\n\n".join(parts)
+
+        return None
+
+    @classmethod
+    def _local_financial_education_response(
+        cls,
+        question: str,
+        *,
+        previous_answer: str | None = None,
+    ) -> str | None:
+        q = QueryNormalizer.normalize(question).strip()
+
+        # Follow-up educativo local. El concepto se reconoce por el contenido
+        # de la respuesta anterior, sin insertar marcadores visibles/invisibles.
+        expand_terms = {
+            "explicame mas",
+            "explica mas",
+            "amplia",
+            "amplia eso",
+            "ampliame",
+            "ampliame eso",
+            "dame mas detalles",
+            "mas detalles",
+            "profundiza",
+            "profundiza mas",
+            "quiero saber mas",
+            "contame mas",
+            "cuentame mas",
+        }
+        if previous_answer and q in expand_terms:
+            previous = QueryNormalizer.normalize(previous_answer)
+
+            if "producto interno bruto" in previous or re.search(r"\\bpib\\b", previous):
+                return (
+                    "El **Producto Interno Bruto (PIB)** permite observar cuánto produce una economía "
+                    "durante un período determinado. Una forma habitual de expresarlo es "
+                    "**PIB = consumo + inversión + gasto público + exportaciones - importaciones**.\n\n"
+                    "El **PIB nominal** usa los precios corrientes del período, mientras que el **PIB real** "
+                    "ajusta el efecto de los cambios de precios para comparar mejor la producción entre períodos. "
+                    "También puede calcularse el **PIB per cápita** dividiendo el PIB por la población.\n\n"
+                    "Es un indicador útil para analizar la actividad económica, pero no describe por sí solo "
+                    "cómo se distribuye el ingreso ni mide completamente el bienestar o la calidad de vida."
+                )
+
+            if "inflacion" in previous:
+                return (
+                    "La **inflación** implica que, en promedio, el dinero pierde poder de compra con el tiempo: "
+                    "si los precios suben y tus ingresos no aumentan al mismo ritmo, puedes comprar menos con la "
+                    "misma cantidad de dinero.\n\n"
+                    "Suele medirse mediante índices de precios que siguen la evolución de una canasta de bienes "
+                    "y servicios. Puede estar relacionada con aumentos de la demanda, mayores costos de producción, "
+                    "expectativas de subas futuras u otros factores económicos.\n\n"
+                    "No significa que todos los precios aumenten exactamente igual ni al mismo tiempo; se refiere "
+                    "a una variación general del nivel de precios."
+                )
+
+            if "tasa de interes" in previous:
+                return (
+                    "La **tasa de interés** indica cuánto cuesta usar dinero prestado o cuánto puede rendir un "
+                    "capital durante un período. Por ejemplo, sobre un capital de **$1.000**, una tasa simple del "
+                    "**10%** para ese período equivale a **$100** de interés.\n\n"
+                    "Puede ser **fija**, si permanece estable según las condiciones acordadas, o **variable**, "
+                    "si cambia de acuerdo con una referencia. También es importante distinguir la tasa informada "
+                    "del costo o rendimiento efectivo, porque la capitalización, los plazos, comisiones y otros "
+                    "cargos pueden modificar el resultado final.\n\n"
+                    "Por eso, al comparar créditos o inversiones no conviene mirar únicamente un porcentaje "
+                    "aislado, sino también el período y las condiciones a las que corresponde."
+                )
+
+            if "fondo de emergencia" in previous:
+                return (
+                    "Un fondo de emergencia funciona como una reserva para gastos imprevistos, "
+                    "por ejemplo una reparación urgente o una caída temporal de ingresos. "
+                    "La idea es mantenerlo separado del dinero de uso cotidiano y en un lugar "
+                    "de fácil acceso, para no tener que recurrir a deuda ante un imprevisto."
+                )
+            if "interes compuesto" in previous:
+                return (
+                    "Con interés compuesto, los intereses que se generan se suman al capital "
+                    "y pueden generar nuevos intereses en los períodos siguientes. "
+                    "Por eso el tiempo y la reinversión tienen un efecto importante sobre el resultado."
+                )
+            if "etf" in previous:
+                return (
+                    "Un ETF agrupa una cartera de activos y sus participaciones se compran y venden "
+                    "en mercado. Puede seguir un índice, un sector, bonos u otras estrategias. "
+                    "Su riesgo depende de los activos que contiene; ser un ETF no lo vuelve seguro por sí mismo."
+                )
+            if "stablecoin" in previous:
+                return (
+                    "Una stablecoin intenta mantener un valor relativamente estable respecto de un activo "
+                    "de referencia, con frecuencia una moneda. Esa estabilidad depende de su mecanismo, "
+                    "reservas, emisor y liquidez, por lo que no significa ausencia de riesgo."
+                )
+            if "diversificar" in previous or "diversificacion" in previous:
+                return (
+                    "Diversificar busca evitar que todo el resultado dependa de una sola inversión. "
+                    "Puede hacerse distribuyendo la exposición entre distintos activos, emisores, sectores "
+                    "o regiones. Reduce riesgos de concentración, aunque no elimina la posibilidad de pérdidas."
+                )
+            if "deficit" in previous:
+                return (
+                    "Un **déficit** ocurre cuando, durante un período, tus gastos superan tus ingresos. "
+                    "La diferencia entre ambos representa el monto que falta para equilibrar ese período. "
+                    "Un déficit puntual no implica necesariamente un problema permanente, pero si se repite "
+                    "puede reducir el ahorro disponible o requerir otros recursos para cubrir la diferencia."
+                )
+
+        definitions: tuple[tuple[tuple[str, ...], str], ...] = (
+            (
+                ("que es el pib", "que es pib", "producto interno bruto"),
+                "El **Producto Interno Bruto (PIB)** es el valor total de los bienes y servicios finales "
+                "producidos dentro de un país durante un período determinado, normalmente un año o un trimestre. "
+                "Se utiliza como uno de los principales indicadores del tamaño y la evolución de una economía.",
+            ),
+            (
+                ("que es la inflacion", "que significa inflacion", "inflacion"),
+                "La **inflación** es el aumento general y sostenido del nivel de precios de bienes y servicios "
+                "en una economía durante un período. Cuando ocurre, el dinero pierde poder adquisitivo: "
+                "con la misma cantidad se pueden comprar menos bienes y servicios que antes.",
+            ),
+            (
+                ("que es una tasa de interes", "que es la tasa de interes", "que significa tasa de interes"),
+                "Una **tasa de interés** es un porcentaje que expresa el costo de pedir dinero prestado o "
+                "el rendimiento asociado a prestar o invertir dinero durante un período determinado. "
+                "Para interpretarla correctamente es importante conocer el período y las condiciones a las que se aplica.",
+            ),
+            (
+                ("fondo de emergencia",),
+                "Un **fondo de emergencia** es una reserva de dinero destinada a cubrir imprevistos "
+                "sin depender inmediatamente de deuda. Se procura que sea accesible y esté separada "
+                "del dinero usado para gastos cotidianos.",
+            ),
+            (
+                ("interes compuesto",),
+                "El **interés compuesto** ocurre cuando los intereses generados se incorporan al capital "
+                "y, en los períodos siguientes, también pueden generar intereses. Por eso el crecimiento "
+                "se calcula sobre una base que puede ir aumentando con el tiempo.",
+            ),
+            (
+                ("diferencia hay entre ahorrar e invertir", "diferencia entre ahorrar e invertir"),
+                "**Ahorrar** consiste en reservar dinero para usarlo más adelante, normalmente priorizando "
+                "disponibilidad y estabilidad. **Invertir** implica colocar dinero en activos con la expectativa "
+                "de obtener un rendimiento, aceptando algún nivel de riesgo. Son objetivos relacionados, "
+                "pero no son lo mismo.",
+            ),
+            (
+                ("que es un etf", "que es etf", "un etf"),
+                "Un **ETF** es un fondo cuyas participaciones se negocian en mercado. Suele agrupar varios "
+                "activos y puede seguir un índice, sector, conjunto de bonos u otra estrategia. "
+                "Su nivel de riesgo depende de lo que tenga dentro.",
+            ),
+            (
+                ("que es un bono", "que es bono", "un bono"),
+                "Un **bono** es un instrumento de deuda: quien lo emite recibe dinero de los inversores "
+                "y asume la obligación de devolverlo según las condiciones establecidas, que pueden incluir "
+                "pagos de intereses. Tiene riesgos, entre ellos el de que el emisor no pueda cumplir.",
+            ),
+            (
+                ("que es una accion", "que es accion", "una accion"),
+                "Una **acción** representa una participación en una empresa. Su valor puede subir o bajar "
+                "según las expectativas del mercado y la situación de la compañía. Algunas empresas además "
+                "pueden distribuir dividendos, pero no están garantizados.",
+            ),
+            (
+                ("que es una stablecoin", "que es stablecoin", "una stablecoin"),
+                "Una **stablecoin** es un criptoactivo diseñado para intentar mantener un valor estable "
+                "respecto de un activo de referencia, frecuentemente una moneda. El mecanismo puede variar "
+                "y existen riesgos de reservas, contraparte, liquidez y pérdida de paridad.",
+            ),
+            (
+                ("que significa diversificar una inversion", "diversificar una inversion", "diversificacion"),
+                "**Diversificar una inversión** significa repartir la exposición entre distintos activos "
+                "en lugar de concentrarla en uno solo. El objetivo es reducir el impacto que tendría "
+                "el mal desempeño de una inversión específica; no elimina todos los riesgos.",
+            ),
+            (
+                ("que es deficit", "que significa deficit"),
+                "Un **déficit** ocurre cuando los gastos superan a los ingresos durante un período. "
+                "La diferencia entre ambos es el monto que falta para equilibrar ese período.",
+            ),
+        )
+
+        for markers, answer in definitions:
+            if any(marker in q for marker in markers):
+                return answer
+        return None
+
+    @classmethod
+    def _local_recommendation_or_budget_response(
+        cls,
+        question: str,
+        *,
+        intent: Intent,
+        analysis: dict[str, Any],
+    ) -> str | None:
+        if not isinstance(analysis, dict):
+            return None
+
+        q = QueryNormalizer.normalize(question)
+        metrics = analysis.get("metricas")
+        metrics = metrics if isinstance(metrics, dict) else {}
+
+        ingreso_raw = metrics.get("ingreso_mensual")
+        gasto_raw = metrics.get("gasto_mensual_promedio")
+        deuda_raw = metrics.get("deuda_mensual")
+        ahorro_raw = metrics.get("ahorro_mensual_estimado")
+        ratio_gasto_raw = metrics.get("ratio_gasto_ingreso")
+        ratio_deuda_raw = metrics.get("ratio_deuda_ingreso")
+
+        def money(value: Any) -> str | None:
+            if value is None:
+                return None
+            try:
+                return cls._format_money(Decimal(str(value)))
+            except (InvalidOperation, ValueError, TypeError):
+                return None
+
+        def pct(value: Any, decimals: int = 1) -> str | None:
+            if value is None:
+                return None
+            try:
+                number = Decimal(str(value))
+            except (InvalidOperation, ValueError, TypeError):
+                return None
+            if abs(number) <= Decimal("1"):
+                number *= Decimal("100")
+            quantum = Decimal("1") if decimals == 0 else Decimal("0." + ("0" * (decimals - 1)) + "1")
+            number = number.quantize(quantum, rounding=ROUND_HALF_UP)
+            text = f"{number:.{decimals}f}" if decimals > 0 else f"{number:.0f}"
+            return text.replace(".", ",")
+
+        ingreso = money(ingreso_raw)
+        gasto = money(gasto_raw)
+        deuda = money(deuda_raw)
+        ahorro = money(ahorro_raw)
+        ratio_gasto = pct(ratio_gasto_raw, 1)
+        ratio_deuda = pct(ratio_deuda_raw, 1)
+
+        categorias = analysis.get("categorias_principales")
+        categorias = categorias if isinstance(categorias, list) else []
+        top_categories: list[str] = []
+        for item in categorias[:3]:
+            if not isinstance(item, dict):
+                continue
+            nombre = str(item.get("categoria") or "").strip()
+            monto = money(item.get("monto"))
+            porcentaje = item.get("porcentaje")
+            pct_cat = pct(porcentaje, 0)
+            if not nombre:
+                continue
+            detail = f"**{nombre}**"
+            if monto:
+                detail += f" ({monto}"
+                if pct_cat is not None:
+                    detail += f", {pct_cat}% del gasto"
+                detail += ")"
+            elif pct_cat is not None:
+                detail += f" ({pct_cat}% del gasto)"
+            top_categories.append(detail)
+
+        categorias_text = ", ".join(top_categories) if top_categories else "las categorías de mayor peso"
+
+        # Presupuesto mensual: siempre local y basado en los datos actuales.
+        if intent == Intent.BUDGET or "presupuesto" in q:
+            if not (ingreso and gasto):
+                return (
+                    "Puedo ayudarte a armar un presupuesto, pero primero necesito un análisis financiero "
+                    "con ingresos y gastos mensuales disponibles."
+                )
+            margen = money(ahorro_raw)
+            return (
+                "**Base para tu presupuesto mensual**\n\n"
+                f"- Ingresos mensuales: **{ingreso}**.\n"
+                f"- Gastos mensuales actuales: **{gasto}**"
+                + (f" (aprox. {ratio_gasto}% de tus ingresos)." if ratio_gasto else ".")
+                + (f"\n- Margen estimado después de gastos: **{margen}**." if margen else "")
+                + "\n\n"
+                f"Empieza controlando {categorias_text}. Usa esos montos como referencia inicial "
+                "y define un límite para cada categoría que no supere el ingreso disponible. "
+                "El objetivo del presupuesto es que cada gasto tenga un lugar definido y que el total "
+                "no exceda tus ingresos."
+            )
+
+        if "ordenar mejor mis deudas" in q or "ordenar mis deudas" in q:
+            return (
+                "Para ordenar mejor tus deudas, primero arma una lista con **saldo pendiente, tasa o costo, "
+                "cuota mensual y plazo** de cada obligación. "
+                + (
+                    f"Actualmente tus pagos de deuda registrados son **{deuda} por mes**, "
+                    f"aproximadamente el **{ratio_deuda}% de tus ingresos**. "
+                    if deuda and ratio_deuda
+                    else ""
+                )
+                + "Con la información completa, prioriza las obligaciones de mayor costo sin dejar de cumplir "
+                "los pagos mínimos de las demás. FinSightAI no tiene hoy el saldo, la tasa ni el plazo de cada "
+                "deuda, así que no sería correcto inventar cuál deberías cancelar primero."
+            )
+
+        if "reducir mis gastos" in q or "bajar mis gastos" in q or "gastar menos" in q:
+            return (
+                f"Para reducir tus gastos, empieza por revisar {categorias_text}. "
+                + (
+                    f"Actualmente gastas aproximadamente el **{ratio_gasto}% de tus ingresos**, "
+                    f"con un gasto mensual de **{gasto}**. "
+                    if gasto and ratio_gasto
+                    else ""
+                )
+                + "Busca dentro de esas categorías gastos que puedas reducir o renegociar sin asumir "
+                "que todos son prescindibles. Conviene medir el efecto de cada ajuste sobre el gasto total "
+                "antes de convertirlo en un cambio permanente."
+            )
+
+        if "mejorar mi situacion financiera" in q or "mejorar mis finanzas" in q:
+            return (
+                "Tus prioridades actuales pueden ordenarse en tres frentes:\n\n"
+                f"1. **Gastos:** revisar {categorias_text}"
+                + (f", porque hoy consumen cerca del {ratio_gasto}% de tus ingresos." if ratio_gasto else ".")
+                + "\n"
+                f"2. **Deuda:** mantener bajo seguimiento la carga mensual"
+                + (f" de {deuda} ({ratio_deuda}% de tus ingresos)." if deuda and ratio_deuda else ".")
+                + "\n"
+                f"3. **Margen:** proteger y, si es posible, aumentar el saldo mensual"
+                + (f" estimado de {ahorro}." if ahorro else ".")
+                + "\n\nEstos pasos se basan en tus indicadores actuales; no requieren asumir tasas, "
+                "plazos ni gastos que FinSightAI no tenga registrados."
+            )
+
+        if "mejorar mi capacidad de ahorro" in q or "capacidad de ahorro" in q:
+            return (
+                f"Para mejorar tu capacidad de ahorro, revisa primero {categorias_text}. "
+                + (
+                    f"Tu margen estimado actual es **{ahorro} al mes** y tus gastos representan "
+                    f"aproximadamente el **{ratio_gasto}% de tus ingresos**. "
+                    if ahorro and ratio_gasto
+                    else ""
+                )
+                + "Cada reducción sostenible del gasto aumenta directamente ese margen, siempre que tus "
+                "ingresos y las demás obligaciones se mantengan."
+            )
+
+        if "que gastos deberia revisar" in q or "que gasto deberia revisar" in q:
+            return (
+                f"Deberías revisar principalmente {categorias_text}. "
+                "Son los rubros con mayor peso dentro de tu gasto actual, por lo que cualquier ajuste "
+                "realista allí tendría más impacto que recortar primero categorías pequeñas."
+            )
+
+        if (
+            "que deberia mejorar primero" in q
+            or "que deberia priorizar" in q
+            or "por donde deberia empezar" in q
+        ):
+            return (
+                f"Empezaría por **revisar el gasto de mayor peso**, especialmente {categorias_text}. "
+                + (
+                    f"Tus gastos representan aproximadamente el **{ratio_gasto}% de tus ingresos**"
+                    if ratio_gasto
+                    else "Tus gastos dejan un margen reducido"
+                )
+                + (
+                    f" y la deuda mensual equivale a cerca del **{ratio_deuda}%**. "
+                    if ratio_deuda
+                    else ". "
+                )
+                + (
+                    f"Al mismo tiempo, procura conservar el margen estimado de **{ahorro} al mes**."
+                    if ahorro
+                    else ""
+                )
+            )
+
+        # Fallback local general para cualquier otra recomendación reconocida.
+        if intent == Intent.RECOMMENDATIONS:
+            return (
+                f"Como punto de partida, revisa {categorias_text}. "
+                + (
+                    f"Tus gastos mensuales son **{gasto}** sobre ingresos de **{ingreso}**. "
+                    if gasto and ingreso
+                    else ""
+                )
+                + (
+                    f"Tu margen mensual estimado es **{ahorro}**. "
+                    if ahorro
+                    else ""
+                )
+                + "Prioriza cambios que puedas medir con tus datos y evita asumir información sobre "
+                "tasas, plazos o compromisos que FinSightAI no tenga registrados."
+            )
+
+        return None
+
+    def _largest_expense_follow_up_response(
+        self,
+        usuario_id: str,
+        previous_answer: str,
+    ) -> str | None:
+        normalized_previous = QueryNormalizer.normalize(previous_answer)
+
+        if "tu mayor gasto fue" not in normalized_previous:
+            return None
+
+        try:
+            transactions = fetch_user_transactions(usuario_id)
+        except (BackendDataError, ValueError):
+            return None
+
+        expenses = [
+            tx
+            for tx in transactions
+            if str(tx.get("tipo") or "").upper() == "GASTO"
+            and float(tx.get("monto") or 0) > 0
+        ]
+
+        if not expenses:
+            return None
+
+        largest = max(
+            expenses,
+            key=lambda tx: float(tx.get("monto") or 0),
+        )
+
+        monto = Decimal(str(largest.get("monto") or 0))
+        descripcion = str(
+            largest.get("descripcion") or "Sin descripción"
+        ).strip()
+        categoria = str(
+            largest.get("categoria") or "Sin categoría"
+        ).strip()
+        fecha_raw = largest.get("fecha")
+
+        fecha_texto = ""
+        if fecha_raw:
+            try:
+                fecha = datetime.fromisoformat(str(fecha_raw)).date()
+                fecha_texto = f" el **{fecha.strftime('%d/%m/%Y')}**"
+            except ValueError:
+                fecha_texto = f" el **{fecha_raw}**"
+
+        categoria_principal = None
+        try:
+            analysis = fetch_live_analysis(usuario_id)
+            categorias = analysis.get("categorias_principales") or []
+            if isinstance(categorias, list) and categorias:
+                primera = categorias[0]
+                if isinstance(primera, dict):
+                    categoria_principal = str(
+                        primera.get("categoria") or ""
+                    ).strip() or None
+        except (BackendDataError, ValueError):
+            categoria_principal = None
+
+        respuesta = (
+            f"Tu gasto más alto registrado fue **{self._format_money(monto)}** "
+            f"por **{descripcion}**, dentro de la categoría **{categoria}**"
+            f"{fecha_texto}.\n\n"
+            "Esto significa que fue la transacción individual de gasto de mayor "
+            "monto dentro de tu historial registrado."
+        )
+
+        if categoria_principal and categoria_principal != categoria:
+            respuesta += (
+                "\n\nEs distinto de tu categoría de mayor gasto en conjunto: "
+                f"esa categoría es **{categoria_principal}**. Una transacción "
+                "puntual puede ser la más grande sin que su categoría sea la que "
+                "más peso tenga en el total."
+            )
+
+        respuesta += (
+            "\n\nNo tengo información adicional sobre qué se compró "
+            "específicamente ni sobre el motivo de ese gasto, por lo que no sería "
+            "correcto inferirlo."
+        )
+
+        return respuesta
+
+    def _debt_follow_up_response(
+        self,
+        usuario_id: str,
+        previous_answer: str,
+    ) -> str | None:
+        normalized_previous = QueryNormalizer.normalize(previous_answer)
+
+        debt_markers = (
+            "nivel de endeudamiento actual es",
+            "deuda mensual registrada es",
+            "porcentaje de mis ingresos destino a deuda",
+            "destinas aproximadamente",
+        )
+        if not any(marker in normalized_previous for marker in debt_markers):
+            return None
+
+        try:
+            analysis = fetch_live_analysis(usuario_id)
+        except (BackendDataError, ValueError):
+            return None
+
+        metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
+        metrics = metrics if isinstance(metrics, dict) else {}
+
+        ingreso_raw = metrics.get("ingreso_mensual")
+        deuda_raw = metrics.get("deuda_mensual")
+        ratio_raw = metrics.get("ratio_deuda_ingreso")
+
+        if ingreso_raw is None or deuda_raw is None:
+            return None
+
+        try:
+            ingreso = Decimal(str(ingreso_raw))
+            deuda = Decimal(str(deuda_raw))
+            if ratio_raw is not None:
+                ratio = Decimal(str(ratio_raw))
+                porcentaje = (
+                    ratio * Decimal("100")
+                    if ratio <= Decimal("1")
+                    else ratio
+                )
+            elif ingreso > 0:
+                porcentaje = deuda / ingreso * Decimal("100")
+            else:
+                return None
+        except (InvalidOperation, ValueError, TypeError):
+            return None
+
+        porcentaje = porcentaje.quantize(
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
+        )
+
+        if porcentaje <= Decimal("20"):
+            rango = (
+                "Según los rangos utilizados por FinSightAI, se encuentra "
+                "dentro de un rango saludable."
+            )
+        elif porcentaje <= Decimal("40"):
+            rango = (
+                "Según los rangos utilizados por FinSightAI, se encuentra "
+                "en un rango intermedio y cerca del límite superior del 40%, "
+                "por lo que conviene mantenerlo bajo seguimiento."
+            )
+        else:
+            rango = (
+                "Según los rangos utilizados por FinSightAI, se encuentra "
+                "en un rango alto y conviene priorizar la revisión de las "
+                "obligaciones mensuales."
+            )
+
+        return (
+            f"Tu nivel de endeudamiento es **{str(f'{porcentaje:.2f}').replace('.', ',')}%**. "
+            f"Con ingresos mensuales de **{self._format_money(ingreso)}**, "
+            f"esto equivale aproximadamente a **{self._format_money(deuda)} "
+            "por mes** destinados a deuda.\n\n"
+            f"{rango}\n\n"
+            "Este indicador muestra qué parte de tus ingresos mensuales está "
+            "comprometida con pagos de deuda. No tengo información suficiente "
+            "sobre el saldo total, las tasas de interés ni los plazos de esas "
+            "obligaciones, por lo que no sería correcto inferir su costo total "
+            "o cómo evolucionarán las cuotas."
+        )
 
     @staticmethod
     def _transaction_classification_response(question: str) -> str | None:
@@ -1105,7 +3875,7 @@ class FinSightAgentService:
         raw = (question or "").strip()
 
         # Elimina selectores de variante y modificadores de tono de piel.
-        # Así también reconoce 👍🏻, 👍🏼, ❤️ y otras variantes visuales.
+        # AsÃ­ tambiÃ©n reconoce ðŸ‘ðŸ», ðŸ‘ðŸ¼, â¤ï¸ y otras variantes visuales.
         cleaned = raw.replace("\ufe0f", "").replace("\u200d", "")
         cleaned = "".join(
             char
@@ -1129,16 +3899,16 @@ class FinSightAgentService:
         }:
             return "¡Perfecto! ¿En qué más puedo ayudarte?"
 
-        if cleaned in {"👍", "👌", "✅", "👏", "🙌"}:
+        if cleaned in {"ðŸ‘", "ðŸ‘Œ", "âœ…", "ðŸ‘", "ðŸ™Œ"}:
             return "¡Perfecto! 😊"
 
         if cleaned in {"😂", "🤣"}:
             return "😂"
 
-        if cleaned in {"😄", "😀", "😃", "😁", "😅"}:
+        if cleaned in {"ðŸ˜„", "ðŸ˜€", "ðŸ˜ƒ", "ðŸ˜", "ðŸ˜…"}:
             return "😄"
 
-        if cleaned in {"❤", "💙", "💚", "🩵"}:
+        if cleaned in {"â¤", "ðŸ’™", "ðŸ’š", "ðŸ©µ"}:
             return "❤️"
 
         if cleaned == "👋":
@@ -2203,8 +4973,102 @@ class FinSightAgentService:
         """Usa Spring para usuarios reales y CSV sólo como respaldo demo."""
         try:
             return fetch_live_analysis(usuario_id)
-        except BackendDataError:
+        except (BackendDataError, ValueError):
             return analizar_usuario(usuario_id)
+
+    @classmethod
+    def _current_month_transaction_response(
+        cls,
+        transactions: list[dict[str, Any]],
+        transaction_type: str,
+        today: date,
+    ) -> str | None:
+        """Resume el total REAL del mes actual usando transacciones hasta hoy."""
+        frame = profile_data.pd.DataFrame(transactions)
+        if frame.empty or "tipo" not in frame.columns or "monto" not in frame.columns:
+            return None
+
+        frame = frame[
+            frame["tipo"].astype(str).str.strip().str.upper().eq(transaction_type.upper())
+        ].copy()
+        if frame.empty:
+            return None
+
+        if "fecha" not in frame.columns:
+            return None
+
+        frame["_fecha_mes"] = profile_data.pd.to_datetime(frame["fecha"], errors="coerce")
+        frame = frame[
+            frame["_fecha_mes"].notna()
+            & frame["_fecha_mes"].dt.year.eq(today.year)
+            & frame["_fecha_mes"].dt.month.eq(today.month)
+            & frame["_fecha_mes"].dt.date.le(today)
+        ].copy()
+
+        if frame.empty:
+            noun = "ingresos" if transaction_type.upper() == "INGRESO" else "gastos"
+            return f"No encontré {noun} registrados este mes hasta hoy."
+
+        amounts = profile_data.pd.to_numeric(frame["monto"], errors="coerce").fillna(0)
+        total = Decimal(str(amounts.sum()))
+        count = len(frame)
+        movement_word = "movimiento" if count == 1 else "movimientos"
+
+        if transaction_type.upper() == "INGRESO":
+            return f"Ingresaste {cls._format_money(total)} este mes en {count} {movement_word}."
+        return f"Gastaste {cls._format_money(total)} este mes en {count} {movement_word}."
+
+    @classmethod
+    def _current_month_transaction_follow_up_response(
+        cls,
+        usuario_id: str,
+        previous_answer: str,
+        today: date,
+    ) -> str | None:
+        """Amplía un total del mes sin mezclarlo con promedios del Dashboard."""
+        normalized = QueryNormalizer.normalize(previous_answer)
+        is_expense = "gastaste" in normalized and "este mes" in normalized
+        is_income = "ingresaste" in normalized and "este mes" in normalized
+        if not (is_expense or is_income):
+            return None
+
+        try:
+            transactions = fetch_user_transactions(usuario_id)
+        except (BackendDataError, ValueError):
+            return None
+
+        transaction_type = "GASTO" if is_expense else "INGRESO"
+        summary = cls._current_month_transaction_response(
+            transactions=transactions,
+            transaction_type=transaction_type,
+            today=today,
+        )
+        if summary is None:
+            return None
+
+        frame = profile_data.pd.DataFrame(transactions)
+        frame = frame[
+            frame["tipo"].astype(str).str.strip().str.upper().eq(transaction_type)
+        ].copy()
+        frame["_fecha_mes"] = profile_data.pd.to_datetime(frame["fecha"], errors="coerce")
+        frame = frame[
+            frame["_fecha_mes"].notna()
+            & frame["_fecha_mes"].dt.year.eq(today.year)
+            & frame["_fecha_mes"].dt.month.eq(today.month)
+            & frame["_fecha_mes"].dt.date.le(today)
+        ].copy()
+        amounts = profile_data.pd.to_numeric(frame["monto"], errors="coerce").fillna(0)
+        total = Decimal(str(amounts.sum()))
+        count = len(frame)
+        movement_word = "movimiento" if count == 1 else "movimientos"
+        kind = "gastos" if is_expense else "ingresos"
+
+        return (
+            f"Este mes llevas registrados **{cls._format_money(total)}** en {kind}, "
+            f"distribuidos en **{count} {movement_word}** hasta el **{today.strftime('%d/%m/%Y')}**.\n\n"
+            "Este total se calcula directamente con las transacciones del mes actual hasta hoy. "
+            "No corresponde al promedio mensual ni a la métrica mensual estimada del análisis general."
+        )
 
     @classmethod
     def _recent_expenses_response(
@@ -2217,7 +5081,7 @@ class FinSightAgentService:
         try:
             live_transactions = fetch_user_transactions(usuario_id)
             user_transactions = profile_data.pd.DataFrame(live_transactions)
-        except BackendDataError:
+        except (BackendDataError, ValueError):
             # Respaldo para las cuentas demo cuando Spring no está levantado.
             profile_data._ensure_resources_loaded()
             transactions = profile_data.transacciones

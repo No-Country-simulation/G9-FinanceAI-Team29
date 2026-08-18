@@ -71,6 +71,13 @@ export interface AgentResponse {
   provider: string;
 }
 
+export type EducationTopic =
+  | 'capacidad-ahorro'
+  | 'deuda-ingreso'
+  | 'gastos-fijos-variables'
+  | 'fondo-emergencia'
+  | 'metas-planificacion';
+
 // AI-Service (FastAPI :8000) — agente LLM.
 // POST /agent/chat { usuario_id, question }
 export async function preguntarAgente(
@@ -78,6 +85,7 @@ export async function preguntarAgente(
   usuarioId: string,
   previousAnswer?: string,
   assistantMode?: string,
+  educationTopic?: EducationTopic,
 ): Promise<AgentResponse> {
   const id = exigirUsuarioId(usuarioId);
 
@@ -89,6 +97,7 @@ export async function preguntarAgente(
       question,
       previous_answer: previousAnswer,
       assistant_mode: assistantMode,
+      education_topic: educationTopic,
     }),
   });
 
@@ -113,6 +122,7 @@ export async function preguntarAgenteStream(
   previousAnswer: string | undefined,
   onStep: (mensaje: string) => void,
   assistantMode?: string,
+  educationTopic?: EducationTopic,
 ): Promise<AgentResponse> {
   const id = exigirUsuarioId(usuarioId);
 
@@ -124,6 +134,7 @@ export async function preguntarAgenteStream(
       question,
       previous_answer: previousAnswer,
       assistant_mode: assistantMode,
+      education_topic: educationTopic,
     }),
   });
 
@@ -152,7 +163,9 @@ export async function preguntarAgenteStream(
       if (evento.status === 'step') {
         onStep(evento.message);
       } else if (evento.status === 'done') {
-        return { answer: evento.answer, provider: evento.provider };
+        const answer = typeof evento.answer === 'string' ? evento.answer.trim() : '';
+        if (!answer) throw new Error('El asistente devolvió una respuesta vacía.');
+        return { answer, provider: evento.provider };
       } else if (evento.status === 'error') {
         throw new Error(evento.message || 'Error al consultar el asistente IA.');
       }

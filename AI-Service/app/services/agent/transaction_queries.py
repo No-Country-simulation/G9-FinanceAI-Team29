@@ -78,7 +78,15 @@ class TransactionQueryEngine:
                     "movimiento", "transaccion", "categoria", "balance",
                 )
             )
-            if previous_is_financial and q.startswith(("y ", "eso ", "ese ", "esa ", "que movimiento")):
+            if previous_is_financial and (
+                q.startswith(("y ", "eso ", "ese ", "esa ", "que movimiento"))
+                or cls._has(
+                    q,
+                    "explicame mas", "explica mas", "amplia", "ampliame",
+                    "quiero mas detalle", "dame mas detalle", "mas detalles",
+                    "contame mas", "cuentame mas", "quiero saber mas",
+                )
+            ):
                 return True
 
         return False
@@ -139,6 +147,16 @@ class TransactionQueryEngine:
         query_today = actual_today
         expenses = frame[frame["_kind"].eq("expense")].copy() if not frame.empty else frame
         incomes = frame[frame["_kind"].eq("income")].copy() if not frame.empty else frame
+
+        contextual_savings_result = cls._contextual_savings_follow_up(
+            q,
+            previous_answer,
+            expenses=expenses,
+            incomes=incomes,
+            reference_today=query_today,
+        )
+        if contextual_savings_result is not None:
+            return contextual_savings_result
 
         contextual_summary_result = cls._contextual_summary_follow_up(
             q,
@@ -293,6 +311,113 @@ class TransactionQueryEngine:
             "el anterior",
             "mes siguiente",
             "el siguiente",
+        )
+
+    @classmethod
+    def _contextual_savings_follow_up(
+        cls,
+        q: str,
+        previous_answer: str | None,
+        *,
+        expenses: pd.DataFrame,
+        incomes: pd.DataFrame,
+        reference_today: date,
+    ) -> TransactionQueryResult | None:
+        """Amplía un ahorro transaccional sin mezclarlo con métricas promedio.
+
+        Si la respuesta anterior fue un cálculo explícito del ahorro de este mes
+        o de este año, un follow-up como "Explícame más" conserva ese período y
+        vuelve a usar únicamente los movimientos reales del mismo período.
+        """
+        if not previous_answer or not cls._has(
+            q,
+            "explicame mas",
+            "explica mas",
+            "amplia",
+            "ampliame",
+            "quiero mas detalle",
+            "dame mas detalle",
+        ):
+            return None
+
+        previous = QueryNormalizer.normalize(previous_answer)
+
+        if cls._has(
+            previous,
+            "tu ahorro este mes fue",
+            "este mes ahorraste",
+            "este mes no tuviste ahorro",
+        ):
+            period = "month"
+            label = "este mes"
+        elif cls._has(
+            previous,
+            "tu ahorro este ano fue",
+            "este ano ahorraste",
+            "este ano no tuviste ahorro",
+        ):
+            period = "year"
+            label = "este año"
+        else:
+            return None
+
+        selected_incomes = cls._period_frame(
+            incomes,
+            period,
+            reference_today,
+        )
+        selected_expenses = cls._period_frame(
+            expenses,
+            period,
+            reference_today,
+        )
+
+        income = float(selected_incomes["monto"].sum())
+        expense = float(selected_expenses["monto"].sum())
+        balance = income - expense
+
+        if income > 0:
+            rate = balance / income * 100
+            rate_text = f" Eso equivale al {rate:.1f}% de tus ingresos del período."
+        else:
+            rate_text = ""
+
+        if balance >= 0:
+            interpretation = (
+                "En ese período tus ingresos superaron a tus gastos, "
+                "por lo que el balance de ahorro fue positivo."
+            )
+        else:
+            interpretation = (
+                "En ese período tus gastos superaron a tus ingresos, "
+                f"por lo que tuviste un déficit de {cls._money(abs(balance))}."
+            )
+
+        if balance < 0:
+            balance_text = (
+                f"Tus gastos superaron tus ingresos en {cls._money(abs(balance))}, "
+                "por lo que cerraste el período con déficit."
+            )
+        elif balance > 0:
+            balance_text = (
+                f"Tus ingresos superaron tus gastos en {cls._money(balance)}, "
+                "por lo que cerraste el período con ahorro."
+            )
+        else:
+            balance_text = (
+                "Tus ingresos y gastos fueron iguales, por lo que cerraste el período "
+                "sin ahorro ni déficit."
+            )
+
+        return cls._result(
+            (
+                f"Tomando únicamente tus movimientos reales de {label}, "
+                f"ingresaste {cls._money(income)} y gastaste {cls._money(expense)}. "
+                f"{balance_text} "
+                "Este resultado corresponde al período consultado y es distinto "
+                "de la capacidad de ahorro mensual estimada que muestra el análisis general de FinSightAI."
+            ),
+            f"contextual_savings_{period}_explanation",
         )
 
     @classmethod
@@ -479,6 +604,43 @@ class TransactionQueryEngine:
             or cls._has(previous, "categoria en la que mas gastaste", "categoria numero", "categoria con mas gastos")
             or (cls._has(previous, "categoria") and cls._has(previous, "gastaste", "gasto"))
         ):
+            return None
+
+        # Un follow-up explicativo debe conservar EXACTAMENTE el dato mostrado
+        # en la respuesta anterior. No vuelve a sumar `expenses`, porque esa
+        # colección puede representar una ventana distinta de la usada por el
+        # responder que produjo la respuesta base.
+        if cls._has(
+            q,
+            "explicame mas", "explica mas", "amplia", "ampliame",
+            "quiero mas detalle", "dame mas detalle", "mas detalles",
+            "contame mas", "cuentame mas", "quiero saber mas",
+        ):
+            clean_previous = re.sub(
+                r"\s*<!--\s*finsi-financial-context.*?-->\s*$",
+                "",
+                previous_answer,
+                flags=re.IGNORECASE | re.DOTALL,
+            ).strip()
+            match = re.search(
+                r"(?:categor[ií]a\s+(?:en\s+la\s+que\s+m[aá]s\s+gastaste|con\s+mayor\s+gasto(?:\s+acumulado)?|con\s+m[aá]s\s+gastos?)\s+(?:fue|es)\s+)([^,.;]+).*?(\$[\d.]+(?:,[\d]{2})?)",
+                clean_previous,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+            if match:
+                category = match.group(1).strip(" *")
+                amount = match.group(2)
+                return cls._result(
+                    (
+                        f"Tu categoría con mayor gasto es **{category}**, con **{amount}**. "
+                        "Ese monto corresponde al mismo período y conjunto de movimientos usados en la respuesta anterior. "
+                        "Representa la suma de los gastos clasificados en esa categoría, no una única compra."
+                    ),
+                    "contextual_expense_category_explanation",
+                )
+
+            # Si por algún cambio de copy no puede extraerse el dato anterior,
+            # no recalcula con otra ventana: deja que continúe el routing normal.
             return None
 
         ordinal_patterns = {
@@ -1380,11 +1542,28 @@ class TransactionQueryEngine:
                 "savings_monthly_average",
             )
 
-        if cls._has(q, "cuanto ahorre", "cuanto estoy ahorrando", "cuanto ahorro", "ahorro este mes", "ahorro este ano"):
+        if cls._has(q, "cuanto ahorre", "ahorro este mes", "ahorro este ano"):
             period, label = cls._select_period(q, today)
             income = cls._period_frame(incomes, period, today)["monto"].sum()
             expense = cls._period_frame(expenses, period, today)["monto"].sum()
-            return cls._result(f"Tu ahorro {label} fue {cls._money(income - expense)}: ingresaste {cls._money(income)} y gastaste {cls._money(expense)}.", f"savings_total_{period}")
+            balance = float(income - expense)
+            if balance < 0:
+                content = (
+                    f"{label.capitalize()} no tuviste ahorro. "
+                    f"Tuviste un déficit de {cls._money(abs(balance))}: "
+                    f"ingresaste {cls._money(income)} y gastaste {cls._money(expense)}."
+                )
+            elif balance > 0:
+                content = (
+                    f"{label.capitalize()} ahorraste {cls._money(balance)}: "
+                    f"ingresaste {cls._money(income)} y gastaste {cls._money(expense)}."
+                )
+            else:
+                content = (
+                    f"{label.capitalize()} no tuviste ahorro ni déficit: "
+                    f"ingresaste {cls._money(income)} y gastaste {cls._money(expense)}."
+                )
+            return cls._result(content, f"savings_total_{period}")
 
         return None
 
@@ -2629,7 +2808,23 @@ class TransactionQueryEngine:
 
     @staticmethod
     def _money(value: Any) -> str:
-        try: rounded=Decimal(str(float(value))).quantize(Decimal("0.01"),rounding=ROUND_HALF_UP)
-        except (InvalidOperation,TypeError,ValueError): rounded=Decimal("0.00")
-        english=f"{rounded:,.2f}"; localized=english.replace(",","X").replace(".",",").replace("X",".")
-        return f"${localized}"
+        try:
+            rounded = Decimal(str(float(value))).quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
+            )
+        except (InvalidOperation, TypeError, ValueError):
+            rounded = Decimal("0.00")
+
+        is_negative = rounded < 0
+        absolute = abs(rounded)
+
+        english = f"{absolute:,.2f}"
+        localized = (
+            english
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
+
+        return f"-${localized}" if is_negative else f"${localized}"

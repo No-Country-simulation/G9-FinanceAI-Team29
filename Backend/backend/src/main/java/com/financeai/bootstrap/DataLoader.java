@@ -53,9 +53,9 @@ public class DataLoader implements CommandLineRunner {
      * al loguearse con estos correos el usuario cae directo sobre ese perfil.
      */
     private static final Map<String, String> CUENTAS_DEMO = Map.of(
-        "demo.critico@finsight.com", "USR0001",
-        "demo.intermedio@finsight.com", "USR0002",
-        "demo.saludable@finsight.com", "USR0009"
+        "demo.critico@finsight.com", "USR0401",
+        "demo.intermedio@finsight.com", "USR0114",
+        "demo.saludable@finsight.com", "USR0615"
     );
 
     /** Cuenta admin (sin datos financieros propios; inspecciona los demás perfiles). */
@@ -162,22 +162,24 @@ public class DataLoader implements CommandLineRunner {
         for (String[] columnas : leerCsv(USUARIOS_CSV)) {
 
             /*
-             * Índices esperados en usuarios.csv:
+             * Índices esperados en usuarios.csv (dataset v16):
              *
-             * 0 usuario_id
-             * 1 ingreso_mensual
-             * 2 deuda_mensual
-             * 3 nivel_endeudamiento
-             * 4 gasto_mensual_promedio
-             * 5 ahorro_mensual_estimado
-             * 6 porcentaje_gastos_ingreso
-             * 7 frecuencia_ahorro
-             * 8 perfil_financiero
+             * 0  usuario_id
+             * 1  ingreso_mensual
+             * 2  gasto_mensual_promedio
+             * 3  deuda_mensual
+             * 4  ahorro_mensual_estimado
+             * 5  porcentaje_gastos_ingreso
+             * 6  nivel_endeudamiento
+             * 7  porcentaje_ahorro_ingreso (derivable; no se persiste)
+             * 8  frecuencia_ahorro
+             * 9  perfil_financiero
+             * 10 estado
              */
 
             validarCantidadColumnas(
                 columnas,
-                9,
+                11,
                 USUARIOS_CSV
             );
 
@@ -187,31 +189,36 @@ public class DataLoader implements CommandLineRunner {
             usuario.setIngresoMensual(
                 parseDecimal(columnas[1])
             );
-            usuario.setDeudaMensual(
+            usuario.setGastoMensualPromedio(
                 parseDecimal(columnas[2])
             );
-            usuario.setNivelEndeudamiento(
+            usuario.setDeudaMensual(
                 parseDecimal(columnas[3])
             );
-            usuario.setGastoMensualPromedio(
+            usuario.setAhorroMensualEstimado(
                 parseDecimal(columnas[4])
             );
-            usuario.setAhorroMensualEstimado(
+            usuario.setPorcentajeGastosIngreso(
                 parseDecimal(columnas[5])
             );
-            usuario.setPorcentajeGastosIngreso(
+            usuario.setNivelEndeudamiento(
                 parseDecimal(columnas[6])
             );
             usuario.setFrecuenciaAhorro(
-                vacioANull(columnas[7])
+                vacioANull(columnas[8])
             );
             usuario.setPerfilFinanciero(
-                vacioANull(columnas[8])
+                vacioANull(columnas[9])
+            );
+            usuario.setEstado(
+                parseEstado(columnas[10])
             );
             usuario.setFechaRegistro(
                 LocalDateTime.now()
             );
-            usuario.setActivo(true);
+            usuario.setActivo(
+                usuario.getEstado() != EstadoUsuario.ELIMINADO
+            );
 
             usuarios.add(usuario);
             usuariosPorId.put(
@@ -268,13 +275,14 @@ public class DataLoader implements CommandLineRunner {
              * 5 moneda
              * 6 tipo
              * 7 categoria
-             * 8 recurrente
+             * 8 subcategoria
              * 9 medio_pago
+             * 10 recurrente
              */
 
             validarCantidadColumnas(
                 columnas,
-                10,
+                11,
                 TRANSACCIONES_CSV
             );
 
@@ -341,11 +349,14 @@ public class DataLoader implements CommandLineRunner {
                 normalizarTipo(columnas[6])
             );
             transaccion.setCategoria(categoria);
-            transaccion.setRecurrente(
-                parseBool(columnas[8])
+            transaccion.setSubcategoria(
+                vacioANull(columnas[8])
             );
             transaccion.setMedioPago(
                 vacioANull(columnas[9])
+            );
+            transaccion.setRecurrente(
+                parseBool(columnas[10])
             );
             transaccion.setOrigen("CSV");
 
@@ -518,6 +529,27 @@ public class DataLoader implements CommandLineRunner {
         return texto == null
             ? null
             : LocalDate.parse(texto);
+    }
+
+
+    private EstadoUsuario parseEstado(
+        String valor
+    ) {
+        String texto = vacioANull(valor);
+
+        if (texto == null) {
+            return EstadoUsuario.ACTIVO;
+        }
+
+        try {
+            return EstadoUsuario.valueOf(texto.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            log.warn(
+                "Estado de usuario '{}' no reconocido. Se usa ACTIVO.",
+                texto
+            );
+            return EstadoUsuario.ACTIVO;
+        }
     }
 
     private Boolean parseBool(

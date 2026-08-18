@@ -1,6 +1,6 @@
 {
-  "version": "8.1.0",
-  "notebook_version": "8.1.0",
+  "version": "10.0.0",
+  "notebook_version": "10.0.0",
   "random_state": 42,
   "modelo_categoria": {
     "archivo": "artefactos_financeai_v10/modelos/clasificador_gastos.joblib",

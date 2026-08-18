@@ -98,13 +98,8 @@ def build_live_analysis(usuario_id: str, transactions: list[dict[str, Any]]) -> 
     frame["tipo"] = frame["tipo"].astype(str).str.upper().str.strip()
     frame["fecha_dt"] = pd.to_datetime(frame.get("fecha"), errors="coerce")
 
-    # Mantener el mismo criterio temporal que TransactionQueryEngine:
-    # una transacción futura no cuenta como ingreso, gasto ni ahorro realizado.
-    hoy = pd.Timestamp.now().normalize()
-    frame = frame[
-        frame["fecha_dt"].isna()
-        | frame["fecha_dt"].dt.normalize().le(hoy)
-    ].copy()
+    # Dataset demo: el análisis toma como corte la última fecha disponible
+    # en los movimientos cargados, no la fecha real del sistema.
 
     ingresos = frame[frame["tipo"].eq("INGRESO")]
     gastos = frame[frame["tipo"].eq("GASTO")]
@@ -276,7 +271,100 @@ def build_live_analysis(usuario_id: str, transactions: list[dict[str, Any]]) -> 
 
 
 def fetch_live_analysis(usuario_id: str) -> dict[str, Any]:
-    return build_live_analysis(usuario_id, fetch_user_transactions(usuario_id))
+    """Obtiene el mismo snapshot financiero que usa el Dashboard.
+
+    El Dashboard no calcula el gasto mensual con un promedio dinámico: envía
+    los gastos al endpoint /analisis-financiero, cuyo contrato normaliza el
+    histórico a 12 meses. Finsi debe reutilizar exactamente ese contrato para
+    evitar mostrar cifras distintas al usuario.
+    """
+    transactions = fetch_user_transactions(usuario_id)
+    profile = fetch_user_profile(usuario_id)
+
+    request_body = {
+        "ingresoMensual": profile.get("ingresoMensual") or 0,
+        "nivelEndeudamiento": profile.get("nivelEndeudamiento") or 0,
+        "frecuenciaAhorro": profile.get("frecuenciaAhorro") or "Nunca",
+        "transacciones": [
+            {
+                "descripcion": tx.get("descripcion") or "",
+                "valor": tx.get("monto") or 0,
+                "fecha": tx.get("fecha"),
+                "categoria": tx.get("categoria") or "",
+            }
+            for tx in transactions
+            if str(tx.get("tipo") or "").upper() == "GASTO"
+            and float(tx.get("monto") or 0) > 0
+        ],
+    }
+
+    url = _endpoint(f"analisis-financiero?usuarioId={usuario_id}")
+    try:
+        response = httpx.post(url, json=request_body, timeout=20.0, headers=service_headers())
+        response.raise_for_status()
+        dashboard = response.json()
+    except (httpx.RequestError, httpx.HTTPStatusError, ValueError) as exc:
+        raise BackendDataError("No se pudo obtener el análisis financiero del Dashboard.") from exc
+
+    if not isinstance(dashboard, dict):
+        raise BackendDataError("El backend devolvió un análisis financiero inválido.")
+
+    # Conservamos el contrato amplio que espera el agente y reemplazamos sus
+    # métricas principales por las mismas que renderiza el Dashboard.
+    analysis = build_live_analysis(usuario_id, transactions)
+    ingreso = float(dashboard.get("totalIngresos") or profile.get("ingresoMensual") or 0)
+    gasto = float(dashboard.get("totalGastos") or 0)
+    ahorro = ingreso - gasto
+    deuda_pct = float(profile.get("nivelEndeudamiento") or 0)
+    deuda_mensual = ingreso * deuda_pct / 100 if ingreso > 0 else 0.0
+
+    metrics = analysis.setdefault("metricas", {})
+    metrics.update({
+        "ingreso_mensual": round(ingreso, 2),
+        "gasto_mensual_promedio": round(gasto, 2),
+        "deuda_mensual": round(deuda_mensual, 2),
+        "ahorro_mensual_estimado": round(ahorro, 2),
+        "ratio_gasto_ingreso": round(gasto / ingreso, 4) if ingreso else 0.0,
+        "ratio_deuda_ingreso": round(deuda_pct / 100, 4),
+        "ratio_ahorro_ingreso": round(ahorro / ingreso, 4) if ingreso else 0.0,
+    })
+    analysis["wallet"] = {
+        "saldo_total": round(ahorro, 2),
+        "saldo_reservado": round(max(ahorro, 0), 2),
+        "saldo_disponible": round(ahorro, 2),
+    }
+    analysis["perfil_financiero"] = dashboard.get("perfilFinanciero") or profile.get("perfilFinanciero") or analysis.get("perfil_financiero")
+    analysis["nivel_riesgo"] = dashboard.get("nivelRiesgo") or analysis.get("nivel_riesgo")
+    if dashboard.get("financialScore") is not None:
+        analysis["financial_score"] = dashboard.get("financialScore")
+    if dashboard.get("scoreStatus"):
+        analysis["score_status"] = dashboard.get("scoreStatus")
+    if dashboard.get("scoreColor"):
+        analysis["score_color"] = dashboard.get("scoreColor")
+    if dashboard.get("explicacion"):
+        analysis["explicacion"] = dashboard.get("explicacion")
+    if dashboard.get("fortalezas") is not None:
+        analysis["fortalezas"] = dashboard.get("fortalezas")
+    if dashboard.get("oportunidadesMejora") is not None:
+        analysis["oportunidades_mejora"] = dashboard.get("oportunidadesMejora")
+
+    resumen = dashboard.get("resumenGastos") or {}
+    por_categoria = resumen.get("porCategoria") or {}
+    porcentajes = resumen.get("porcentajes") or {}
+    if isinstance(por_categoria, dict):
+        analysis["categorias_principales"] = [
+            {
+                "categoria": categoria,
+                "monto": round(float(monto or 0), 2),
+                "porcentaje": round(float(porcentajes.get(categoria, 0) or 0)),
+            }
+            for categoria, monto in sorted(
+                por_categoria.items(), key=lambda item: float(item[1] or 0), reverse=True
+            )
+        ][:5]
+
+    analysis["modelo_version"] = "dashboard-backend-1.0.0"
+    return analysis
 
 
 def fetch_user_profile(usuario_id: str) -> dict[str, Any]:

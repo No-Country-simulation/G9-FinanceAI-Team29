@@ -1,4 +1,4 @@
-from enum import StrEnum
+﻿from enum import StrEnum
 
 from app.services.agent.intent import Intent
 from app.services.agent.schemas import IntentResult, QueryMode
@@ -14,33 +14,69 @@ class AgentRoute(StrEnum):
 
 class AgentRouter:
     _INTERNAL = {
-        Intent.GREETING, Intent.THANKS, Intent.FAREWELL, Intent.CAPABILITIES,
+        Intent.GREETING,
+        Intent.THANKS,
+        Intent.FAREWELL,
+        Intent.CAPABILITIES,
         Intent.CREATOR_INFO,
-        Intent.UNKNOWN, Intent.OUT_OF_SCOPE, Intent.NON_FINANCIAL_CALCULATION,
-        Intent.PRIVACY_RESTRICTED, Intent.SECURITY_RESTRICTED,
+        Intent.UNKNOWN,
+        Intent.OUT_OF_SCOPE,
+        Intent.NON_FINANCIAL_CALCULATION,
+        Intent.PRIVACY_RESTRICTED,
+        Intent.SECURITY_RESTRICTED,
     }
+
     _DIRECT_FINANCIAL = {
-        Intent.INCOME, Intent.EXPENSES, Intent.DEBT, Intent.SAVINGS,
-        Intent.SCORE, Intent.PROFILE, Intent.GOALS,
+        Intent.INCOME,
+        Intent.EXPENSES,
+        Intent.RECENT_EXPENSES,
+        Intent.HIGHEST_EXPENSE_DAY,
+        Intent.LARGEST_EXPENSE,
+        Intent.TOP_EXPENSE_CATEGORY,
+        Intent.HIGHEST_EXPENSE_MONTH,
+        Intent.DEBT,
+        Intent.SAVINGS,
+        Intent.SCORE,
+        Intent.PROFILE,
+        Intent.GOALS,
     }
+
     _ANALYTICAL = {
-        Intent.SUMMARY, Intent.FULL_ANALYSIS, Intent.BUDGET, Intent.RECOMMENDATIONS,
+        Intent.SUMMARY,
+        Intent.FULL_ANALYSIS,
+        Intent.BUDGET,
+        Intent.RECOMMENDATIONS,
     }
 
     @classmethod
     def resolve(cls, result: IntentResult) -> AgentRoute:
         if result.intent in cls._INTERNAL:
             return AgentRoute.INTERNAL
+
         if result.intent == Intent.FINANCIAL_CALCULATION:
             return AgentRoute.CALCULATOR
+
         if result.intent == Intent.FINANCIAL_EDUCATION:
             return AgentRoute.LLM_WITH_CONTEXT
+
         if result.intent in cls._DIRECT_FINANCIAL:
+            # Estos indicadores ya son calculados por FinSightAI y no deben
+            # depender de Groq para responder consultas sobre los datos del usuario.
+            if result.intent in {
+                Intent.PROFILE,
+                Intent.SCORE,
+                Intent.DEBT,
+                Intent.SAVINGS,
+            }:
+                return AgentRoute.DETERMINISTIC
+
             return (
                 AgentRoute.LLM_WITH_CONTEXT
                 if result.mode == QueryMode.ANALYTICAL
                 else AgentRoute.DETERMINISTIC
             )
+
         if result.intent in cls._ANALYTICAL:
             return AgentRoute.LLM_WITH_CONTEXT
+
         return AgentRoute.INTERNAL

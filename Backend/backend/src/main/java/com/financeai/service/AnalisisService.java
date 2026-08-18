@@ -317,6 +317,14 @@ public class AnalisisService {
             TransaccionDTO t,
             boolean mlUp) {
 
+        // Si la transacción ya fue categorizada y persistida, esa categoría
+        // es la fuente de verdad para el análisis financiero.
+        if (t.getCategoria() != null
+                && !t.getCategoria().isBlank()) {
+            return t.getCategoria();
+        }
+
+        // Sólo clasificamos nuevamente cuando la transacción no trae categoría.
         if (mlUp) {
 
             String categoriaMl =
@@ -393,10 +401,12 @@ public class AnalisisService {
                                 RoundingMode.HALF_UP
                         );
 
+        // La deuda mensual ya está incluida dentro de totalGastos.
+        // Restarla nuevamente duplicaría su impacto y produciría un ahorro
+        // artificialmente negativo para el análisis de ML.
         BigDecimal ahorroEstimado =
                 ingreso
                         .subtract(totalGastos)
-                        .subtract(deudaMensual)
                         .setScale(
                                 2,
                                 RoundingMode.HALF_UP
