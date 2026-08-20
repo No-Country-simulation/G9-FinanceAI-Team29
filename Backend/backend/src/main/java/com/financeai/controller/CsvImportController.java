@@ -21,7 +21,8 @@ public class CsvImportController {
     @PostMapping(value = "/{usuarioId}/importar-csv", consumes = "multipart/form-data")
     public ResponseEntity<Map<String, Object>> importarCsv(
             @PathVariable String usuarioId,
+            @RequestParam(defaultValue = "CARGAR") String modo,
             @RequestPart("archivo") MultipartFile archivo) throws Exception {
-        return ResponseEntity.ok(csvImportService.importar(usuarioId, archivo));
+        return ResponseEntity.ok(csvImportService.importar(usuarioId, archivo, modo));
     }
 }

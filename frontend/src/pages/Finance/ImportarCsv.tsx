@@ -1,7 +1,7 @@
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import PageMeta from '../../components/common/PageMeta';
-import { importarCsv, ImportacionCsvResponse, obtenerUsuario } from '../../services/api';
+import { importarCsv, ImportacionCsvResponse, ModoImportacionCsv, obtenerTransacciones, obtenerUsuario } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useGamification } from '../../context/GamificationContext';
 
@@ -233,6 +233,101 @@ function CelebracionPerfilFullscreen({
   return createPortal(contenido, document.body);
 }
 
+
+function ConfirmacionSobreescribir({
+  archivo,
+  onCancelar,
+  onConfirmar,
+}: {
+  archivo: File;
+  onCancelar: () => void;
+  onConfirmar: () => void;
+}) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[99998] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="titulo-sobreescribir"
+    >
+      <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-error-200 bg-white shadow-2xl dark:border-error-900/50 dark:bg-gray-900">
+        <div className="flex flex-col items-center px-6 pb-5 pt-6 text-center sm:px-8">
+          <img
+            src="/images/mascot/finsight-bird-stop.png"
+            alt="Finsi policía indicando detenerse"
+            className="h-44 w-44 object-contain sm:h-52 sm:w-52"
+          />
+
+          <h2
+            id="titulo-sobreescribir"
+            className="mt-2 text-2xl font-black text-gray-900 dark:text-white"
+          >
+            ¡STOP! Revisá antes de continuar
+          </h2>
+
+          <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+            Vas a <strong>sobreescribir movimientos existentes</strong>. FinSightAI
+            reemplazará los movimientos del período comprendido por el CSV y conservará
+            los datos que estén fuera de ese período.
+          </p>
+
+          <div className="mt-4 w-full rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-left text-sm text-error-700 dark:border-error-900/40 dark:bg-error-900/20 dark:text-error-300">
+            <p className="font-semibold">Archivo seleccionado</p>
+            <p className="mt-1 break-all">{archivo.name}</p>
+            <p className="mt-2">
+              Esta acción puede modificar tu historial, tus indicadores y tu perfil financiero.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4 sm:grid-cols-2 dark:border-gray-800 dark:bg-white/[0.03]">
+          <button
+            type="button"
+            onClick={onCancelar}
+            className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirmar}
+            className="rounded-xl bg-error-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-error-600"
+          >
+            Sí, sobreescribir
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+const MODOS_IMPORTACION: Array<{
+  id: ModoImportacionCsv;
+  titulo: string;
+  descripcion: string;
+  detalle: string;
+}> = [
+  {
+    id: 'CARGAR',
+    titulo: 'Cargar',
+    descripcion: 'Primera importación',
+    detalle: 'Usalo cuando todavía no tenés movimientos cargados.',
+  },
+  {
+    id: 'ACTUALIZAR',
+    titulo: 'Actualizar',
+    descripcion: 'Agregar movimientos nuevos',
+    detalle: 'Conserva tu historial y evita guardar duplicados.',
+  },
+  {
+    id: 'SOBREESCRIBIR',
+    titulo: 'Sobreescribir',
+    descripcion: 'Corregir un período',
+    detalle: 'Reemplaza los movimientos del período incluido en el CSV.',
+  },
+];
+
 export default function ImportarCsv() {
   const { usuarioId } = useAuth();
   const { registrarEvento } = useGamification();
@@ -243,6 +338,47 @@ export default function ImportarCsv() {
   const [error, setError] = useState<string | null>(null);
   const [celebracionPerfil, setCelebracionPerfil] =
     useState<CelebracionPerfil>(null);
+  const [modo, setModo] = useState<ModoImportacionCsv | null>(null);
+  const [confirmarSobreescritura, setConfirmarSobreescritura] = useState(false);
+  const [tieneMovimientos, setTieneMovimientos] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!usuarioId) {
+      setTieneMovimientos(null);
+      return;
+    }
+
+    let activo = true;
+
+    const cargarEstadoMovimientos = async () => {
+      try {
+        const transacciones = await obtenerTransacciones(usuarioId);
+        if (activo) {
+          const hayMovimientos = transacciones.length > 0;
+          setTieneMovimientos(hayMovimientos);
+          setModo((modoActual) => {
+            if (!hayMovimientos && modoActual !== 'CARGAR') return null;
+            if (hayMovimientos && modoActual === 'CARGAR') return null;
+            return modoActual;
+          });
+        }
+      } catch (estadoError) {
+        console.warn(
+          'No se pudo determinar si el usuario tiene movimientos:',
+          estadoError,
+        );
+        if (activo) {
+          setTieneMovimientos(null);
+        }
+      }
+    };
+
+    void cargarEstadoMovimientos();
+
+    return () => {
+      activo = false;
+    };
+  }, [usuarioId]);
 
   const seleccionarArchivo = (event: ChangeEvent<HTMLInputElement>) => {
     const archivoSeleccionado = event.target.files?.[0] ?? null;
@@ -252,19 +388,9 @@ export default function ImportarCsv() {
     setError(null);
   };
 
-  const procesar = async () => {
+  const ejecutarImportacion = async (modoSeleccionado: ModoImportacionCsv) => {
     if (!archivo) {
       setError('Seleccioná un archivo CSV antes de continuar.');
-      return;
-    }
-
-    if (!archivo.name.toLowerCase().endsWith('.csv')) {
-      setError('El archivo seleccionado debe tener extensión .csv.');
-      return;
-    }
-
-    if (archivo.size > 5 * 1024 * 1024) {
-      setError('El archivo supera el tamaño máximo permitido de 5 MB.');
       return;
     }
 
@@ -280,22 +406,20 @@ export default function ImportarCsv() {
       }
 
       // Guardamos el perfil anterior ANTES de importar. El trigger de
-      // celebración solo depende de una mejora causada por esta carga CSV.
+      // celebración solo depende del cambio causado por esta importación.
       let perfilAnterior: string | null = null;
 
       try {
         const perfilActual = await obtenerUsuario(usuarioId);
         perfilAnterior = perfilActual?.perfilFinanciero ?? null;
       } catch (perfilError) {
-        // Si por algún motivo no podemos leer el estado anterior, permitimos
-        // igualmente la importación pero evitamos disparar una celebración falsa.
         console.warn(
           "No se pudo obtener el perfil anterior antes de importar el CSV:",
           perfilError,
         );
       }
 
-      const data = await importarCsv(usuarioId, archivo);
+      const data = await importarCsv(usuarioId, archivo, modoSeleccionado);
 
       if (!data) {
         throw new Error('El servidor devolvió una respuesta vacía.');
@@ -308,6 +432,7 @@ export default function ImportarCsv() {
       }
 
       setResultado(data);
+      setTieneMovimientos(true);
       registrarEvento('csv_importado');
 
       const celebracion = detectarCelebracionPerfil(
@@ -331,10 +456,51 @@ export default function ImportarCsv() {
     }
   };
 
+  const procesar = async () => {
+    if (!archivo) {
+      setError('Seleccioná un archivo CSV antes de continuar.');
+      return;
+    }
+
+    if (!archivo.name.toLowerCase().endsWith('.csv')) {
+      setError('El archivo seleccionado debe tener extensión .csv.');
+      return;
+    }
+
+    if (archivo.size > 5 * 1024 * 1024) {
+      setError('El archivo supera el tamaño máximo permitido de 5 MB.');
+      return;
+    }
+
+    if (!modo) {
+      setError('Elegí si querés cargar, actualizar o sobreescribir los movimientos.');
+      return;
+    }
+
+    if (tieneMovimientos === false && modo !== 'CARGAR') {
+      setError('Primero realizá una carga inicial. Actualizar y Sobreescribir se habilitan cuando ya tenés movimientos.');
+      return;
+    }
+
+    if (tieneMovimientos === true && modo === 'CARGAR') {
+      setError('Ya tenés movimientos cargados. Usá Actualizar para agregar nuevos o Sobreescribir para corregir un período.');
+      return;
+    }
+
+    if (modo === 'SOBREESCRIBIR') {
+      setError(null);
+      setConfirmarSobreescritura(true);
+      return;
+    }
+
+    await ejecutarImportacion(modo);
+  };
+
   const quitarArchivo = () => {
     setArchivo(null);
     setResultado(null);
     setError(null);
+    setModo(null);
   };
 
   const formatearTamano = (bytes: number) => {
@@ -481,6 +647,128 @@ export default function ImportarCsv() {
             </p>
           </div>
 
+          <div className="mt-5">
+            <div>
+              <p className="text-sm font-semibold text-gray-800 dark:text-white/90">
+                ¿Qué querés hacer con este CSV?
+              </p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Elegí una opción antes de procesar el archivo.
+              </p>
+            </div>
+
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              {MODOS_IMPORTACION.map((opcion) => {
+                const seleccionado = modo === opcion.id;
+                const esSobreescribir = opcion.id === 'SOBREESCRIBIR';
+                const bloqueado =
+                  tieneMovimientos === null ||
+                  (tieneMovimientos === false && opcion.id !== 'CARGAR') ||
+                  (tieneMovimientos === true && opcion.id === 'CARGAR');
+
+                return (
+                  <button
+                    key={opcion.id}
+                    type="button"
+                    disabled={bloqueado}
+                    onClick={() => {
+                      setModo(opcion.id);
+                      setError(null);
+                      setResultado(null);
+                    }}
+                    className={`rounded-xl border p-4 text-left transition ${
+                      bloqueado
+                        ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50 dark:border-gray-800 dark:bg-white/[0.01]'
+                        : seleccionado
+                          ? esSobreescribir
+                            ? 'border-error-400 bg-error-50 ring-2 ring-error-100 dark:border-error-500 dark:bg-error-900/20 dark:ring-error-900/30'
+                            : 'border-brand-400 bg-brand-25 ring-2 ring-brand-100 dark:border-brand-500 dark:bg-brand-500/10 dark:ring-brand-500/20'
+                          : 'border-gray-200 bg-white hover:border-brand-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-white/[0.02] dark:hover:border-gray-700 dark:hover:bg-white/[0.04]'
+                    }`}
+                    aria-pressed={seleccionado}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={`text-sm font-bold ${
+                          esSobreescribir
+                            ? 'text-error-600 dark:text-error-400'
+                            : 'text-gray-800 dark:text-white'
+                        }`}
+                      >
+                        {opcion.titulo}
+                      </span>
+
+                      <span
+                        className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                          seleccionado
+                            ? esSobreescribir
+                              ? 'border-error-500 bg-error-500'
+                              : 'border-brand-500 bg-brand-500'
+                            : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                      >
+                        {seleccionado && (
+                          <svg
+                            viewBox="0 0 20 20"
+                            className="h-3 w-3 text-white"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M4 10.5 8 14l8-9"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-xs font-semibold text-gray-600 dark:text-gray-300">
+                      {opcion.descripcion}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      {bloqueado && tieneMovimientos === false
+                        ? 'Disponible después de realizar tu primera carga.'
+                        : bloqueado && tieneMovimientos === true && opcion.id === 'CARGAR'
+                          ? 'Ya tenés movimientos cargados. Usá Actualizar o Sobreescribir.'
+                          : opcion.detalle}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {tieneMovimientos === false && (
+              <p className="mt-3 text-xs font-medium text-brand-600 dark:text-brand-400">
+                Esta es tu primera importación. Cargá tus movimientos antes de usar Actualizar o Sobreescribir.
+              </p>
+            )}
+
+            {tieneMovimientos === true && (
+              <p className="mt-3 text-xs font-medium text-gray-500 dark:text-gray-400">
+                Ya tenés movimientos cargados. Usá Actualizar para agregar nuevos o Sobreescribir para corregir un período.
+              </p>
+            )}
+
+            {modo === 'SOBREESCRIBIR' && (
+              <div className="mt-3 flex items-center gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 dark:border-error-900/40 dark:bg-error-900/20">
+                <img
+                  src="/images/mascot/finsight-bird-stop.png"
+                  alt=""
+                  className="h-16 w-16 shrink-0 object-contain"
+                  aria-hidden="true"
+                />
+                <p className="text-xs leading-5 text-error-700 dark:text-error-300">
+                  <strong>Sobreescribir modifica datos existentes.</strong> Antes de continuar,
+                  Finsi te va a pedir una confirmación final.
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className="mt-5 rounded-lg bg-gray-50 p-4 text-sm text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
             <p className="font-semibold">Columnas requeridas</p>
 
@@ -515,10 +803,22 @@ export default function ImportarCsv() {
           <button
             type="button"
             onClick={procesar}
-            disabled={!archivo || cargando}
-            className="mt-6 w-full rounded-lg bg-brand-500 px-5 py-3 font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!archivo || !modo || cargando}
+            className={`mt-6 w-full rounded-lg px-5 py-3 font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              modo === 'SOBREESCRIBIR'
+                ? 'bg-error-500 hover:bg-error-600'
+                : 'bg-brand-500 hover:bg-brand-600'
+            }`}
           >
-            {cargando ? 'Procesando y guardando...' : 'Procesar CSV'}
+            {cargando
+              ? 'Procesando y guardando...'
+              : modo === 'CARGAR'
+                ? 'Cargar movimientos'
+                : modo === 'ACTUALIZAR'
+                  ? 'Actualizar movimientos'
+                  : modo === 'SOBREESCRIBIR'
+                    ? 'Sobreescribir período'
+                    : 'Elegí una opción'}
           </button>
         </div>
 
@@ -526,9 +826,14 @@ export default function ImportarCsv() {
           <div className="rounded-2xl border border-success-200 bg-success-50 p-6 dark:border-success-900/40 dark:bg-success-900/20">
             <div className="flex items-center gap-4">
               <img src="/images/mascot/finsight-bird-import-success.png" alt="Finsi confirma la importación" className="h-28 w-24 shrink-0 object-contain sm:h-36 sm:w-32" />
-              <div><h2 className="text-lg font-semibold text-success-700 dark:text-success-300">CSV importado correctamente</h2>
-
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">Tus movimientos quedaron listos para usar en el dashboard y el asistente IA.</p></div>
+              <div>
+                <h2 className="text-lg font-semibold text-success-700 dark:text-success-300">
+                  {resultado.mensaje || 'CSV procesado correctamente'}
+                </h2>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                  Tus movimientos quedaron listos para usar en el dashboard y el asistente IA.
+                </p>
+              </div>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -557,6 +862,31 @@ export default function ImportarCsv() {
               />
             </div>
 
+            {(resultado.movimientosInsertados !== undefined ||
+              resultado.duplicadosIgnorados !== undefined ||
+              resultado.movimientosReemplazados !== undefined) && (
+              <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
+                <div className="rounded-lg bg-white/70 px-3 py-2 dark:bg-gray-900/40">
+                  <span className="text-gray-500">Insertados</span>
+                  <p className="mt-0.5 font-semibold text-gray-800 dark:text-white">
+                    {resultado.movimientosInsertados ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-white/70 px-3 py-2 dark:bg-gray-900/40">
+                  <span className="text-gray-500">Duplicados ignorados</span>
+                  <p className="mt-0.5 font-semibold text-gray-800 dark:text-white">
+                    {resultado.duplicadosIgnorados ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-white/70 px-3 py-2 dark:bg-gray-900/40">
+                  <span className="text-gray-500">Reemplazados</span>
+                  <p className="mt-0.5 font-semibold text-gray-800 dark:text-white">
+                    {resultado.movimientosReemplazados ?? 0}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div
               className={`mt-5 rounded-lg bg-white/70 p-4 text-sm font-semibold dark:bg-gray-900/40 ${
                 normalizarPerfil(resultado.perfilFinanciero) === "saludable"
@@ -577,6 +907,17 @@ export default function ImportarCsv() {
           </div>
         )}
       </div>
+
+      {confirmarSobreescritura && archivo && (
+        <ConfirmacionSobreescribir
+          archivo={archivo}
+          onCancelar={() => setConfirmarSobreescritura(false)}
+          onConfirmar={() => {
+            setConfirmarSobreescritura(false);
+            void ejecutarImportacion('SOBREESCRIBIR');
+          }}
+        />
+      )}
 
       {celebracionPerfil && (
         <CelebracionPerfilFullscreen

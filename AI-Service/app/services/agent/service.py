@@ -299,9 +299,9 @@ class FinSightAgentService:
         # deuda o metas.
         early_intent = self.intent_detector.detect_result(query.corrected)
 
-        # Recomendaciones y presupuesto canónicos con ruta local prioritaria.
-        # Se evalúan por la pregunta misma para no depender de cómo el detector
-        # clasifique frases como "reducir mis gastos".
+        # Recomendaciones y presupuesto CANÓNICOS: siempre locales para la demo.
+        # Estas frases forman parte de la batería de validación y no deben depender
+        # de Groq/OpenRouter. Las preguntas libres relacionadas siguen más abajo.
         normalized_local_advice_query = QueryNormalizer.normalize(query.corrected).strip()
         local_advice_markers = (
             "que deberia mejorar primero",
@@ -339,12 +339,36 @@ class FinSightAgentService:
                 )
                 return response
 
-        # Educación financiera esencial con respuesta local.
-        # Las preguntas canónicas de validación no dependen de Groq/OpenRouter.
-        local_education = self._local_financial_education_response(
-            query.corrected,
-            previous_answer=previous_answer,
-        )
+        # Las definiciones educativas canónicas (preguntas 23-30) también son locales.
+        # Las tarjetas de Educación Financiera ya fueron resueltas arriba mediante
+        # education_topic; este bloque cubre las mismas definiciones escritas a mano.
+        # Las definiciones educativas canónicas escritas como pregunta inicial son
+        # locales. Un "Explícame más" NO debe entrar acá, porque podría venir de una
+        # respuesta libre de Groq que sólo menciona incidentalmente un concepto como
+        # "fondo de emergencia".
+        normalized_local_education_query = QueryNormalizer.normalize(query.corrected).strip()
+        local_education_expand_terms = {
+            "explicame mas",
+            "explica mas",
+            "amplia",
+            "amplia eso",
+            "ampliame",
+            "ampliame eso",
+            "dame mas detalles",
+            "mas detalles",
+            "profundiza",
+            "profundiza mas",
+            "quiero saber mas",
+            "contame mas",
+            "cuentame mas",
+        }
+        local_education = None
+        if normalized_local_education_query not in local_education_expand_terms:
+            local_education = self._local_financial_education_response(
+                query.corrected,
+                previous_answer=None,
+            )
+
         if (
             early_intent.intent == Intent.FINANCIAL_EDUCATION
             and local_education is not None
@@ -603,10 +627,20 @@ class FinSightAgentService:
 
             # Si no era una respuesta financiera estructurada, recién entonces
             # intentamos reconocer un concepto educativo libre por su contenido.
-            local_education_follow_up = self._local_financial_education_response(
-                query.corrected,
-                previous_answer=previous_answer,
+            # Sólo ampliar localmente educación cuando la respuesta anterior tiene
+            # una firma reconocible de una respuesta educativa local. Si una respuesta
+            # libre de Groq menciona "fondo de emergencia", "ETF", etc., el follow-up
+            # debe continuar por Groq con contexto y no ser secuestrado por educación.
+            previous_education_signature = self._infer_education_topic_from_previous_answer(
+                previous_answer
             )
+            local_education_follow_up = None
+            if previous_education_signature is not None:
+                local_education_follow_up = self._local_financial_education_response(
+                    query.corrected,
+                    previous_answer=previous_answer,
+                )
+
             if local_education_follow_up is not None:
                 response = self._internal_response(
                     local_education_follow_up,
@@ -1869,48 +1903,108 @@ class FinSightAgentService:
                 ),
             }
 
-            for marker, explanation in local_education_followups.items():
-                if marker in normalized_previous_education:
-                    response = self._internal_response(
-                        explanation,
-                        Intent.FINANCIAL_EDUCATION,
-                        query,
-                        used_financial_context=False,
-                    )
-                    response.metadata["route"] = "financial_education_follow_up_local"
-                    return response
+            # Estas definiciones se amplían localmente sólo si la respuesta anterior
+            # tiene una firma propia de una definición educativa canónica. Una respuesta
+            # libre del LLM puede mencionar "fondo de emergencia", "ETF", etc. y eso
+            # NO debe cambiar el tema del follow-up.
+            canonical_education_signatures = {
+                "fondo de emergencia": (
+                    "un fondo de emergencia es una reserva de dinero destinada a cubrir imprevistos",
+                ),
+                "interes compuesto": (
+                    "el interes compuesto ocurre cuando los intereses generados se incorporan al capital",
+                ),
+                "ahorrar": (
+                    "ahorrar consiste en reservar dinero para usarlo mas adelante",
+                ),
+                "etf": (
+                    "un etf es un fondo cuyas participaciones se negocian en mercado",
+                ),
+                "bono": (
+                    "un bono es un instrumento de deuda",
+                ),
+                "accion": (
+                    "una accion representa una participacion en una empresa",
+                ),
+                "stablecoin": (
+                    "una stablecoin es un criptoactivo disenado para intentar mantener un valor estable",
+                ),
+                "diversificar": (
+                    "diversificar una inversion significa repartir la exposicion entre distintos activos",
+                ),
+            }
 
+            for marker, signatures in canonical_education_signatures.items():
+                if any(signature in normalized_previous_education for signature in signatures):
+                    explanation = local_education_followups.get(marker)
+                    if explanation is not None:
+                        response = self._internal_response(
+                            explanation,
+                            Intent.FINANCIAL_EDUCATION,
+                            query,
+                            used_financial_context=False,
+                        )
+                        response.metadata["route"] = "financial_education_follow_up_local"
+                        return response
 
-            # Último fallback para "Explícame más": SIEMPRE local.
-            # A partir de este punto ningún follow-up explícito depende de
-            # Groq/OpenRouter. Los responders específicos anteriores conservan
-            # prioridad; este bloque solo cubre lo que no reconocieron.
+            # Si llegamos acá, el follow-up no pertenece a una ruta local canónica.
+            # Primero intentamos continuar con el LLM usando la respuesta anterior y
+            # el contexto financiero real. Si el proveedor falla, respondemos con un
+            # fallback local contextual que amplía EL MISMO tema de la respuesta previa.
             try:
                 follow_up_analysis = self._get_analysis(usuario_id)
             except (BackendDataError, ValueError):
                 follow_up_analysis = {}
 
-            content = self._generic_local_expand_response(
+            follow_up_context: dict[str, Any] = {}
+            if follow_up_analysis:
+                try:
+                    follow_up_rules = FinancialRulesEngine.evaluate(follow_up_analysis)
+                    follow_up_context = self.context_builder.build(
+                        intent=Intent.FULL_ANALYSIS,
+                        analysis=follow_up_analysis,
+                        rules=follow_up_rules,
+                    )
+                except (BackendDataError, ValueError, TypeError):
+                    follow_up_context = {}
+
+            messages = self._build_compact_follow_up_messages(
+                question=query.original,
                 previous_answer=previous_answer,
                 analysis=follow_up_analysis,
             )
-            response = self._internal_response(
-                content,
-                early_intent.intent
-                if early_intent.intent != Intent.UNKNOWN
-                else Intent.FULL_ANALYSIS,
-                query,
-                used_financial_context=bool(follow_up_analysis),
-            )
-            response.metadata.update(
-                {
-                    "intent": "follow_up",
-                    "route": "local_follow_up_expand",
-                    "used_financial_context": bool(follow_up_analysis),
-                    "corrections_count": len(query.corrections),
-                }
-            )
-            return response
+
+            try:
+                response = await self.llm.generate(messages=messages, provider=provider)
+                response.metadata.update(
+                    {
+                        "intent": "follow_up",
+                        "route": "llm_follow_up_with_context",
+                        "used_financial_context": bool(follow_up_context),
+                        "corrections_count": len(query.corrections),
+                    }
+                )
+                return response
+            except Exception:
+                content = self._free_follow_up_local_fallback(
+                    previous_answer=previous_answer,
+                    analysis=follow_up_analysis,
+                )
+                response = self._internal_response(
+                    content,
+                    Intent.FULL_ANALYSIS,
+                    query,
+                    used_financial_context=bool(follow_up_analysis),
+                )
+                response.metadata.update(
+                    {
+                        "intent": "follow_up",
+                        "route": "free_follow_up_local_fallback",
+                        "used_financial_context": bool(follow_up_analysis),
+                        "corrections_count": len(query.corrections),
+                    }
+                )
+                return response
 
         # Follow-ups cortos sobre capacidad de ahorro conservan la intención
         # financiera de la respuesta anterior. Se resuelven antes del aislamiento
@@ -2317,10 +2411,10 @@ class FinSightAgentService:
             except (BackendDataError, ValueError):
                 follow_up_context = {}
 
-            messages = PromptBuilder.build_follow_up(
+            messages = self._build_compact_follow_up_messages(
                 question=query.original,
                 previous_answer=previous_answer,
-                context=follow_up_context,
+                analysis=follow_up_analysis,
             )
             response = await self.llm.generate(messages=messages, provider=provider)
             response.metadata.update(
@@ -2335,29 +2429,94 @@ class FinSightAgentService:
 
         intent_result = self.intent_detector.detect_result(query.corrected)
 
-        # Recomendaciones y presupuesto con fallback local real.
-        # Estas respuestas usan únicamente el análisis calculado por FinSightAI
-        # y siguen funcionando aunque Groq y OpenRouter estén sin cuota.
-        if intent_result.intent in {Intent.RECOMMENDATIONS, Intent.BUDGET}:
-            analysis = self._get_analysis(usuario_id)
-            local_advice = self._local_recommendation_or_budget_response(
+        # Preguntas financieras LIBRES / hipotéticas / interpretativas.
+        # Deben llegar al LLM con un resumen financiero verificado, incluso si el
+        # detector las clasificó como SUMMARY/FULL_ANALYSIS/UNKNOWN por palabras
+        # como "panorama", "patrón" o "situación". Las 30 preguntas canónicas
+        # quedan excluidas explícitamente y siguen siendo locales.
+        if (
+            not self._is_canonical_validation_question(query.corrected)
+            and self._is_free_financial_llm_question(
                 query.corrected,
-                intent=intent_result.intent,
+                intent_result.intent,
+            )
+        ):
+            analysis = self._get_analysis(usuario_id)
+            messages = self._build_compact_financial_messages(
+                question=query.original,
                 analysis=analysis,
             )
-            if local_advice is not None:
+            try:
+                response = await self.llm.generate(messages=messages, provider=provider)
+                response.metadata.update(
+                    {
+                        "intent": intent_result.intent.value,
+                        "route": "free_financial_llm_with_context",
+                        "used_financial_context": True,
+                        "corrections_count": len(query.corrections),
+                    }
+                )
+                return response
+            except Exception:
+                # Fallback seguro para Demo Day: nunca dejar la conversación rota
+                # si Groq/OpenRouter están sin cuota o fallan temporalmente.
+                content = self._free_financial_local_fallback(
+                    question=query.corrected,
+                    analysis=analysis,
+                )
                 response = self._internal_response(
-                    local_advice,
-                    intent_result.intent,
+                    content,
+                    Intent.FULL_ANALYSIS,
                     query,
                     used_financial_context=True,
                 )
-                response.metadata["route"] = (
-                    "budget_local_deterministic"
-                    if intent_result.intent == Intent.BUDGET
-                    else "recommendations_local_deterministic"
+                response.metadata["route"] = "free_financial_local_fallback"
+                return response
+
+        # Recomendaciones y presupuesto: los datos siguen siendo determinísticos,
+        # pero la interpretación de la pregunta y la redacción pasan primero por el LLM.
+        # El texto local se conserva exclusivamente como fallback si falla el proveedor.
+        if intent_result.intent in {Intent.RECOMMENDATIONS, Intent.BUDGET}:
+            analysis = self._get_analysis(usuario_id)
+            rules = FinancialRulesEngine.evaluate(analysis)
+            advice_context = self.context_builder.build(
+                intent=intent_result.intent,
+                analysis=analysis,
+                rules=rules,
+            )
+            messages = PromptBuilder.build(
+                original_question=query.original,
+                processed_question=query.corrected,
+                corrections=query.corrections,
+                context=advice_context,
+                intent=intent_result.intent.value,
+            )
+            try:
+                response = await self.llm.generate(messages=messages, provider=provider)
+                response.metadata.update(
+                    {
+                        "intent": intent_result.intent.value,
+                        "route": "llm_advice_with_context",
+                        "used_financial_context": True,
+                        "corrections_count": len(query.corrections),
+                    }
                 )
                 return response
+            except Exception:
+                local_advice = self._local_recommendation_or_budget_response(
+                    query.corrected,
+                    intent=intent_result.intent,
+                    analysis=analysis,
+                )
+                if local_advice is not None:
+                    response = self._internal_response(
+                        local_advice,
+                        intent_result.intent,
+                        query,
+                        used_financial_context=True,
+                    )
+                    response.metadata["route"] = "advice_local_fallback"
+                    return response
 
         # Los resúmenes/situación actual deben ser matemáticamente deterministas
         # y usar exactamente el snapshot sincronizado con el Dashboard. Dejar estas
@@ -2509,6 +2668,43 @@ class FinSightAgentService:
                 query,
             )
 
+        if (
+            route == AgentRoute.DETERMINISTIC
+            and intent_result.intent != Intent.GOALS
+            and not self._is_canonical_validation_question(query.corrected)
+            and self._should_llm_explain_financial_question(
+                query.corrected,
+                intent_result.intent,
+            )
+        ):
+            # El router puede reconocer correctamente el dominio financiero pero aun
+            # así clasificar como DETERMINISTIC una pregunta explicativa. En esos casos
+            # usamos las métricas reales como contexto y dejamos la interpretación al LLM.
+            analysis = self._get_analysis(usuario_id)
+            rules = FinancialRulesEngine.evaluate(analysis)
+            explanatory_context = self.context_builder.build(
+                intent=intent_result.intent,
+                analysis=analysis,
+                rules=rules,
+            )
+            messages = PromptBuilder.build(
+                original_question=query.original,
+                processed_question=query.corrected,
+                corrections=query.corrections,
+                context=explanatory_context,
+                intent=intent_result.intent.value,
+            )
+            response = await self.llm.generate(messages=messages, provider=provider)
+            response.metadata.update(
+                {
+                    "intent": intent_result.intent.value,
+                    "route": "llm_explanatory_override",
+                    "used_financial_context": True,
+                    "corrections_count": len(query.corrections),
+                }
+            )
+            return response
+
         if route == AgentRoute.DETERMINISTIC:
             if intent_result.intent == Intent.GOALS:
                 goals = self.goal_repository.list_by_user(usuario_id)
@@ -2616,6 +2812,723 @@ class FinSightAgentService:
 
         return response
 
+
+
+
+    @classmethod
+    def _compact_financial_context_text(
+        cls,
+        analysis: dict[str, Any],
+    ) -> str:
+        """Contexto corto para el LLM: sólo datos útiles para razonar la consulta."""
+        analysis = analysis if isinstance(analysis, dict) else {}
+        metrics = analysis.get("metricas")
+        metrics = metrics if isinstance(metrics, dict) else {}
+
+        def pct_text(value: Any) -> str | None:
+            if value is None:
+                return None
+            try:
+                number = Decimal(str(value))
+            except (InvalidOperation, ValueError, TypeError):
+                return None
+            if abs(number) <= Decimal("1"):
+                number *= Decimal("100")
+            number = number.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+            return str(number).replace(".", ",") + "%"
+
+        lines: list[str] = []
+        money_fields = (
+            ("Ingreso mensual", metrics.get("ingreso_mensual")),
+            ("Gasto mensual", metrics.get("gasto_mensual_promedio")),
+            ("Ahorro mensual estimado", metrics.get("ahorro_mensual_estimado")),
+            ("Deuda mensual", metrics.get("deuda_mensual")),
+        )
+        for label, value in money_fields:
+            if value is not None:
+                lines.append(f"- {label}: {cls._format_money(value)}")
+
+        ratio_fields = (
+            ("Gasto/ingreso", metrics.get("ratio_gasto_ingreso")),
+            ("Ahorro/ingreso", metrics.get("ratio_ahorro_ingreso")),
+            ("Deuda/ingreso", metrics.get("ratio_deuda_ingreso")),
+        )
+        for label, value in ratio_fields:
+            rendered = pct_text(value)
+            if rendered is not None:
+                lines.append(f"- {label}: {rendered}")
+
+        if analysis.get("perfil_financiero"):
+            lines.append(f"- Perfil: {analysis.get('perfil_financiero')}")
+        if analysis.get("nivel_riesgo"):
+            lines.append(f"- Riesgo: {analysis.get('nivel_riesgo')}")
+        if analysis.get("financial_score") is not None:
+            lines.append(f"- Puntaje: {analysis.get('financial_score')}")
+
+        categories = analysis.get("categorias_principales")
+        if isinstance(categories, list) and categories:
+            rendered = []
+            for item in categories[:3]:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("categoria") or "").strip()
+                if not name:
+                    continue
+                p = item.get("porcentaje")
+                if p is not None:
+                    try:
+                        p = Decimal(str(p)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+                        rendered.append(f"{name} {p}% del gasto")
+                    except (InvalidOperation, ValueError, TypeError):
+                        rendered.append(name)
+                else:
+                    rendered.append(name)
+            if rendered:
+                lines.append("- Categorías principales: " + ", ".join(rendered))
+
+        return "\n".join(lines)
+
+    @classmethod
+    def _build_compact_financial_messages(
+        cls,
+        *,
+        question: str,
+        analysis: dict[str, Any],
+    ) -> list[dict[str, str]]:
+        context_text = cls._compact_financial_context_text(analysis)
+        system = (
+            "Eres Finsi, asistente de FinSightAI. Responde en español neutro, claro y breve. "
+            "Usa exclusivamente los datos financieros suministrados como fuente de verdad. "
+            "No inventes montos, tasas, saldos, categorías ni contenido interno de categorías. "
+            "Los porcentajes de categorías son sobre el gasto total. "
+            "No confundas una categoría llamada Deudas con la deuda mensual. "
+            "Si el usuario pide una simulación, identifícala como hipotética y explica los supuestos. "
+            "No afirmes que el perfil o puntaje cambia salvo que el contexto lo indique. "
+            "Usa $ y formato latino para montos. Responde exactamente lo preguntado."
+        )
+        user = (
+            f"CONTEXTO FINANCIERO:\n{context_text}\n\n"
+            f"PREGUNTA:\n{question}"
+        )
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+
+    @classmethod
+    def _build_compact_follow_up_messages(
+        cls,
+        *,
+        question: str,
+        previous_answer: str,
+        analysis: dict[str, Any],
+    ) -> list[dict[str, str]]:
+        context_text = cls._compact_financial_context_text(analysis)
+        previous = (previous_answer or "").strip()
+        if len(previous) > 3500:
+            previous = previous[:3500] + "\n[respuesta anterior recortada]"
+        system = (
+            "Eres Finsi, asistente de FinSightAI. El usuario pide continuar la respuesta anterior. "
+            "Mantén exactamente el mismo tema. Usa el contexto financiero como fuente de verdad. "
+            "No inventes datos ni cambies el foco por una palabra incidental como fondo de emergencia, ETF o deuda. "
+            "Si pide 'Explícame más', explica y profundiza; no agregues automáticamente recomendaciones nuevas. "
+            "Usa $ y formato latino."
+        )
+        user = (
+            f"RESPUESTA ANTERIOR:\n{previous}\n\n"
+            f"CONTEXTO FINANCIERO:\n{context_text}\n\n"
+            f"FOLLOW-UP:\n{question}"
+        )
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+
+    @classmethod
+    def _free_financial_local_fallback(
+        cls,
+        *,
+        question: str,
+        analysis: dict[str, Any],
+    ) -> str:
+        """Fallback local contextual para preguntas financieras libres.
+
+        Se usa sólo cuando el LLM no está disponible. No intenta reemplazar al LLM:
+        cubre escenarios frecuentes de demo con cálculos y reglas sobre datos reales,
+        y si no reconoce el caso devuelve un análisis general determinístico.
+        """
+        q = QueryNormalizer.normalize(question).strip()
+        analysis = analysis if isinstance(analysis, dict) else {}
+        metrics = analysis.get("metricas")
+        metrics = metrics if isinstance(metrics, dict) else {}
+
+        ingreso = metrics.get("ingreso_mensual")
+        gasto = metrics.get("gasto_mensual_promedio")
+        deuda = metrics.get("deuda_mensual")
+        ahorro = metrics.get("ahorro_mensual_estimado")
+        ratio_gasto = metrics.get("ratio_gasto_ingreso")
+        ratio_deuda = metrics.get("ratio_deuda_ingreso")
+        ratio_ahorro = metrics.get("ratio_ahorro_ingreso")
+        perfil = analysis.get("perfil_financiero")
+        score = analysis.get("financial_score")
+        riesgo = analysis.get("nivel_riesgo")
+        categorias = analysis.get("categorias_principales")
+        categorias = categorias if isinstance(categorias, list) else []
+
+        def dec(value: Any) -> Decimal | None:
+            if value is None:
+                return None
+            try:
+                return Decimal(str(value))
+            except (InvalidOperation, ValueError, TypeError):
+                return None
+
+        def pct(value: Any) -> Decimal | None:
+            number = dec(value)
+            if number is None:
+                return None
+            if abs(number) <= Decimal("1"):
+                number *= Decimal("100")
+            return number.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+
+        ingreso_d = dec(ingreso)
+        gasto_d = dec(gasto)
+        deuda_d = dec(deuda)
+        ahorro_d = dec(ahorro)
+        gasto_pct = pct(ratio_gasto)
+        deuda_pct = pct(ratio_deuda)
+        ahorro_pct = pct(ratio_ahorro)
+
+        # Extraer un monto mencionado en la consulta.
+        amount_match = re.search(
+            r"\$\s*(\d+(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)",
+            question or "",
+        )
+        amount = None
+        if amount_match:
+            raw = amount_match.group(1)
+            if "." in raw and "," in raw:
+                raw = raw.replace(".", "").replace(",", ".")
+            elif "," in raw:
+                raw = raw.replace(",", ".")
+            try:
+                amount = Decimal(raw)
+            except InvalidOperation:
+                amount = None
+
+        # Escenario: aumentar ahorro en un monto.
+        if (
+            amount is not None
+            and ahorro_d is not None
+            and ingreso_d is not None
+            and any(term in q for term in ("ahorrar", "ahorro"))
+            and any(term in q for term in ("mas", "aument", "increment", "sumar"))
+        ):
+            nuevo_ahorro = ahorro_d + amount
+            nuevo_ratio = (
+                nuevo_ahorro / ingreso_d * Decimal("100")
+                if ingreso_d > 0
+                else None
+            )
+            parts = [
+                f"Si esos **{cls._format_money(amount)} adicionales** se suman a tu ahorro mensual "
+                f"y tus ingresos y obligaciones se mantienen iguales, tu capacidad de ahorro estimada "
+                f"pasaría de **{cls._format_money(ahorro_d)}** a **{cls._format_money(nuevo_ahorro)}**."
+            ]
+            if nuevo_ratio is not None:
+                nuevo_ratio = nuevo_ratio.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+                parts.append(
+                    f"Ese nuevo ahorro equivaldría aproximadamente al **{str(nuevo_ratio).replace('.', ',')}% "
+                    f"de tus ingresos mensuales**."
+                )
+            if perfil:
+                parts.append(
+                    f"Tu perfil actual es **{perfil}**. El cambio aumentaría tu margen disponible, "
+                    "pero no implica por sí solo que el perfil cambie de categoría, porque FinSightAI "
+                    "también considera otros indicadores como gasto, deuda y ahorro relativo."
+                )
+            return "\n\n".join(parts)
+
+        # Escenario: reducir gastos en un monto.
+        if (
+            amount is not None
+            and gasto_d is not None
+            and ingreso_d is not None
+            and any(term in q for term in ("gasto", "gastos"))
+            and any(term in q for term in ("reduc", "bajar", "dismin", "recortar"))
+        ):
+            nuevo_gasto = max(Decimal("0"), gasto_d - amount)
+            nuevo_balance = ingreso_d - nuevo_gasto
+            nuevo_ratio_gasto = (
+                nuevo_gasto / ingreso_d * Decimal("100")
+                if ingreso_d > 0
+                else None
+            )
+            parts = [
+                f"Si reduces tus gastos mensuales en **{cls._format_money(amount)}** y tus ingresos se mantienen, "
+                f"el gasto estimado bajaría de **{cls._format_money(gasto_d)}** a "
+                f"**{cls._format_money(nuevo_gasto)}**."
+            ]
+            if nuevo_ratio_gasto is not None:
+                nuevo_ratio_gasto = nuevo_ratio_gasto.quantize(
+                    Decimal("0.1"), rounding=ROUND_HALF_UP
+                )
+                parts.append(
+                    f"Eso llevaría el gasto a aproximadamente el "
+                    f"**{str(nuevo_ratio_gasto).replace('.', ',')}% de tus ingresos**."
+                )
+            parts.append(
+                f"El margen mensual estimado subiría a **{cls._format_money(nuevo_balance)}**, "
+                "si no cambian tus demás obligaciones."
+            )
+            return "\n\n".join(parts)
+
+        # Patrones o cosas que el usuario quizá no está viendo.
+        if any(term in q for term in ("patron", "tendencia", "no estoy viendo", "no veo")):
+            parts = []
+            if gasto_pct is not None:
+                if gasto_pct < Decimal("50"):
+                    parts.append(
+                        f"Tus gastos representan aproximadamente el **{str(gasto_pct).replace('.', ',')}% "
+                        "de tus ingresos**, por lo que actualmente conservas un margen amplio."
+                    )
+                elif gasto_pct < Decimal("80"):
+                    parts.append(
+                        f"Tus gastos consumen aproximadamente el **{str(gasto_pct).replace('.', ',')}% "
+                        "de tus ingresos**; hay margen, pero una parte importante del ingreso ya está comprometida."
+                    )
+                else:
+                    parts.append(
+                        f"Tus gastos representan aproximadamente el **{str(gasto_pct).replace('.', ',')}% "
+                        "de tus ingresos**, una señal para vigilar porque deja poco margen."
+                    )
+
+            if deuda_pct is not None:
+                if deuda_pct < Decimal("20"):
+                    parts.append(
+                        f"Tu relación deuda/ingreso es baja, alrededor del "
+                        f"**{str(deuda_pct).replace('.', ',')}%**."
+                    )
+                elif deuda_pct < Decimal("35"):
+                    parts.append(
+                        f"Tu deuda representa cerca del **{str(deuda_pct).replace('.', ',')}% de tus ingresos**, "
+                        "un nivel que conviene seguir de cerca."
+                    )
+                else:
+                    parts.append(
+                        f"Tu deuda representa aproximadamente el **{str(deuda_pct).replace('.', ',')}% de tus ingresos**, "
+                        "por lo que es uno de los puntos de mayor presión."
+                    )
+
+            if ahorro_pct is not None:
+                parts.append(
+                    f"Tu capacidad de ahorro estimada equivale aproximadamente al "
+                    f"**{str(ahorro_pct).replace('.', ',')}% de tus ingresos**."
+                )
+
+            if categorias:
+                top = []
+                for item in categorias[:3]:
+                    if not isinstance(item, dict):
+                        continue
+                    nombre = str(item.get("categoria") or "").strip()
+                    porcentaje = item.get("porcentaje")
+                    if not nombre:
+                        continue
+                    if porcentaje is not None:
+                        try:
+                            p = Decimal(str(porcentaje)).quantize(
+                                Decimal("1"), rounding=ROUND_HALF_UP
+                            )
+                            top.append(f"**{nombre}** ({p}% del gasto)")
+                        except (InvalidOperation, ValueError, TypeError):
+                            top.append(f"**{nombre}**")
+                    else:
+                        top.append(f"**{nombre}**")
+                if top:
+                    parts.append(
+                        "La concentración principal del gasto está en " + ", ".join(top) + "."
+                    )
+
+            if perfil or riesgo or score is not None:
+                estado = []
+                if perfil:
+                    estado.append(f"perfil **{perfil}**")
+                if riesgo:
+                    estado.append(f"riesgo **{riesgo}**")
+                if score is not None:
+                    estado.append(f"puntaje **{score}**")
+                parts.append("En conjunto, FinSightAI te ubica con " + ", ".join(estado) + ".")
+
+            if parts:
+                return "\n\n".join(parts)
+
+        # Señales de alerta / preocupación principal.
+        if any(term in q for term in ("alerta", "preocupa", "preocupante", "fragil", "riesgo ves")):
+            alerts = []
+            if gasto_pct is not None and gasto_pct >= Decimal("80"):
+                alerts.append(
+                    f"el gasto consume aproximadamente el {str(gasto_pct).replace('.', ',')}% de tus ingresos"
+                )
+            if deuda_pct is not None and deuda_pct >= Decimal("35"):
+                alerts.append(
+                    f"la deuda representa aproximadamente el {str(deuda_pct).replace('.', ',')}% de tus ingresos"
+                )
+            if ahorro_pct is not None and ahorro_pct < Decimal("10"):
+                alerts.append(
+                    f"la capacidad de ahorro es baja, alrededor del {str(ahorro_pct).replace('.', ',')}%"
+                )
+
+            if alerts:
+                return (
+                    "Las señales de mayor atención son: " + "; ".join(alerts) + ". "
+                    "Conviene priorizar la que más presión ejerza sobre tu margen mensual."
+                )
+
+            return (
+                "Con los indicadores disponibles no aparece una señal crítica dominante. "
+                "Lo más útil es seguir vigilando la relación entre gasto, deuda y capacidad de ahorro "
+                "y revisar si alguna categoría concentra una parte excesiva del gasto."
+            )
+
+        # Ahorro vs deuda.
+        if (
+            "ahorro" in q
+            and "deuda" in q
+            and any(term in q for term in ("priorizar", "primero", "conviene", "mejor"))
+        ):
+            if deuda_pct is not None and deuda_pct >= Decimal("35"):
+                return (
+                    f"Tu relación deuda/ingreso ronda el **{str(deuda_pct).replace('.', ',')}%**, "
+                    "por lo que reducir deuda debería tener prioridad sobre aumentar ahorro, "
+                    "sin dejar de conservar un pequeño margen para imprevistos."
+                )
+            if ahorro_pct is not None and ahorro_pct < Decimal("10"):
+                return (
+                    "Tu capacidad de ahorro es reducida. Antes de acelerar pagos extraordinarios de deuda, "
+                    "conviene preservar algo de liquidez para no depender de nueva deuda ante un imprevisto."
+                )
+            return (
+                "Con tus indicadores actuales no aparece una presión de deuda alta. "
+                "Puedes mantener el ahorro y, si tienes deudas con costos elevados, destinar parte del margen "
+                "a reducirlas de forma gradual."
+            )
+
+        # Plan concreto para aprovechar el margen mensual.
+        # Se activa cuando el usuario pide plan, prioridades, porcentajes o asignación.
+        if any(
+            term in q
+            for term in (
+                "plan concreto",
+                "proponeme un plan",
+                "propone un plan",
+                "prioriza objetivos",
+                "priorices objetivos",
+                "aprovechar mejor",
+                "dinero que me queda",
+                "como distribuir",
+                "como repartir",
+                "que hago con el dinero",
+                "que hacer con el dinero",
+                "dame porcentajes",
+                "asignar mi margen",
+            )
+        ):
+            if ahorro_d is None or ahorro_d <= 0:
+                return (
+                    "En este momento FinSightAI no detecta un margen mensual positivo suficiente "
+                    "para repartir en un plan. La prioridad sería recuperar o proteger el equilibrio "
+                    "entre ingresos y gastos antes de asignar porcentajes a nuevos objetivos."
+                )
+
+            # Reglas simples, transparentes y basadas en los indicadores disponibles.
+            # No usan tasas, saldos ni condiciones de deuda que FinSightAI no conoce.
+            debt_pressure = deuda_pct is not None and deuda_pct >= Decimal("20")
+            expense_pressure = gasto_pct is not None and gasto_pct >= Decimal("80")
+            savings_pressure = ahorro_pct is not None and ahorro_pct < Decimal("10")
+
+            if debt_pressure:
+                reserve_pct, goals_pct, flex_pct = Decimal("40"), Decimal("35"), Decimal("25")
+                rationale = (
+                    "La deuda tiene un peso relevante respecto de tus ingresos, por eso el plan "
+                    "reserva una parte importante del margen para obligaciones y liquidez sin asumir "
+                    "qué deuda conviene cancelar primero."
+                )
+            elif expense_pressure or savings_pressure:
+                reserve_pct, goals_pct, flex_pct = Decimal("55"), Decimal("25"), Decimal("20")
+                rationale = (
+                    "Tu margen es más sensible porque el gasto ocupa una parte alta del ingreso "
+                    "o la capacidad de ahorro es reducida; por eso conviene proteger más liquidez."
+                )
+            else:
+                reserve_pct, goals_pct, flex_pct = Decimal("50"), Decimal("30"), Decimal("20")
+                rationale = (
+                    "Como el margen es positivo y la presión de deuda no aparece elevada, el plan "
+                    "prioriza conservar liquidez y al mismo tiempo avanzar en objetivos."
+                )
+
+            reserve_amount = (ahorro_d * reserve_pct / Decimal("100")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            goals_amount = (ahorro_d * goals_pct / Decimal("100")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            flex_amount = ahorro_d - reserve_amount - goals_amount
+
+            parts = [
+                f"Dispones de un margen mensual estimado de **{cls._format_money(ahorro_d)}**. "
+                "Como plan de referencia, podrías repartir ese margen así:",
+                f"**{reserve_pct}% ({cls._format_money(reserve_amount)}) — Reserva y liquidez.** "
+                "Sirve para proteger el margen ante imprevistos y evitar que un gasto inesperado obligue a usar deuda.",
+                f"**{goals_pct}% ({cls._format_money(goals_amount)}) — Metas financieras.** "
+                "Permite avanzar en objetivos concretos sin comprometer todo el dinero disponible.",
+                f"**{flex_pct}% ({cls._format_money(flex_amount)}) — Flexibilidad mensual.** "
+                "Mantiene una parte sin asignar rígidamente para absorber variaciones de gastos u obligaciones.",
+                rationale,
+            ]
+
+            if deuda_pct is not None:
+                parts.append(
+                    f"Tu deuda mensual representa aproximadamente el "
+                    f"**{str(deuda_pct).replace('.', ',')}% de tus ingresos**; "
+                    "sin saldo, tasa y plazo no conviene inventar una estrategia específica de pago."
+                )
+            if gasto_pct is not None:
+                parts.append(
+                    f"Tus gastos representan aproximadamente el "
+                    f"**{str(gasto_pct).replace('.', ',')}% de tus ingresos**, por lo que cualquier ajuste "
+                    "debería salir del detalle real de las categorías y no de su nombre."
+                )
+            return "\n\n".join(parts)
+
+        # Último salvavidas: análisis general real, nunca un error técnico.
+        return DeterministicFinancialResponder.respond(
+            intent=Intent.FULL_ANALYSIS,
+            analysis=analysis,
+        )
+
+
+    @classmethod
+    def _free_follow_up_local_fallback(
+        cls,
+        *,
+        previous_answer: str,
+        analysis: dict[str, Any],
+    ) -> str:
+        """Amplía localmente una respuesta libre cuando el LLM no está disponible.
+
+        Mantiene el tema de la respuesta anterior y usa el análisis financiero real.
+        No decide el tema por palabras aisladas como "fondo de emergencia".
+        """
+        previous = (previous_answer or "").strip()
+        normalized = QueryNormalizer.normalize(previous)
+        analysis = analysis if isinstance(analysis, dict) else {}
+        metrics = analysis.get("metricas")
+        metrics = metrics if isinstance(metrics, dict) else {}
+
+        def dec(value: Any) -> Decimal | None:
+            if value is None:
+                return None
+            try:
+                return Decimal(str(value))
+            except (InvalidOperation, ValueError, TypeError):
+                return None
+
+        ingreso = dec(metrics.get("ingreso_mensual"))
+        gasto = dec(metrics.get("gasto_mensual_promedio"))
+        ahorro = dec(metrics.get("ahorro_mensual_estimado"))
+        deuda = dec(metrics.get("deuda_mensual"))
+        perfil = analysis.get("perfil_financiero")
+        score = analysis.get("financial_score")
+        riesgo = analysis.get("nivel_riesgo")
+        categorias = analysis.get("categorias_principales")
+        categorias = categorias if isinstance(categorias, list) else []
+
+        # Caso típico de demo: escenario de "ahorrar $X más".
+        extra_match = re.search(
+            r"(?:anadir|añadir|sumar|agregar|adicional(?:es)?(?: de)?|ahorrar)\\s*"
+            r"\\$\\s*(\\d+(?:\\.\\d{3})*(?:,\\d{1,2})?|\\d+(?:[.,]\\d{1,2})?)",
+            previous,
+            flags=re.IGNORECASE,
+        )
+        if extra_match is None:
+            extra_match = re.search(
+                r"\\$\\s*(\\d+(?:\\.\\d{3})*(?:,\\d{1,2})?|\\d+(?:[.,]\\d{1,2})?)"
+                r"\\s*(?:adicional(?:es)?|mas)",
+                previous,
+                flags=re.IGNORECASE,
+            )
+
+        extra = None
+        if extra_match:
+            raw = extra_match.group(1)
+            if "." in raw and "," in raw:
+                raw = raw.replace(".", "").replace(",", ".")
+            elif "," in raw:
+                raw = raw.replace(",", ".")
+            try:
+                extra = Decimal(raw)
+            except InvalidOperation:
+                extra = None
+
+        scenario_markers = (
+            "ahorro adicional",
+            "al anadir",
+            "al añadir",
+            "ahorro estimado pasaria",
+            "ahorro estimado pasaría",
+            "ratio ahorro",
+            "impacto inmediato",
+        )
+        if extra is not None and ahorro is not None and ingreso is not None and any(
+            marker in normalized for marker in scenario_markers
+        ):
+            nuevo_ahorro = ahorro + extra
+            nuevo_ratio = (
+                nuevo_ahorro / ingreso * Decimal("100")
+                if ingreso > 0
+                else None
+            )
+            parts = [
+                f"La idea central del escenario anterior es que estás agregando "
+                f"**{cls._format_money(extra)} por mes** a tu capacidad de ahorro actual.",
+                f"Con los datos actuales de FinSightAI, tu ahorro estimado es "
+                f"**{cls._format_money(ahorro)}**; al sumar ese monto pasaría a "
+                f"**{cls._format_money(nuevo_ahorro)}**.",
+            ]
+            if nuevo_ratio is not None:
+                nuevo_ratio = nuevo_ratio.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+                parts.append(
+                    f"Eso equivale aproximadamente al **{str(nuevo_ratio).replace('.', ',')}% "
+                    f"de tus ingresos mensuales de {cls._format_money(ingreso)}**."
+                )
+            if gasto is not None:
+                parts.append(
+                    f"Este escenario supone que tus gastos mensuales de **{cls._format_money(gasto)}** "
+                    "y tus demás obligaciones no aumentan. Si los $ adicionales provienen de reducir gastos, "
+                    "el margen mejora por esa reducción; si provienen de un ingreso extra, el efecto sobre los "
+                    "ratios debe recalcularse con ese nuevo ingreso."
+                )
+            if perfil:
+                parts.append(
+                    f"Tu perfil actual es **{perfil}**. Aumentar el ahorro refuerza el margen, "
+                    "pero FinSightAI no debería afirmar que el perfil cambia automáticamente sin volver "
+                    "a evaluar todos los indicadores."
+                )
+            return "\n\n".join(parts)
+
+        # Si la respuesta anterior era un plan local, ampliar ESE plan.
+        if (
+            "reserva y liquidez" in normalized
+            and "metas financieras" in normalized
+            and "flexibilidad mensual" in normalized
+        ):
+            parts = [
+                "El plan anterior divide tu margen en tres funciones distintas para no comprometerlo todo de una sola vez.",
+                "**Reserva y liquidez** tiene prioridad porque mantiene dinero disponible ante variaciones o imprevistos; no supone una inversión ni una deuda específica.",
+                "**Metas financieras** usa una parte del margen para objetivos concretos, pero sin convertir todo el excedente mensual en un compromiso fijo.",
+                "**Flexibilidad mensual** deja una porción sin destino rígido para absorber cambios de gastos u obligaciones.",
+            ]
+            if ahorro is not None:
+                parts.append(
+                    f"El punto de partida sigue siendo tu margen mensual estimado de "
+                    f"**{cls._format_money(ahorro)}**."
+                )
+            if deuda is not None:
+                parts.append(
+                    f"Tu deuda mensual registrada es **{cls._format_money(deuda)}**. "
+                    "Como FinSightAI no conoce aquí saldo total, tasa ni plazo, el plan no presupone "
+                    "qué deuda deberías cancelar ni en qué orden."
+                )
+            return "\n\n".join(parts)
+
+        # Caso de interpretación/patrones: ampliar con los indicadores reales.
+        if any(
+            marker in normalized
+            for marker in (
+                "patron", "tendencia", "margen", "endeudamiento",
+                "gastos representan", "capacidad de ahorro", "categoria",
+                "fortalezas", "aspectos por mejorar",
+            )
+        ):
+            parts = [
+                "La respuesta anterior se apoya en la relación entre tus indicadores actuales, "
+                "no en una sola categoría o concepto aislado."
+            ]
+            if ingreso is not None and gasto is not None:
+                ratio = (
+                    gasto / ingreso * Decimal("100")
+                    if ingreso > 0 else Decimal("0")
+                ).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+                parts.append(
+                    f"Tienes ingresos mensuales de **{cls._format_money(ingreso)}** y gastos de "
+                    f"**{cls._format_money(gasto)}**, por lo que el gasto representa aproximadamente "
+                    f"el **{str(ratio).replace('.', ',')}% de tus ingresos**."
+                )
+            if ahorro is not None:
+                parts.append(
+                    f"Tu capacidad de ahorro estimada es **{cls._format_money(ahorro)} al mes**."
+                )
+            if deuda is not None:
+                parts.append(
+                    f"Tu deuda mensual registrada es **{cls._format_money(deuda)}**."
+                )
+            if categorias:
+                top = []
+                for item in categorias[:3]:
+                    if not isinstance(item, dict):
+                        continue
+                    name = str(item.get("categoria") or "").strip()
+                    pct = item.get("porcentaje")
+                    if not name:
+                        continue
+                    if pct is not None:
+                        try:
+                            p = Decimal(str(pct)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+                            top.append(f"**{name}** ({p}% del gasto)")
+                        except (InvalidOperation, ValueError, TypeError):
+                            top.append(f"**{name}**")
+                    else:
+                        top.append(f"**{name}**")
+                if top:
+                    parts.append("Tus categorías de mayor peso son " + ", ".join(top) + ".")
+            state = []
+            if perfil:
+                state.append(f"perfil **{perfil}**")
+            if riesgo:
+                state.append(f"riesgo **{riesgo}**")
+            if score is not None:
+                state.append(f"puntaje **{score}**")
+            if state:
+                parts.append("En conjunto, esos datos sostienen tu " + ", ".join(state) + ".")
+            return "\n\n".join(parts)
+
+        # Fallback general contextual: conservar el mismo panorama financiero.
+        parts = [
+            "Ampliando la respuesta anterior con tus datos actuales de FinSightAI:"
+        ]
+        if ingreso is not None:
+            parts.append(f"ingresos mensuales **{cls._format_money(ingreso)}**")
+        if gasto is not None:
+            parts.append(f"gastos mensuales **{cls._format_money(gasto)}**")
+        if ahorro is not None:
+            parts.append(f"capacidad de ahorro estimada **{cls._format_money(ahorro)}**")
+        if deuda is not None:
+            parts.append(f"deuda mensual **{cls._format_money(deuda)}**")
+
+        if len(parts) > 1:
+            base = "; ".join(parts[1:]) + "."
+            conclusion = (
+                "Estos valores deben interpretarse en conjunto con el tema de la respuesta anterior; "
+                "una mención incidental a un fondo de emergencia, una inversión u otro concepto no cambia "
+                "automáticamente el foco de la conversación."
+            )
+            return parts[0] + "\n\n" + base + "\n\n" + conclusion
+
+        return (
+            "Puedo ampliar la respuesta anterior, pero en este momento no pude recuperar suficientes "
+            "indicadores financieros para hacerlo con precisión."
+        )
 
     @classmethod
     def _generic_local_expand_response(
@@ -5342,6 +6255,176 @@ class FinSightAgentService:
         if not normalized:
             raise ValueError("La pregunta no puede estar vacía.")
         return FinancialSpellCorrector.process(question, normalized)
+
+    @staticmethod
+    def _is_canonical_validation_question(question: str) -> bool:
+        """Las 30 preguntas oficiales de validación responden siempre en local."""
+        q = QueryNormalizer.normalize(question).strip().rstrip(".?!")
+        canonical = {
+            "dame mi resumen financiero",
+            "como estan mis finanzas actualmente",
+            "cual es mi perfil financiero",
+            "por que estoy en este perfil financiero",
+            "cual es mi puntaje financiero",
+            "cuanto ingreso por mes",
+            "cuanto estoy gastando por mes",
+            "cuales son mis principales categorias de gastos",
+            "en que categoria estoy gastando mas",
+            "que porcentaje de mis ingresos estoy gastando",
+            "como esta mi nivel de endeudamiento",
+            "que porcentaje de mis ingresos destino a deuda",
+            "cual es mi capacidad de ahorro",
+            "estoy gastando mas de lo que ingreso",
+            "cuanto me queda despues de mis gastos",
+            "que deberia mejorar primero en mis finanzas",
+            "que gastos deberia revisar",
+            "como puedo mejorar mi capacidad de ahorro",
+            "que puedo hacer para reducir mis gastos",
+            "que puedo hacer para mejorar mi situacion financiera",
+            "como puedo ordenar mejor mis deudas",
+            "puedes ayudarme a armar un presupuesto mensual",
+            "que es un fondo de emergencia",
+            "que es el interes compuesto",
+            "que diferencia hay entre ahorrar e invertir",
+            "que es un etf",
+            "que es un bono",
+            "que es una accion",
+            "que es una stablecoin",
+            "que significa diversificar una inversion",
+        }
+        return q in canonical
+
+    @staticmethod
+    def _is_free_financial_llm_question(question: str, intent: Intent) -> bool:
+        """Detecta preguntas financieras abiertas que requieren interpretación del LLM."""
+        q = QueryNormalizer.normalize(question).strip()
+        if not q:
+            return False
+
+        open_markers = (
+            "que patron",
+            "patron ves",
+            "que tendencia",
+            "que senales",
+            "que señal",
+            "que no estoy viendo",
+            "quizas no estoy viendo",
+            "como cambiaria",
+            "que pasaria si",
+            "que ocurriria si",
+            "si logro",
+            "si aumento",
+            "si reduzco",
+            "si mantengo",
+            "mi panorama",
+            "que escenario",
+            "que estrategia",
+            "que tendria mas impacto",
+            "que tiene mas impacto",
+            "me conviene",
+            "que conviene",
+            "que priorizo",
+            "que deberia priorizar",
+            "que tan sostenible",
+            "que tan vulnerable",
+            "que riesgo ves",
+            "que aspecto",
+            "que relacion ves",
+            "que harías",
+            "que harias",
+            "que opinas",
+            # Planes libres/personalizados: no deben caer en el responder
+            # genérico de RECOMMENDATIONS/BUDGET.
+            "plan concreto",
+            "proponeme un plan",
+            "propone un plan",
+            "armame un plan",
+            "hazme un plan",
+            "prioriza objetivos",
+            "priorices objetivos",
+            "aprovechar mejor",
+            "dinero que me queda",
+            "como distribuir",
+            "como repartir",
+            "dame porcentajes",
+            "con porcentajes",
+            "justifica cada decision",
+            "justifiques cada decision",
+        )
+        if any(marker in q for marker in open_markers):
+            return True
+
+        # Si el detector ya reconoció una intención analítica, dejamos pasar las
+        # formulaciones claramente hipotéticas/comparativas aunque no coincidan con
+        # una frase concreta de arriba.
+        if intent in {Intent.SUMMARY, Intent.FULL_ANALYSIS, Intent.RECOMMENDATIONS, Intent.BUDGET}:
+            return any(
+                token in q
+                for token in (
+                    " si ",
+                    "compar",
+                    "impacto",
+                    "escenario",
+                    "panorama",
+                    "tendencia",
+                    "patron",
+                    "plan",
+                    "prioriz",
+                    "porcentaje",
+                    "distribu",
+                    "repart",
+                    "aprovechar",
+                )
+            )
+
+        return False
+
+    @staticmethod
+    def _should_llm_explain_financial_question(question: str, intent: Intent) -> bool:
+        """Distingue una consulta explicativa de una lectura factual de métricas.
+
+        Las cifras, transacciones, metas y cálculos permanecen determinísticos. En
+        cambio, preguntas que piden razones, interpretación, consejo o explicación
+        deben aprovechar el LLM con el contexto financiero ya verificado.
+        """
+        if intent not in {
+            Intent.INCOME,
+            Intent.EXPENSES,
+            Intent.DEBT,
+            Intent.SAVINGS,
+            Intent.SCORE,
+            Intent.PROFILE,
+        }:
+            return False
+
+        normalized = QueryNormalizer.normalize(question).strip()
+        explanatory_markers = (
+            "por que",
+            "explicame",
+            "explica",
+            "que significa",
+            "que quiere decir",
+            "como puedo mejorar",
+            "como mejoro",
+            "que deberia",
+            "que puedo hacer",
+            "me conviene",
+            "conviene",
+            "recomendame",
+            "recomiendame",
+            "que opinas",
+            "ayudame a entender",
+            "ayudame a mejorar",
+            "como reducir",
+            "como ordenar",
+            "como afecta",
+            "como influye",
+            "es bueno",
+            "es malo",
+            "es saludable",
+            "es preocupante",
+        )
+        return any(marker in normalized for marker in explanatory_markers)
 
     @classmethod
     def _internal_response(

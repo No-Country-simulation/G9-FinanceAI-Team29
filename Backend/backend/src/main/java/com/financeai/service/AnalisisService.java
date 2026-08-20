@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Service
@@ -59,7 +61,57 @@ public class AnalisisService {
         // ¿Está arriba el microservicio de ML? Se consulta una sola vez por petición.
         boolean mlUp = mlService.estaDisponible();
 
-        // 1) Clasificar cada transacción (ML o reglas) y acumular gastos por categoría.
+        // 1) Determinar el período disponible del usuario.
+        // Si hay menos de 12 meses, usamos todo el historial disponible.
+        // Si hay 12 meses o más, analizamos una ventana móvil de los últimos 12 meses.
+        List<TransaccionDTO> transacciones =
+                request.getTransacciones() != null
+                        ? request.getTransacciones()
+                        : Collections.emptyList();
+
+        LocalDate fechaMinDisponible = null;
+        LocalDate fechaMaxDisponible = null;
+
+        for (TransaccionDTO t : transacciones) {
+            if (t.getFecha() == null) {
+                continue;
+            }
+
+            if (fechaMinDisponible == null || t.getFecha().isBefore(fechaMinDisponible)) {
+                fechaMinDisponible = t.getFecha();
+            }
+
+            if (fechaMaxDisponible == null || t.getFecha().isAfter(fechaMaxDisponible)) {
+                fechaMaxDisponible = t.getFecha();
+            }
+        }
+
+        long mesesDisponibles = 12;
+        long cantidadMeses = 12;
+        LocalDate fechaInicioVentana = null;
+
+        if (fechaMinDisponible != null && fechaMaxDisponible != null) {
+            YearMonth mesInicial = YearMonth.from(fechaMinDisponible);
+            YearMonth mesFinal = YearMonth.from(fechaMaxDisponible);
+
+            mesesDisponibles =
+                    ChronoUnit.MONTHS.between(mesInicial, mesFinal) + 1;
+
+            cantidadMeses = Math.max(
+                    1,
+                    Math.min(mesesDisponibles, 12)
+            );
+
+            YearMonth primerMesAnalizado =
+                    mesesDisponibles > 12
+                            ? mesFinal.minusMonths(11)
+                            : mesInicial;
+
+            fechaInicioVentana = primerMesAnalizado.atDay(1);
+        }
+
+        // 2) Clasificar y acumular únicamente las transacciones pertenecientes
+        // a la ventana usada para representar la situación financiera actual.
         Map<String, BigDecimal> gastosPorCategoria = new LinkedHashMap<>();
         BigDecimal totalGastosHistoricos = BigDecimal.ZERO;
         List<MlTransaccion> transaccionesMl = new ArrayList<>();
@@ -67,7 +119,13 @@ public class AnalisisService {
         LocalDate fechaMin = null;
         LocalDate fechaMax = null;
 
-        for (TransaccionDTO t : request.getTransacciones()) {
+        for (TransaccionDTO t : transacciones) {
+
+            if (fechaInicioVentana != null
+                    && t.getFecha() != null
+                    && t.getFecha().isBefore(fechaInicioVentana)) {
+                continue;
+            }
 
             String categoria = clasificar(t, mlUp);
 
@@ -97,8 +155,6 @@ public class AnalisisService {
             );
         }
 
-        long cantidadMeses = 12;
-
         BigDecimal divisor = BigDecimal.valueOf(cantidadMeses);
 
         BigDecimal totalGastos = totalGastosHistoricos.divide(
@@ -117,7 +173,8 @@ public class AnalisisService {
         );
 
         log.info(
-                "Período analizado: {} meses ({} a {})",
+                "Período disponible: {} meses. Período analizado: {} meses ({} a {})",
+                mesesDisponibles,
                 cantidadMeses,
                 fechaMin,
                 fechaMax

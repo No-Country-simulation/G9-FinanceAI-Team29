@@ -284,10 +284,17 @@ export async function obtenerResumen(
   return response.json();
 }
 
+export type ModoImportacionCsv = 'CARGAR' | 'ACTUALIZAR' | 'SOBREESCRIBIR';
+
 export interface ImportacionCsvResponse {
   mensaje: string;
   usuarioId: string;
+  modo?: ModoImportacionCsv;
   perfilFinanciero: string;
+  movimientosRecibidos?: number;
+  movimientosInsertados?: number;
+  duplicadosIgnorados?: number;
+  movimientosReemplazados?: number;
   movimientosGuardados?: number;
   resumen: {
     cantidadTransacciones: number;
@@ -301,6 +308,7 @@ export interface ImportacionCsvResponse {
 export async function importarCsv(
   usuarioId: string,
   archivo: File,
+  modo: ModoImportacionCsv,
 ): Promise<ImportacionCsvResponse> {
   const id = exigirUsuarioId(usuarioId);
   const formData = new FormData();
@@ -308,7 +316,7 @@ export async function importarCsv(
   formData.append('archivo', archivo);
 
   const response = await apiFetch(
-    `${API_BASE}/usuarios/${encodeURIComponent(id)}/importar-csv`,
+    `${API_BASE}/usuarios/${encodeURIComponent(id)}/importar-csv?modo=${encodeURIComponent(modo)}`,
     {
       method: 'POST',
       body: formData,
@@ -341,8 +349,17 @@ export async function importarCsv(
   return {
     mensaje: rawData?.mensaje ?? 'CSV importado correctamente',
     usuarioId: rawData?.usuarioId ?? rawData?.usuario_id ?? id,
+    modo: rawData?.modo ?? modo,
     perfilFinanciero:
       rawData?.perfilFinanciero ?? rawData?.perfil_financiero ?? 'Sin determinar',
+    movimientosRecibidos:
+      rawData?.movimientosRecibidos ?? rawData?.movimientos_recibidos,
+    movimientosInsertados:
+      rawData?.movimientosInsertados ?? rawData?.movimientos_insertados,
+    duplicadosIgnorados:
+      rawData?.duplicadosIgnorados ?? rawData?.duplicados_ignorados,
+    movimientosReemplazados:
+      rawData?.movimientosReemplazados ?? rawData?.movimientos_reemplazados,
     movimientosGuardados:
       rawData?.movimientosGuardados ?? rawData?.movimientos_guardados,
     resumen: {
