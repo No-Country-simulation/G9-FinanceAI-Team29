@@ -17,6 +17,14 @@ const RAPID_CLICK_WINDOW_MS = 600;
 const RAPID_CLICK_THRESHOLD = 5;
 const SEARCH_OPTION = '__buscar_usuario__';
 const USER_ID_PATTERN = /^USR\d{4}$/;
+const FINANCIAL_SCORE_EVENT = 'finsight:financial-score-updated';
+const FINANCIAL_SCORE_STORAGE_KEY = (usuarioId: string) =>
+  `finsight:financial-score:${usuarioId}`;
+
+type FinancialScoreDetail = {
+  financialScore: number;
+  scoreStatus: string;
+};
 
 /**
  * Muestra la cuenta activa y permite cerrar sesión.
@@ -48,6 +56,8 @@ export default function AccountSwitcher() {
   const [usuarioBuscado, setUsuarioBuscado] = useState('');
   const [buscandoUsuario, setBuscandoUsuario] = useState(false);
   const [errorBusqueda, setErrorBusqueda] = useState('');
+  const [financialScore, setFinancialScore] =
+    useState<FinancialScoreDetail | null>(null);
 
   const rapidClickCountRef = useRef(0);
   const lastClickTimeRef = useRef(0);
@@ -112,6 +122,95 @@ export default function AccountSwitcher() {
       window.removeEventListener('keydown', handleEscape);
     };
   }, [mostrarBuscador]);
+
+  useEffect(() => {
+    if (!usuarioId) {
+      setFinancialScore(null);
+      return;
+    }
+
+    const storageKey = FINANCIAL_SCORE_STORAGE_KEY(usuarioId);
+    const guardado = sessionStorage.getItem(storageKey);
+
+    if (guardado) {
+      try {
+        const parsed = JSON.parse(guardado) as FinancialScoreDetail;
+
+        if (typeof parsed.financialScore === 'number') {
+          setFinancialScore({
+            financialScore: Math.max(
+              0,
+              Math.min(100, parsed.financialScore),
+            ),
+            scoreStatus: parsed.scoreStatus ?? '',
+          });
+        }
+      } catch {
+        sessionStorage.removeItem(storageKey);
+        setFinancialScore(null);
+      }
+    } else {
+      setFinancialScore(null);
+    }
+
+    const handleFinancialScore = (event: Event) => {
+      const detail = (
+        event as CustomEvent<FinancialScoreDetail | null>
+      ).detail;
+
+      if (
+        !detail ||
+        typeof detail.financialScore !== 'number'
+      ) {
+        setFinancialScore(null);
+        sessionStorage.removeItem(storageKey);
+        return;
+      }
+
+      const siguiente = {
+        financialScore: Math.max(
+          0,
+          Math.min(100, detail.financialScore),
+        ),
+        scoreStatus: detail.scoreStatus ?? '',
+      };
+
+      setFinancialScore(siguiente);
+      sessionStorage.setItem(
+        storageKey,
+        JSON.stringify(siguiente),
+      );
+    };
+
+    window.addEventListener(
+      FINANCIAL_SCORE_EVENT,
+      handleFinancialScore,
+    );
+
+    return () => {
+      window.removeEventListener(
+        FINANCIAL_SCORE_EVENT,
+        handleFinancialScore,
+      );
+    };
+  }, [usuarioId]);
+
+
+  const getScoreHoverBorder = (score: number) => {
+    if (score <= 25) {
+      return 'hover:border-error-500/80 hover:shadow-[0_0_12px_rgba(239,68,68,0.16)]';
+    }
+
+    if (score <= 50) {
+      return 'hover:border-amber-400/70 hover:shadow-[0_0_12px_rgba(182,162,90,0.16)]';
+    }
+
+    if (score <= 75) {
+      return 'hover:border-brand-500/80 hover:shadow-[0_0_12px_rgba(79,109,245,0.16)]';
+    }
+
+    return 'hover:border-success-500/80 hover:shadow-[0_0_12px_rgba(34,197,94,0.16)]';
+  };
 
   const handlePerfilChange = (
     event: React.ChangeEvent<HTMLSelectElement>,
@@ -285,23 +384,89 @@ export default function AccountSwitcher() {
         </div>
       )}
 
-      <div className="relative hidden text-right sm:block">
-        {isAdmin ? (
-          <button
-            type="button"
-            onClick={handleAdminEmailClick}
-            title="¡Eres admin!"
-            className={`text-theme-xs font-semibold transition dark:text-success-400 dark:hover:text-success-300 ${
-              enModoMatrix ? "!text-success-400 hover:!text-success-300" : "text-success-600 hover:text-success-700"
-            }`}
-          >
-            {email}
-          </button>
-        ) : (
-          <p className={`text-theme-xs font-medium dark:text-gray-300 ${enModoMatrix ? "!text-gray-300" : "text-gray-700"}`}>
-            {email}
-          </p>
-        )}
+      <div className="relative hidden sm:flex sm:items-center sm:gap-3">
+        <div className="text-right">
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={handleAdminEmailClick}
+              title="¡Eres admin!"
+              className={`text-theme-xs font-semibold transition dark:text-success-400 dark:hover:text-success-300 ${
+                enModoMatrix ? "!text-success-400 hover:!text-success-300" : "text-success-600 hover:text-success-700"
+              }`}
+            >
+              {email}
+            </button>
+          ) : (
+            <p className={`text-theme-xs font-medium dark:text-gray-300 ${enModoMatrix ? "!text-gray-300" : "text-gray-700"}`}>
+              {email}
+            </p>
+          )}
+        </div>
+
+        {financialScore && (() => {
+          const score = Math.round(financialScore.financialScore);
+          const grados = score * 3.6;
+          const hoverBorder = getScoreHoverBorder(score);
+
+          return (
+            <div
+              className={`group relative cursor-default rounded-xl border border-transparent px-2.5 py-2 transition-all duration-200 ${hoverBorder}`}
+            >
+              <div className="flex items-center gap-2">
+                <div className="relative h-8 w-8 shrink-0">
+                  <div
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      background:
+                        'conic-gradient(from -90deg, #ef4444 0deg, #b6a25a 105deg, #4f6df5 215deg, #22c55e 360deg)',
+                      WebkitMask:
+                        'radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px))',
+                      mask:
+                        'radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px))',
+                    }}
+                  />
+
+                  <div
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      background: `conic-gradient(
+                        from -90deg,
+                        transparent 0deg,
+                        transparent ${grados}deg,
+                        rgb(55 65 81 / 0.92) ${grados}deg,
+                        rgb(55 65 81 / 0.92) 360deg
+                      )`,
+                      WebkitMask:
+                        'radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px))',
+                      mask:
+                        'radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px))',
+                    }}
+                  />
+                </div>
+
+                <div className="text-left">
+                  <div className="flex items-baseline gap-0.5 leading-none">
+                    <span className="text-theme-sm font-black text-gray-800 dark:text-white">
+                      {score}
+                    </span>
+                    <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-500">
+                      /100
+                    </span>
+                  </div>
+
+                  <p className="mt-1 whitespace-nowrap text-[10px] font-semibold leading-none text-gray-600 dark:text-gray-300">
+                    Puntaje financiero
+                  </p>
+                </div>
+              </div>
+
+              <div className="pointer-events-none absolute right-0 top-full z-[1000003] mt-2 translate-y-1 whitespace-nowrap rounded-md bg-gray-950 px-2.5 py-1.5 text-[11px] font-medium text-white opacity-0 shadow-lg transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100">
+                {financialScore.scoreStatus || 'Puntaje financiero'}
+              </div>
+            </div>
+          );
+        })()}
 
         {isAdmin && showAdminBadge && (
           <span

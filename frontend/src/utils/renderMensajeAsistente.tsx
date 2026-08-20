@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { notifySupportMailOpened } from "./supportSuccess";
 import TerminalDemo from "../components/ai/TerminalDemo";
 import { detenerOtrosEasterEggs, registrarEasterEgg } from "./easterEggPlayback";
+import { CATEGORIAS_FINANCIERAS, getCategoriaTextColor } from "./categoriaColors";
 
 const ESQUEMAS_PERMITIDOS = /^(https?:|mailto:|\/)/i;
 
@@ -51,6 +52,82 @@ function EasterEggAudioTag({ src, messageId }: { src: string; messageId?: number
   return <audio ref={audioRef} src={src} autoPlay className="hidden" />;
 }
 
+function escaparRegex(valor: string): string {
+  return valor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const CATEGORIAS_REGEX = new RegExp(
+  `\\b(${[...CATEGORIAS_FINANCIERAS]
+    .sort((a, b) => b.length - a.length)
+    .map(escaparRegex)
+    .join("|")})\\b`,
+  "g",
+);
+
+function renderCategorias(texto: string, keyBase: string): ReactNode[] {
+  return texto.split(CATEGORIAS_REGEX).map((fragmento, indice) => {
+    if (
+      CATEGORIAS_FINANCIERAS.includes(
+        fragmento as (typeof CATEGORIAS_FINANCIERAS)[number],
+      )
+    ) {
+      return (
+        <span
+          key={`${keyBase}-cat-${indice}`}
+          className={`font-semibold ${getCategoriaTextColor(fragmento)}`}
+        >
+          {fragmento}
+        </span>
+      );
+    }
+
+    return fragmento;
+  });
+}
+
+function getPerfilFinancieroTextColor(texto: string): string | null {
+  const normalizado = texto
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (normalizado === "saludable") {
+    return "text-success-500 dark:text-success-400";
+  }
+
+  if (normalizado === "en observacion") {
+    return "text-orange-500 dark:text-orange-400";
+  }
+
+  if (normalizado === "en riesgo") {
+    return "text-error-500 dark:text-error-400";
+  }
+
+  return null;
+}
+
+function renderPerfilesFinancieros(texto: string, keyBase: string): ReactNode[] {
+  const regex = /\b(Saludable|En observación|En observacion|En riesgo)\b/gi;
+
+  return texto.split(regex).map((fragmento, indice) => {
+    const color = getPerfilFinancieroTextColor(fragmento);
+
+    if (color) {
+      return (
+        <span
+          key={`${keyBase}-perfil-${indice}`}
+          className={`font-semibold ${color}`}
+        >
+          {fragmento}
+        </span>
+      );
+    }
+
+    return renderCategorias(fragmento, `${keyBase}-cat-${indice}`);
+  });
+}
+
 function renderConNegritas(text: string, messageId?: number) {
   const partes = text.split(
     /(\*\*[^*]+\*\*|!video\[[^\]]*\]\([^)]+\)|!audio\[[^\]]*\]\([^)]+\)|!icon\[[^\]]*\]\([^)]+\)|!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\))/g,
@@ -60,7 +137,36 @@ function renderConNegritas(text: string, messageId?: number) {
     const matchNegrita = parte.match(/^\*\*([^*]+)\*\*$/);
 
     if (matchNegrita) {
-      return <strong key={i}>{matchNegrita[1]}</strong>;
+      const contenido = matchNegrita[1];
+      const colorPerfil = getPerfilFinancieroTextColor(contenido);
+
+      if (colorPerfil) {
+        return (
+          <strong
+            key={i}
+            className={`font-bold ${colorPerfil}`}
+          >
+            {contenido}
+          </strong>
+        );
+      }
+
+      if (
+        CATEGORIAS_FINANCIERAS.includes(
+          contenido as (typeof CATEGORIAS_FINANCIERAS)[number],
+        )
+      ) {
+        return (
+          <strong
+            key={i}
+            className={`font-bold ${getCategoriaTextColor(contenido)}`}
+          >
+            {contenido}
+          </strong>
+        );
+      }
+
+      return <strong key={i}>{renderPerfilesFinancieros(contenido, `bold-${i}`)}</strong>;
     }
 
     const matchAudio = parte.match(
@@ -172,7 +278,7 @@ function renderConNegritas(text: string, messageId?: number) {
       );
     }
 
-    return parte;
+    return renderPerfilesFinancieros(parte, `texto-${i}`);
   });
 }
 

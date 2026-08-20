@@ -40,6 +40,8 @@ import { useAuth } from "../../context/AuthContext";
 import WelcomeSplash from "../../components/common/WelcomeSplash";
 import DashboardSkeleton from "../../components/finance/DashboardSkeleton";
 
+const FINANCIAL_SCORE_EVENT = "finsight:financial-score-updated";
+
 export default function Home() {
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
   const [nombre, setNombre] = useState<string | null>(null);
@@ -130,6 +132,12 @@ export default function Home() {
       setAnalisis(null);
       setRecomendaciones([]);
 
+      window.dispatchEvent(
+        new CustomEvent(FINANCIAL_SCORE_EVENT, {
+          detail: null,
+        }),
+      );
+
       // Un usuario recién registrado todavía no tiene movimientos.
       // No pedimos el resumen porque algunos backends responden 404 en ese caso.
       if (transData.length === 0) {
@@ -148,6 +156,18 @@ export default function Home() {
 
       setAnalisis(analisisData);
       setRecomendaciones(analisisData.recomendaciones ?? []);
+
+      window.dispatchEvent(
+        new CustomEvent(FINANCIAL_SCORE_EVENT, {
+          detail:
+            typeof analisisData.financialScore === "number"
+              ? {
+                  financialScore: analisisData.financialScore,
+                  scoreStatus: analisisData.scoreStatus ?? "",
+                }
+              : null,
+        }),
+      );
     } catch (err) {
       // Si mientras cargábamos el componente se desmontó o la sesión ya
       // no es válida (p. ej. el usuario se deslogueó por token vencido

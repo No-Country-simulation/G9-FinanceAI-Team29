@@ -1267,6 +1267,43 @@ class TransactionQueryEngine:
 
         if cls._has(
             q,
+            "en que categorias gasto mas",
+            "en que categorias estoy gastando mas",
+            "que categorias deberia revisar",
+            "que categorias deberia revisar primero",
+            "cuales categorias deberia revisar",
+            "cuales son las categorias que deberia revisar",
+            "que categorias me conviene revisar",
+            "cuales son mis categorias con mas gastos",
+            "cuales son mis principales categorias de gasto",
+            "que categorias tienen mas gasto",
+            "que categorias pesan mas",
+            "donde se concentran mis gastos",
+            "principales categorias de gasto",
+            "principales categorias de gastos",
+        ):
+            selected, period_label = cls._selected_expenses_for_period(
+                expenses,
+                q,
+                today,
+            )
+            if selected.empty:
+                return cls._result(
+                    cls._no_expenses_for_period(expenses, period_label),
+                    "expenses_top_categories_empty",
+                )
+
+            content = cls._top_categories_ranking(selected, limit=3)
+            if cls._explicit_period(q):
+                content = f"{content}\n\nPeríodo analizado: {period_label}."
+
+            return cls._result(
+                content,
+                "expenses_top_categories",
+            )
+
+        if cls._has(
+            q,
             "categoria con mas",
             "en que categoria gasto mas",
             "en que categoria gaste mas",
@@ -2525,6 +2562,41 @@ class TransactionQueryEngine:
             f"En {first} gastaste {cls._money(first_total)} y en {second} "
             f"gastaste {cls._money(second_total)}. {conclusion}"
         )
+
+    @classmethod
+    def _top_categories_ranking(
+        cls,
+        frame: pd.DataFrame,
+        limit: int = 3,
+    ) -> str:
+        grouped = (
+            frame.groupby("categoria")["monto"]
+            .sum()
+            .sort_values(ascending=False)
+        )
+
+        if grouped.empty:
+            return "No encontré gastos categorizados para armar el ranking."
+
+        total = float(grouped.sum())
+        top = grouped.head(limit)
+
+        lines = ["Tus categorías con mayor peso en los gastos son:"]
+
+        for position, (category, value) in enumerate(top.items(), start=1):
+            amount = float(value)
+            percentage = (amount / total * 100) if total > 0 else 0.0
+            lines.append(
+                f"{position}. **{category}**: {cls._money(amount)} "
+                f"({percentage:.1f}% del gasto)."
+            )
+
+        lines.append(
+            "Estas son las categorías que más conviene revisar por su peso. "
+            "Eso no significa que todos esos gastos sean prescindibles o reducibles."
+        )
+
+        return "\n".join(lines)
 
     @classmethod
     def _category_ranking(cls, frame: pd.DataFrame, highest: bool, income: bool = False) -> str:

@@ -244,6 +244,18 @@ class IntentDetector:
         "en que se me esta yendo toda la plata",
         "en que se me esta yendo todo el dinero",
         "que categoria deberia revisar primero",
+        "que categorias deberia revisar",
+        "que categorias deberia revisar primero",
+        "cuales categorias deberia revisar",
+        "cuales son las categorias que deberia revisar",
+        "que categorias me conviene revisar",
+        "en que categorias gasto mas",
+        "en que categorias estoy gastando mas",
+        "cuales son mis categorias con mas gastos",
+        "cuales son mis principales categorias de gasto",
+        "que categorias tienen mas gasto",
+        "que categorias pesan mas",
+        "donde se concentran mis gastos",
     }
 
     _INVESTMENT_GUIDANCE_TERMS = {

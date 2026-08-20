@@ -126,14 +126,14 @@ export default function WelcomeSplash({
     };
   }, []);
 
-  // Cuando el padre avisa que ya hay datos, arrancamos la salida: video y
-  // música bajan de volumen en simultáneo con el fade visual, y recién al
-  // terminar le devolvemos el control al padre para que desmonte el splash.
+  // El splash permanece visible hasta que se cumplan las dos condiciones:
+  // 1) los datos terminaron de cargar y 2) el video de bienvenida terminó.
+  // Así nunca cortamos el video antes de tiempo. Si los datos tardan más que
+  // el video, mostramos la imagen de espera hasta que estén listos.
   useEffect(() => {
-    if (!datosListos) return;
+    if (!datosListos || !videoTerminado) return;
 
     setSaliendo(true);
-    apagarConFade(videoRef.current, SALIDA_DURACION_MS);
     apagarConFade(audioRef.current, SALIDA_DURACION_MS);
 
     const timer = setTimeout(() => {
@@ -141,7 +141,7 @@ export default function WelcomeSplash({
     }, SALIDA_DURACION_MS);
 
     return () => clearTimeout(timer);
-  }, [datosListos]);
+  }, [datosListos, videoTerminado]);
 
   const contenido = (
     <div

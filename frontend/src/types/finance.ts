@@ -60,6 +60,9 @@ export interface AnalisisResponse {
   totalIngresos: number;
   porcentajeAhorro: number;
   nivelRiesgo: string;
+  financialScore?: number;
+  scoreStatus?: string;
+  scoreColor?: string;
   recomendaciones: RecomendacionFinanciera[];
 }
 

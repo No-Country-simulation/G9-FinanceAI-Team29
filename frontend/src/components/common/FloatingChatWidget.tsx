@@ -30,8 +30,8 @@ const sugerencias = [
 
 const MENSAJE_EXPLICAME_MAS = "Explícame más";
 
-const ESPERA_FINSI_MIN_MS = 7000;
-const ESPERA_FINSI_MAX_MS = 10000;
+const ESPERA_FINSI_MIN_MS = 3000;
+const ESPERA_FINSI_MAX_MS = 3000;
 
 async function esperarTiempoMinimoFinsi(inicio: number): Promise<void> {
   const objetivo =

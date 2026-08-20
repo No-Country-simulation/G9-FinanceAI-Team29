@@ -46,6 +46,8 @@ export default function ProfileCard({
     }
   };
 
+
+
   const ingreso =
     analisis?.totalIngresos ??
     perfil?.ingresoMensual ??
@@ -62,8 +64,20 @@ export default function ProfileCard({
   const ahorroEstimado =
     ingreso * (porcentajeAhorro / 100);
 
+  const ahorroNegativo =
+    porcentajeAhorro < 0 || ahorroEstimado < 0;
+
   const anchoBarraAhorro =
     Math.max(0, Math.min(100, porcentajeAhorro));
+
+  const colorBarraAhorro =
+    porcentajeAhorro <= 25
+      ? 'bg-error-500'
+      : porcentajeAhorro <= 50
+        ? 'bg-amber-400/70'
+        : porcentajeAhorro <= 75
+          ? 'bg-brand-500'
+          : 'bg-success-500';
 
   const perfilFinanciero =
     analisis?.perfilFinanciero ??
@@ -72,6 +86,8 @@ export default function ProfileCard({
 
   const nombreCompleto =
     `${nombre ?? ''} ${apellido ?? ''}`.trim() || perfil?.usuarioId || '—';
+
+
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 h-full flex flex-col">
@@ -88,6 +104,7 @@ export default function ProfileCard({
           {perfilFinanciero}
         </span>
       </div>
+
 
       <div className="space-y-3">
         <div className="flex justify-between items-center">
@@ -170,12 +187,20 @@ export default function ProfileCard({
 
         <div className="w-full h-2 bg-gray-200 rounded-full dark:bg-gray-700">
           <div
-            className="h-2 rounded-full bg-brand-500"
+            className={`h-2 rounded-full transition-colors duration-300 ${
+              ahorroNegativo ? 'bg-error-500' : colorBarraAhorro
+            }`}
             style={{
-              width: `${anchoBarraAhorro}%`,
+              width: ahorroNegativo ? '100%' : `${anchoBarraAhorro}%`,
             }}
           ></div>
         </div>
+
+        {ahorroNegativo && (
+          <p className="mt-2 text-xs font-semibold text-error-500">
+            ⚠ Estás gastando más de lo que ahorras: revisa tus gastos de este mes.
+          </p>
+        )}
       </div>
     </div>
   );
