@@ -1,5 +1,6 @@
 package com.financeai.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
@@ -7,17 +8,23 @@ import java.util.List;
 
 public class AnalisisRequest {
 
+    // @JsonAlias permite recibir tanto camelCase (ingresoMensual) como el
+    // snake_case del contrato del hackathon (ingreso_mensual). Así el endpoint
+    // acepta el JSON del ejemplo tal cual, sin romper al frontend.
     @NotNull(message = "El ingreso mensual es obligatorio")
     @DecimalMin(value = "0.0", message = "El ingreso mensual debe ser positivo")
+    @JsonAlias({"ingreso_mensual"})
     private BigDecimal ingresoMensual;
 
     @NotNull(message = "El nivel de endeudamiento es obligatorio")
     @DecimalMin(value = "0.0", message = "El nivel de endeudamiento debe ser positivo")
     @DecimalMax(value = "100.0", message = "El nivel de endeudamiento no puede superar 100")
+    @JsonAlias({"nivel_endeudamiento"})
     private BigDecimal nivelEndeudamiento;
 
     @NotNull(message = "La frecuencia de ahorro es obligatoria")
     @Pattern(regexp = "^(Alta|Media|Baja|Nunca)$", message = "Frecuencia inválida: Alta, Media, Baja o Nunca")
+    @JsonAlias({"frecuencia_ahorro"})
     private String frecuenciaAhorro;
 
     @NotEmpty(message = "Debe incluir al menos una transacción")
