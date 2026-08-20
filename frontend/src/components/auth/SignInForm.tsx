@@ -95,15 +95,16 @@ export default function SignInForm() {
       return;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("[Login] Supabase auth error:", msg, err);
-      // Traducimos los errores más comunes de Supabase Auth.
+      console.error("[Login] Error de autenticación:", msg, err);
+      let titulo = "Inicio de sesión fallido";
       let texto = msg;
-      if (/email not confirmed/i.test(msg)) {
-        texto = "El correo no está confirmado. Confírmalo en Supabase → Authentication → Users (o recrea el usuario con 'Auto Confirm User').";
-      } else if (/invalid login credentials/i.test(msg)) {
+      if (/servidor_iniciando/i.test(msg)) {
+        titulo = "El servidor esta en frio";
+        texto = "volvé a intentar y veras que esta todo bons :)";
+      } else if (/credenciales_invalidas|invalid login credentials/i.test(msg)) {
         texto = "Correo o contraseña incorrectos.";
       }
-      await mostrarError("Inicio de sesión fallido", texto);
+      await mostrarError(titulo, texto);
     } finally {
       setEnviando(false);
     }

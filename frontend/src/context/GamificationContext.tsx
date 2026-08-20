@@ -121,7 +121,7 @@ function persistEstado(usuarioId: string, state: GamificationState) {
     mensajesAsistente: state.mensajesAsistente,
   };
   guardarEstadoGamificacion(usuarioId, dto).catch((error) =>
-    console.error('No se pudo sincronizar el progreso con Supabase:', error),
+    console.error('No se pudo sincronizar el progreso con el servidor:', error),
   );
 }
 
@@ -264,7 +264,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     nuevos.forEach((id) => {
       logrosSincronizadosRef.current.add(id);
       desbloquearLogroRemoto(usuarioId, id).catch((error) =>
-        console.error('No se pudo sincronizar el logro con Supabase:', error),
+        console.error('No se pudo sincronizar el logro con el servidor:', error),
       );
       const def = buscarLogro(id);
       if (def) {
@@ -316,20 +316,20 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       if (estadoResult.status === 'fulfilled') {
         estadoRemoto = estadoResult.value;
       } else {
-        console.error('No se pudo cargar el estado de gamificación desde Supabase:', estadoResult.reason);
+        console.error('No se pudo cargar el estado de gamificación desde el servidor:', estadoResult.reason);
       }
 
       if (logrosResult.status === 'fulfilled') {
         logrosRemotos = logrosResult.value.map((l) => l.logroId as AchievementId);
       } else {
-        console.error('No se pudieron cargar los logros desbloqueados desde Supabase:', logrosResult.reason);
+        console.error('No se pudieron cargar los logros desbloqueados desde el servidor:', logrosResult.reason);
       }
 
       if (triviaResult.status === 'fulfilled') {
         const trivia = triviaResult.value;
         triviaRemota = { lastPlayedDate: trivia.lastPlayedDate, bestScore: trivia.bestScore, correctStreak: trivia.correctStreak };
       } else {
-        console.error('No se pudieron cargar las estadísticas de trivia desde Supabase:', triviaResult.reason);
+        console.error('No se pudieron cargar las estadísticas de trivia desde el servidor:', triviaResult.reason);
       }
 
       if (cancelado) return;
@@ -452,7 +452,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       if (retosSincronizadosRef.current.has(clave)) continue;
       retosSincronizadosRef.current.add(clave);
       guardarRetoProgreso(usuarioId, template.id, state.weekKey, completado, JSON.stringify(progreso ?? {})).catch(
-        (error) => console.error('No se pudo sincronizar el reto con Supabase:', error),
+        (error) => console.error('No se pudo sincronizar el reto con el servidor:', error),
       );
     }
   }, [usuarioId, state, challenges]);
@@ -533,7 +533,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     // (no forman parte del estado agregado); el update local de arriba es solo optimista.
     if (respuestas.length > 0) {
       registrarResultadosTrivia(usuarioId, respuestas).catch((error) =>
-        console.error('No se pudo sincronizar la trivia con Supabase:', error),
+        console.error('No se pudo sincronizar la trivia con el servidor:', error),
       );
     }
     if (huboRachaCompleta && total > 0) {

@@ -143,20 +143,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (correo: string, password: string) => {
-    const response = await fetch(`${API_BASE}/auth/v2/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: correo.trim().toLowerCase(),
-        password,
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE}/auth/v2/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: correo.trim().toLowerCase(),
+          password,
+        }),
+      });
+    } catch {
+      // fetch rechaza cuando el backend todavía no acepta conexiones
+      // (típico en los primeros segundos tras `docker compose up`).
+      throw new Error('SERVIDOR_INICIANDO');
+    }
 
     if (!response.ok) {
+      // 502/503/504: Caddy responde pero el backend aún está arrancando.
+      if (response.status >= 502 && response.status <= 504) {
+        throw new Error('SERVIDOR_INICIANDO');
+      }
       const data = await response.json().catch(() => ({}));
+      if (data.mensaje) {
+        throw new Error(data.mensaje);
+      }
       throw new Error(
-        data.mensaje ??
-          'No se pudo iniciar sesión. Verificá tu correo y contraseña.',
+        response.status === 401
+          ? 'CREDENCIALES_INVALIDAS'
+          : 'No se pudo iniciar sesión. Intentá de nuevo.',
       );
     }
 
