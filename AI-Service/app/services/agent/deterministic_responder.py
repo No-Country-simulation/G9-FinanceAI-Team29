@@ -336,7 +336,16 @@ class DeterministicFinancialResponder:
         lines.append("\n**Aspectos a tener en cuenta**")
         if debt_pct is not None and debt_pct >= Decimal("50"):
             lines.append("- La deuda es el factor que más presión ejerce sobre tu perfil financiero y conviene priorizar su reducción.")
-        if expense_pct >= Decimal("90"):
+        if expense_pct > Decimal("100"):
+            excess_pct = (expense_pct - Decimal("100")).quantize(
+                Decimal("0.1"), rounding=ROUND_HALF_UP
+            )
+            lines.append(
+                f"- Tus gastos superan tus ingresos en aproximadamente un "
+                f"{cls._format_percentage(excess_pct, 1)}%, generando un déficit mensual de "
+                f"{cls._format_money(abs(balance))}."
+            )
+        elif expense_pct >= Decimal("90"):
             lines.append("- Tus gastos consumen casi todo tu ingreso, por lo que el margen disponible es reducido.")
         elif expense_pct >= Decimal("70"):
             lines.append("- Tus gastos representan una parte alta del ingreso; revisar categorías variables puede ampliar tu margen.")
@@ -346,7 +355,12 @@ class DeterministicFinancialResponder:
         lines.append("\n**Próximos pasos**")
         lines.append("1. Priorizar las obligaciones de deuda con mayor costo o tasa.")
         lines.append("2. Revisar las categorías de gasto con mayor peso para encontrar ajustes realistas.")
-        lines.append("3. Reservar parte del margen mensual para construir un fondo de emergencia.")
+        if balance > 0:
+            lines.append("3. Reservar parte del margen mensual para construir un fondo de emergencia.")
+        else:
+            lines.append(
+                "3. Recuperar primero un margen mensual positivo antes de destinar dinero a un fondo de emergencia."
+            )
         return "\n".join(lines)
 
     @classmethod

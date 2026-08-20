@@ -382,49 +382,10 @@ class FinSightAgentService:
             response.metadata["route"] = "financial_education_local"
             return response
 
-        # Follow-up educativo determinístico para DÉFICIT.
-        # Debe resolverse ANTES del flujo general de educación financiera,
-        # porque "Explícame más" puede clasificarse como FINANCIAL_EDUCATION
-        # y, de otro modo, llamar a Groq antes del responder determinístico.
-        early_follow_up = QueryNormalizer.normalize(query.corrected).strip()
-        early_previous = QueryNormalizer.normalize(previous_answer or "")
-        if (
-            previous_answer
-            and early_follow_up in {
-                "explicame mas",
-                "explica mas",
-                "amplia",
-                "amplia eso",
-                "ampliame",
-                "ampliame eso",
-                "dame mas detalles",
-                "mas detalles",
-                "profundiza",
-                "profundiza mas",
-                "quiero saber mas",
-                "contame mas",
-                "cuentame mas",
-            }
-            and "deficit" in early_previous
-        ):
-            content = (
-                "Un **déficit** ocurre cuando, durante un período, tus gastos superan tus ingresos.\n\n"
-                "La diferencia entre ambos representa el monto que falta para equilibrar ese período. "
-                "Por ejemplo, si ingresas **$4.000** y gastas **$4.500**, tienes un déficit de **$500**.\n\n"
-                "Un déficit puntual no significa necesariamente un problema permanente. "
-                "Si se repite durante varios períodos, puede reducir el ahorro disponible o hacer necesario "
-                "cubrir la diferencia con ahorros, deuda u otros recursos.\n\n"
-                "El déficit describe el resultado de un período concreto y no debe confundirse con la "
-                "capacidad de ahorro mensual estimada, que es una métrica diferente."
-            )
-            response = self._internal_response(
-                content,
-                Intent.FINANCIAL_EDUCATION,
-                query,
-                used_financial_context=False,
-            )
-            response.metadata["route"] = "deficit_follow_up_early_deterministic"
-            return response
+        # Los follow-ups explícitos ("Explícame más", "Profundiza", etc.) se resuelven
+        # más abajo, donde primero se identifica el contexto real de la respuesta
+        # anterior. No resolver DÉFICIT aquí: un resumen financiero puede mencionar
+        # "déficit" de forma incidental y no debe convertirse en educación financiera.
 
         # Educación financiera tiene un flujo propio y prioritario. Una vez
         # reconocida esta intención, enseña primero y usa el contexto financiero
@@ -578,9 +539,16 @@ class FinSightAgentService:
                         )
 
                 if ahorro is not None:
-                    parts.append(
-                        f"El margen mensual estimado es **{self._format_money(Decimal(str(ahorro)))}**."
-                    )
+                    ahorro_d = Decimal(str(ahorro))
+                    if ahorro_d < 0:
+                        parts.append(
+                            f"Actualmente no hay margen mensual positivo; el balance presenta un "
+                            f"**déficit estimado de {self._format_money(abs(ahorro_d))}**."
+                        )
+                    else:
+                        parts.append(
+                            f"El margen mensual estimado es **{self._format_money(ahorro_d)}**."
+                        )
 
                 if deuda is not None:
                     deuda_text = (
@@ -611,6 +579,48 @@ class FinSightAgentService:
                         + "."
                     )
 
+                # Profundiza el resumen completo sin confundir conceptos educativos
+                # mencionados incidentalmente (por ejemplo, "déficit").
+                pressure_parts: list[str] = []
+                if ingreso is not None and gasto is not None:
+                    ingreso_d = Decimal(str(ingreso))
+                    gasto_d = Decimal(str(gasto))
+                    if ingreso_d > 0:
+                        gasto_ratio = gasto_d / ingreso_d
+                        if gasto_ratio >= Decimal("1"):
+                            pressure_parts.append(
+                                "el gasto mensual supera tus ingresos y es la principal presión sobre el balance"
+                            )
+                        elif gasto_ratio >= Decimal("0.85"):
+                            pressure_parts.append(
+                                "el gasto mensual consume una proporción muy alta de tus ingresos"
+                            )
+
+                if ratio_deuda is not None:
+                    deuda_ratio = Decimal(str(ratio_deuda))
+                    if deuda_ratio > 1:
+                        deuda_ratio /= Decimal("100")
+                    if deuda_ratio >= Decimal("0.30"):
+                        pressure_parts.append(
+                            "la deuda compromete una parte importante de tus ingresos"
+                        )
+
+                if ahorro is not None and Decimal(str(ahorro)) <= 0:
+                    pressure_parts.append(
+                        "no existe un margen mensual positivo para absorber imprevistos o avanzar con ahorro"
+                    )
+
+                if pressure_parts:
+                    parts.append(
+                        "Lo que más presión ejerce sobre tu situación actual es "
+                        + "; ".join(pressure_parts)
+                        + "."
+                    )
+                    parts.append(
+                        "Por eso, antes de asumir nuevos compromisos, conviene priorizar la recuperación "
+                        "de un margen mensual positivo y luego evaluar cómo evoluciona el nivel de deuda."
+                    )
+
                 response = self._internal_response(
                     "\n\n".join(parts),
                     Intent.FULL_ANALYSIS,
@@ -620,21 +630,15 @@ class FinSightAgentService:
                 response.metadata["route"] = "full_analysis_follow_up_priority"
                 return response
 
-            # Si no era una respuesta financiera estructurada, recién entonces
-            # intentamos reconocer un concepto educativo libre por su contenido.
-            # Sólo ampliar localmente educación cuando la respuesta anterior tiene
-            # una firma reconocible de una respuesta educativa local. Si una respuesta
-            # libre de Groq menciona "fondo de emergencia", "ETF", etc., el follow-up
-            # debe continuar por Groq con contexto y no ser secuestrado por educación.
-            previous_education_signature = self._infer_education_topic_from_previous_answer(
-                previous_answer
+            # Si no era una respuesta financiera estructurada, intentamos ampliar
+            # directamente una definición educativa reconocible por su contenido.
+            # La prioridad del resumen financiero de arriba evita que una mención
+            # incidental a estos conceptos dentro de un análisis personal secuestre
+            # el follow-up.
+            local_education_follow_up = self._local_financial_education_response(
+                query.corrected,
+                previous_answer=previous_answer,
             )
-            local_education_follow_up = None
-            if previous_education_signature is not None:
-                local_education_follow_up = self._local_financial_education_response(
-                    query.corrected,
-                    previous_answer=previous_answer,
-                )
 
             if local_education_follow_up is not None:
                 response = self._internal_response(
@@ -987,10 +991,17 @@ class FinSightAgentService:
                             f"el **{str(pct).replace('.', ',')}%**."
                         )
                 if ahorro is not None:
-                    parts.append(
-                        f"El margen mensual estimado después de gastos es "
-                        f"**{self._format_money(Decimal(str(ahorro)))}**."
-                    )
+                    ahorro_d = Decimal(str(ahorro))
+                    if ahorro_d < 0:
+                        parts.append(
+                            f"Después de los gastos no queda un margen positivo; el balance presenta un "
+                            f"**déficit estimado de {self._format_money(abs(ahorro_d))}**."
+                        )
+                    else:
+                        parts.append(
+                            f"El margen mensual estimado después de gastos es "
+                            f"**{self._format_money(ahorro_d)}**."
+                        )
                 response = self._internal_response(
                     "\n\n".join(parts),
                     Intent.INCOME,
@@ -3588,7 +3599,11 @@ class FinSightAgentService:
         if gasto is not None:
             parts.append(f"gastos mensuales **{cls._format_money(gasto)}**")
         if ahorro is not None:
-            parts.append(f"capacidad de ahorro estimada **{cls._format_money(ahorro)}**")
+            ahorro_d = Decimal(str(ahorro))
+            if ahorro_d < 0:
+                parts.append(f"déficit mensual estimado **{cls._format_money(abs(ahorro_d))}**")
+            else:
+                parts.append(f"capacidad de ahorro estimada **{cls._format_money(ahorro_d)}**")
         if deuda is not None:
             parts.append(f"deuda mensual **{cls._format_money(deuda)}**")
 
@@ -3722,14 +3737,21 @@ class FinSightAgentService:
             parts.append(sentence + ".")
 
         if ahorro is not None:
-            ahorro_pct = pct(ratio_ahorro)
-            sentence = (
-                f"Tu capacidad de ahorro mensual estimada es "
-                f"**{cls._format_money(Decimal(str(ahorro)))}**"
-            )
-            if ahorro_pct:
-                sentence += f", aproximadamente el **{ahorro_pct}% de tus ingresos**"
-            parts.append(sentence + ".")
+            ahorro_d = Decimal(str(ahorro))
+            if ahorro_d < 0:
+                parts.append(
+                    f"Actualmente no tienes capacidad de ahorro mensual; tu balance presenta un "
+                    f"**déficit estimado de {cls._format_money(abs(ahorro_d))}**."
+                )
+            else:
+                ahorro_pct = pct(ratio_ahorro)
+                sentence = (
+                    f"Tu capacidad de ahorro mensual estimada es "
+                    f"**{cls._format_money(ahorro_d)}**"
+                )
+                if ahorro_pct:
+                    sentence += f", aproximadamente el **{ahorro_pct}% de tus ingresos**"
+                parts.append(sentence + ".")
 
         if not parts:
             return (
@@ -4159,11 +4181,31 @@ class FinSightAgentService:
                     "y pueden generar nuevos intereses en los períodos siguientes. "
                     "Por eso el tiempo y la reinversión tienen un efecto importante sobre el resultado."
                 )
+            if "ahorrar" in previous and "invertir" in previous:
+                return (
+                    "Ahorrar e invertir cumplen funciones distintas. El ahorro suele priorizar "
+                    "disponibilidad y estabilidad para necesidades cercanas o imprevistos, mientras que "
+                    "invertir busca un rendimiento potencial a cambio de asumir riesgo y, muchas veces, "
+                    "un horizonte más largo. Pueden complementarse según el objetivo y el plazo."
+                )
             if "etf" in previous:
                 return (
                     "Un ETF agrupa una cartera de activos y sus participaciones se compran y venden "
                     "en mercado. Puede seguir un índice, un sector, bonos u otras estrategias. "
                     "Su riesgo depende de los activos que contiene; ser un ETF no lo vuelve seguro por sí mismo."
+                )
+            if "bono" in previous:
+                return (
+                    "Al comprar un bono estás financiando al emisor bajo determinadas condiciones. "
+                    "Puede establecer pagos de intereses y una fecha de vencimiento para devolver el capital. "
+                    "Entre sus riesgos están que el emisor no cumpla y que el valor del bono cambie antes "
+                    "del vencimiento por movimientos de tasas o del mercado."
+                )
+            if "accion" in previous:
+                return (
+                    "Una acción representa una participación en una empresa. Su precio puede variar según "
+                    "el desempeño de la compañía y las expectativas del mercado. Algunas empresas distribuyen "
+                    "dividendos, pero tanto el precio como esos pagos pueden cambiar y no están garantizados."
                 )
             if "stablecoin" in previous:
                 return (
