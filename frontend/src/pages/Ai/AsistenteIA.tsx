@@ -64,6 +64,9 @@ interface Message {
   text: string;
   isHistory?: boolean;
   educationTopic?: EducationTopic;
+  // Se guarda junto con el chat. Mientras sea false/undefined, el botón
+  // "Explícame más" puede reaparecer incluso después de F5 o al volver al chat.
+  explainMoreConsumed?: boolean;
 }
 
 interface ChatGuardado {
@@ -168,6 +171,24 @@ function puedeMostrarExplicameMas(texto: string): boolean {
   );
 
   if (respuestaConversacional) {
+    return false;
+  }
+
+  // Si Finsi no entendió o no pudo procesar la consulta, no hay una respuesta
+  // válida que tenga sentido ampliar. Evita casos como "asd" o una frase suelta
+  // como "Educación Financiera" mostrando el botón "Explícame más".
+  const respuestaNoEntendida =
+    /\bno pude (?:comprender|interpretar|identificar|procesar)(?: completamente)?\b/i.test(contenidoEvaluado) ||
+    /\bno entend[ií](?: tu pregunta| tu consulta| el mensaje)?\b/i.test(contenidoEvaluado) ||
+    /\bno comprend[ií](?: tu pregunta| tu consulta| el mensaje)?\b/i.test(contenidoEvaluado) ||
+    /\bvuelve a escribirla\b/i.test(contenidoEvaluado) ||
+    /\bescribe una nueva pregunta\b/i.test(contenidoEvaluado) ||
+    /\breformula(?:r| la| tu)?\b/i.test(contenidoEvaluado) ||
+    /\bno tengo suficiente informaci[oó]n\b/i.test(contenidoEvaluado) ||
+    /\bsolo puedo ayudarte con consultas\b/i.test(contenidoEvaluado) ||
+    /\bfuera del alcance\b/i.test(contenidoEvaluado);
+
+  if (respuestaNoEntendida) {
     return false;
   }
 
@@ -806,6 +827,15 @@ export default function AsistenteIA() {
   const [mensajeEditandoId, setMensajeEditandoId] = useState<number | null>(null);
   const [textoEditando, setTextoEditando] = useState("");
   const ultimoMensajeAsistenteId = [...messages].reverse().find((m) => m.role === "assistant")?.id;
+  // El descanso es un easter egg separado y no debe reemplazar a la respuesta
+  // financiera/educativa que lo precede como objetivo de "Explícame más".
+  const ultimoMensajeAsistenteExplicableId = [...messages]
+    .reverse()
+    .find(
+      (m) =>
+        m.role === "assistant" &&
+        detectarEasterEggVisual(m.text) !== "descanso",
+    )?.id;
   const ultimaPreguntaUsuarioTexto = [...messages].reverse().find((m) => m.role === "user")?.text ?? "";
   const [vozActiva, setVozActiva] = useState(
     () => localStorage.getItem("asistenteVozActiva") === "true"
@@ -980,6 +1010,27 @@ export default function AsistenteIA() {
   });
   const toggleSonido = () => setSonidoActivo((prev) => !prev);
 
+  const consumirYExplicarMas = (
+    messageId: number,
+    previousAnswer: string,
+    educationTopic?: EducationTopic,
+  ) => {
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.id === messageId
+          ? { ...message, explainMoreConsumed: true }
+          : message
+      )
+    );
+
+    void handleSubmit(
+      MENSAJE_EXPLICAME_MAS,
+      undefined,
+      previousAnswer,
+      educationTopic,
+    );
+  };
+
   const handleSubmit = async (
     prompt: string,
     modelo?: string,
@@ -1006,7 +1057,11 @@ export default function AsistenteIA() {
 
     const ultimoMensajeAsistente = [...messages]
       .reverse()
-      .find((m) => m.role === "assistant");
+      .find(
+        (m) =>
+          m.role === "assistant" &&
+          detectarEasterEggVisual(m.text) !== "descanso",
+      );
     const esFollowUpExplicativo =
       normalizarPreguntaParaComparar(prompt) ===
       normalizarPreguntaParaComparar(MENSAJE_EXPLICAME_MAS);
@@ -1730,8 +1785,8 @@ export default function AsistenteIA() {
                         )}
 
                       {message.role === "assistant" &&
-                        message.id === ultimoMensajeAsistenteId &&
-                        !message.isHistory &&
+                        message.id === ultimoMensajeAsistenteExplicableId &&
+                        !message.explainMoreConsumed &&
                         !enviando &&
                         !pasoPendiente &&
                         (!easterVisual || easterVisual === "finsi_crypto") &&
@@ -1743,7 +1798,13 @@ export default function AsistenteIA() {
                           <div className="mt-2 flex w-full justify-start">
                             <button
                               type="button"
-                              onClick={() => void handleSubmit(MENSAJE_EXPLICAME_MAS)}
+                              onClick={() =>
+                                consumirYExplicarMas(
+                                  message.id,
+                                  message.text,
+                                  message.educationTopic,
+                                )
+                              }
                               disabled={enviando}
                               className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 text-theme-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
                             >
