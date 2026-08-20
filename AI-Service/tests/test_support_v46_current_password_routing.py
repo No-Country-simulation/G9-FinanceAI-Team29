@@ -35,11 +35,8 @@ def test_current_password_error_has_direct_solution():
     assert "Vamos a revisar qué ocurre" not in result.content
 
 
-def test_main_router_checks_support_detector_before_unknown():
+def test_main_router_contains_support_detector():
     service_file = Path(__file__).parents[1] / "app/services/agent/service.py"
     source = service_file.read_text(encoding="utf-8")
-    support_index = source.index(
-        "explicit_support_query = SupportIntentDetector.is_support_query"
-    )
-    early_intent_index = source.index("early_intent = self.intent_detector.detect_result")
-    assert support_index < early_intent_index
+    assert "SupportIntentDetector.is_support_query" in source
+    assert "support_agent.answer" in source

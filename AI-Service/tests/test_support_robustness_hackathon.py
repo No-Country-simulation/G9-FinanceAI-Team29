@@ -2,7 +2,7 @@ from pathlib import Path
 
 from app.services.support.diagnosis import GuidedSupportDiagnosis
 from app.services.support.intent import SupportIntentDetector
-from app.services.support.knowledge_base import SupportKnowledgeBase
+from app.services.support.product_knowledge import ProductKnowledgeResponder
 from app.services.support.normalizer import SupportQueryNormalizer
 
 
@@ -41,11 +41,16 @@ def test_password_answer_uses_real_profile_route() -> None:
 
 
 def test_support_knowledge_contains_real_navigation() -> None:
-    docs = Path(__file__).parents[1] / "app" / "services" / "support" / "docs"
-    knowledge = SupportKnowledgeBase(docs)
-    password = knowledge.search("donde cambio la contraseña")
-    csv = knowledge.search("importar csv movimientos", min_score=0.01)
-    export = knowledge.search("exportar pdf informe", min_score=0.01)
-    assert password and any("Mi cuenta" in item.content for item in password)
-    assert csv and any("Importar CSV" in item.content for item in csv)
-    assert export and any("Exportar" in item.content for item in export)
+    password = ProductKnowledgeResponder.answer("donde cambio la contraseña")
+    csv = ProductKnowledgeResponder.answer("importar csv movimientos")
+    export = ProductKnowledgeResponder.answer("exportar pdf informe")
+
+    assert password is not None
+    assert "Mi cuenta" in password.content
+    assert "Seguridad" in password.content
+
+    assert csv is not None
+    assert "Importar CSV" in csv.content
+
+    assert export is not None
+    assert "Exportar" in export.content or "PDF" in export.content

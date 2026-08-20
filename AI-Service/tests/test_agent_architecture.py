@@ -82,7 +82,7 @@ class DeterministicIntentTests(unittest.TestCase):
         )
         self.assertEqual(
             router.resolve(IntentResult(Intent.SAVINGS, QueryMode.ANALYTICAL)),
-            AgentRoute.LLM_WITH_CONTEXT,
+            AgentRoute.DETERMINISTIC,
         )
 
 
@@ -114,7 +114,7 @@ class ServiceRoutingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.provider, "test")
         self.assertEqual(response.metadata["intent"], "recommendations")
-        self.assertEqual(response.metadata["route"], "llm_with_context")
+        self.assertEqual(response.metadata["route"], "llm_advice_with_context")
         self.assertTrue(response.metadata["used_financial_context"])
         service.llm.generate.assert_awaited_once()
 
@@ -139,7 +139,8 @@ class ServiceRoutingTests(unittest.IsolatedAsyncioTestCase):
         with patch("app.services.agent.service.analizar_usuario", return_value=ANALYSIS):
             response = await service.chat("USR0001", "quiero mi esumen")
         self.assertEqual(response.metadata["corrections_count"], 1)
-        service.llm.generate.assert_awaited_once()
+        self.assertEqual(response.provider, "internal")
+        service.llm.generate.assert_not_awaited()
 
 
 class PromptBuilderTests(unittest.TestCase):
@@ -170,7 +171,7 @@ class DeterministicSavingsResponseTests(unittest.TestCase):
 
         self.assertEqual(
             response,
-            "Podés ahorrar aproximadamente USD 258.34 por mes.",
+            "Puedes ahorrar aproximadamente $258,34 por mes.",
         )
 
     def test_zero_savings_explains_monthly_equilibrium(self):
@@ -183,7 +184,7 @@ class DeterministicSavingsResponseTests(unittest.TestCase):
             {"metricas": {"ahorro_mensual_estimado": 0}},
         )
 
-        self.assertIn("no tenés capacidad de ahorro mensual", response)
+        self.assertIn("no tienes capacidad de ahorro mensual", response)
         self.assertIn("cubrir exactamente", response)
 
     def test_negative_savings_answers_question_before_deficit(self):
@@ -198,18 +199,18 @@ class DeterministicSavingsResponseTests(unittest.TestCase):
 
         self.assertTrue(
             response.startswith(
-                "Actualmente no tenés capacidad de ahorro mensual."
+                "Actualmente no tienes capacidad de ahorro mensual."
             )
         )
-        self.assertIn("USD 109.43", response)
-        self.assertNotIn("USD -", response)
+        self.assertIn("$109,43", response)
+        self.assertNotIn("$-", response)
 
-    def test_money_formatter_is_fixed_to_usd(self):
+    def test_money_formatter_uses_dollar_symbol(self):
         from app.services.agent.deterministic_responder import (
             DeterministicFinancialResponder,
         )
 
         self.assertEqual(
             DeterministicFinancialResponder._format_money("12.5"),
-            "USD 12.50",
+            "$12,50",
         )

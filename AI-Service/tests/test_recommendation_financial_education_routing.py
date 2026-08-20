@@ -1,12 +1,26 @@
-from pathlib import Path
+from unittest.mock import AsyncMock
+
+import pytest
+
+from app.services.agent.service import FinSightAgentService
 
 
-def test_financial_education_bypasses_stale_support_follow_up():
-    service_path = Path(__file__).parents[1] / "app/services/agent/service.py"
-    source = service_path.read_text(encoding="utf-8")
+@pytest.mark.asyncio
+async def test_financial_education_bypasses_stale_support_follow_up():
+    service = FinSightAgentService()
+    service.llm.generate = AsyncMock()
+    service.llm.generate.return_value.content = "Explicación educativa"
+    service.llm.generate.return_value.provider = "test"
+    service.llm.generate.return_value.metadata = {}
 
-    assert (
-        "support_follow_up\n"
-        "            and early_intent.intent != Intent.FINANCIAL_EDUCATION\n"
-        "            and not (is_contextual_financial_follow_up or is_financial_query)"
-    ) in source
+    response = await service.chat(
+        usuario_id="USR1000",
+        question="¿Qué es el interés compuesto?",
+        previous_answer="Vamos a revisar el problema técnico. ¿Puedo ayudarte con algo más?",
+    )
+
+    assert response.provider == "test"
+    assert response.metadata["intent"] == "financial_education"
+    assert response.metadata["route"] == "llm_without_context"
+    assert response.metadata["used_financial_context"] is False
+    service.llm.generate.assert_awaited_once()

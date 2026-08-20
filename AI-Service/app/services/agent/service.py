@@ -453,27 +453,22 @@ class FinSightAgentService:
             early_intent.intent == Intent.FINANCIAL_EDUCATION
             and not early_explicit_expand
         ):
-            analysis = self._get_analysis(usuario_id)
-            rules = FinancialRulesEngine.evaluate(analysis)
-            education_context = self.context_builder.build(
-                intent=Intent.FINANCIAL_EDUCATION,
-                analysis=analysis,
-                rules=rules,
-            )
-
+            # Las preguntas educativas generales no necesitan acceder al
+            # perfil financiero personal. Las tarjetas educativas contextuales
+            # se resolvieron antes mediante education_topic.
             messages = PromptBuilder.build(
                 original_question=query.original,
                 processed_question=query.corrected,
                 corrections=query.corrections,
-                context=education_context,
+                context={},
                 intent=Intent.FINANCIAL_EDUCATION.value,
             )
             response = await self.llm.generate(messages=messages, provider=provider)
             response.metadata.update(
                 {
                     "intent": Intent.FINANCIAL_EDUCATION.value,
-                    "route": AgentRoute.LLM_WITH_CONTEXT.value,
-                    "used_financial_context": True,
+                    "route": AgentRoute.LLM_WITHOUT_CONTEXT.value,
+                    "used_financial_context": False,
                     "corrections_count": len(query.corrections),
                 }
             )
@@ -2089,6 +2084,19 @@ class FinSightAgentService:
                 )
                 response.metadata["route"] = "goal_creation_conversation"
                 return response
+
+        # Un fallo técnico explícito tiene prioridad incluso si menciona una
+        # funcionalidad financiera (por ejemplo: "No puedo crear una meta").
+        if (
+            SupportIntentDetector.is_support_query(query.original)
+            and self._is_explicit_technical_problem(query.original)
+        ):
+            return await self.support_agent.answer(
+                usuario_id=usuario_id,
+                question=query.original,
+                provider=provider,
+                previous_answer=previous_answer,
+            )
 
         # Aislamiento bidireccional de agentes.
         # En FinSightAI Advisor, una intención financiera válida SIEMPRE tiene

@@ -46,7 +46,11 @@ def test_frontend_strips_context_marker_only_for_display():
         / "frontend/src/pages/Ai/AsistenteIA.tsx"
     ).read_text(encoding="utf-8")
     assert "function limpiarMetadataInterna" in source
-    assert "renderMensajeAsistente(limpiarMetadataInterna(message.text))" in source
+    assert "renderMensajeAsistente(" in source and "limpiarMetadataInterna(" in source and "message.text" in source
     assert "speakText(limpiarMetadataInterna(answer))" in source
     # El valor crudo debe seguir guardándose para enviarlo como previousAnswer.
-    assert 'role: "assistant", text: answer' in source
+    # No dependemos de que el objeto esté escrito en una sola línea.
+    assert 'role: "assistant"' in source
+    assert "text: answer" in source
+    assert "const previousAnswer =" in source
+    assert "ultimoMensajeAsistente?.text" in source

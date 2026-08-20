@@ -39,7 +39,7 @@ class RulesEngineTests(unittest.TestCase):
     def test_context_includes_verified_facts_for_recommendations(self):
         facts = FinancialRulesEngine.evaluate(ANALYSIS)
         context = FinancialContextBuilder.build(Intent.RECOMMENDATIONS, ANALYSIS, facts)
-        self.assertEqual(context["currency"], "USD")
+        self.assertEqual(context["currency"], "$")
         self.assertIn("hechos_verificados", context["orientacion"])
         self.assertTrue(context["orientacion"]["hechos_verificados"])
 
@@ -60,13 +60,13 @@ class GoalIntentTests(unittest.TestCase):
             "fecha_objetivo": "2026-12-01",
         }])
         self.assertIn("56.7%", response)
-        self.assertIn("USD 650.00", response)
+        self.assertIn("$650,00", response)
         self.assertIn("01/12/2026", response)
 
     def test_no_goals_response(self):
         self.assertEqual(
             DeterministicGoalResponder.respond([]),
-            "Todavía no tenés metas financieras registradas.",
+            "Todavía no tienes metas financieras registradas.",
         )
 
 
@@ -101,7 +101,7 @@ class GoalServiceRoutingTests(unittest.IsolatedAsyncioTestCase):
         ):
             response = await service.chat("USR0001", "como puedo ahorrar")
 
-        self.assertEqual(response.metadata["route"], "llm_with_context")
+        self.assertEqual(response.metadata["route"], "llm_advice_with_context")
         call = service.llm.generate.await_args.kwargs
         user_prompt = call["messages"][1].content
         self.assertIn("hechos_verificados", user_prompt)

@@ -143,8 +143,8 @@ class TransactionQueryEngine:
                 | frame["fecha"].dt.date.le(actual_today)
             ].copy()
 
-        reference_today = actual_today
-        query_today = actual_today
+        reference_today = cls._reference_date(frame, actual_today)
+        query_today = reference_today
         expenses = frame[frame["_kind"].eq("expense")].copy() if not frame.empty else frame
         incomes = frame[frame["_kind"].eq("income")].copy() if not frame.empty else frame
 
@@ -1442,8 +1442,9 @@ class TransactionQueryEngine:
             selected = cls._period_frame(expenses, period, today)
             count = len(selected)
             noun = "movimiento" if count == 1 else "movimientos"
+            period_label = f"en {today.year}" if period == "year" else label
             return cls._result(
-                f"Gastaste {cls._money(selected['monto'].sum())} {label} en {count} {noun}.",
+                f"Gastaste {cls._money(selected['monto'].sum())} {period_label} en {count} {noun}.",
                 f"expenses_total_{period}",
             )
 
@@ -1537,7 +1538,13 @@ class TransactionQueryEngine:
         if cls._has(q, "cuanto ingrese", "total de ingresos", "ingresos este mes", "ingresos este ano", "ingrese hoy"):
             period, label = cls._select_period(q, today)
             selected = cls._period_frame(incomes, period, today)
-            return cls._result(f"Ingresaste {cls._money(selected['monto'].sum())} {label} en {len(selected)} movimientos.", f"income_total_{period}")
+            period_label = f"en {today.year}" if period == "year" else label
+            count = len(selected)
+            noun = "movimiento" if count == 1 else "movimientos"
+            return cls._result(
+                f"Ingresaste {cls._money(selected['monto'].sum())} {period_label} en {count} {noun}.",
+                f"income_total_{period}",
+            )
 
         return None
 

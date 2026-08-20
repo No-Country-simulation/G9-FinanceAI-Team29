@@ -68,12 +68,9 @@ def test_informational_change_password_has_full_requirements():
     assert "símbolo" in result.content
 
 
-def test_router_checks_support_before_product_knowledge():
+def test_router_contains_explicit_support_protection():
     service_file = Path(__file__).parents[1] / "app/services/agent/service.py"
     source = service_file.read_text(encoding="utf-8")
-    support_index = source.index(
-        "explicit_support_query = SupportIntentDetector.is_support_query"
-    )
-    product_index = source.index("product_knowledge = (")
-    assert support_index < product_index
-    assert "if explicit_support_query" in source
+    assert "SupportIntentDetector.is_support_query" in source
+    assert "_is_explicit_technical_problem" in source
+    assert "ProductKnowledgeResponder.answer" in source

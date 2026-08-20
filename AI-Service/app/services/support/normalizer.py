@@ -102,7 +102,6 @@ class SupportQueryNormalizer:
         "clave": "contrasena",
         "canviar": "cambiar",
         "canvio": "cambiar",
-        "cambio": "cambiar",
         "cambair": "cambiar",
         "vaja": "baja",
         "vaton": "boton",

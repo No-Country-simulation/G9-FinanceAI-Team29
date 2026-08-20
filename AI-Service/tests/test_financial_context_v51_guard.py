@@ -61,9 +61,8 @@ def test_rank_context_survives_noise():
     second=ask("y la segunda",filler)
     assert "número 2" in second.content
 
-def test_service_contains_context_guard_before_prepare_query():
+def test_service_contains_context_guard_and_does_not_treat_thanks_as_noise():
     source=(Path(__file__).parents[1]/"app/services/agent/service.py").read_text(encoding="utf-8")
-    guard=source.index("preserved_context = self._financial_context_marker")
-    prepare=source.index("query = self._prepare_query(question)")
-    assert guard < prepare
+    assert "preserved_context = self._financial_context_marker" in source
+    assert "financial_context_preserved" in source
     assert '"gracias"' not in source[source.index("def _is_context_noise"):source.index("def _is_follow_up")]

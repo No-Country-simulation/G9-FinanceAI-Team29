@@ -147,7 +147,7 @@ class ContextBuilderTests(unittest.TestCase):
 
     def test_unknown_context_has_no_financial_data(self):
         context = FinancialContextBuilder.build(Intent.UNKNOWN, self.ANALYSIS)
-        self.assertEqual(context, {"currency": "USD"})
+        self.assertEqual(context, {"currency": "$"})
 
 
 class AgentRoutingTests(unittest.IsolatedAsyncioTestCase):
@@ -161,9 +161,9 @@ class AgentRoutingTests(unittest.IsolatedAsyncioTestCase):
         with patch("app.services.agent.service.analizar_usuario", return_value=ContextBuilderTests.ANALYSIS):
             response = await service.chat("USR0001", "necesito un esumen de mi situacion")
 
-        self.assertEqual(response.provider, "test")
+        self.assertEqual(response.provider, "internal")
         self.assertTrue(response.metadata["used_financial_context"])
-        service.llm.generate.assert_awaited_once()
+        service.llm.generate.assert_not_awaited()
 
     async def test_generic_math_never_calls_llm_or_profile(self):
         service = FinSightAgentService()

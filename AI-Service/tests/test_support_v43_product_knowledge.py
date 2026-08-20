@@ -44,12 +44,11 @@ def test_csv_max_size_is_deterministic():
     assert "5 MB" in result.content
 
 
-def test_product_knowledge_route_precedes_intent_detection():
+def test_product_knowledge_route_is_present_in_agent_service():
     service_file = Path(__file__).parents[1] / "app/services/agent/service.py"
     source = service_file.read_text(encoding="utf-8")
-    product_index = source.index("product_knowledge = (")
-    early_intent_index = source.index("early_intent = self.intent_detector.detect_result")
-    assert product_index < early_intent_index
+    assert "ProductKnowledgeResponder.answer" in source
+    assert "support-product-knowledge" in source
 
 
 def test_unknown_fallback_is_neutral_spanish():

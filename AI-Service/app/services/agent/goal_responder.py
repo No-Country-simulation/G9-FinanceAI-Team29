@@ -12,16 +12,16 @@ class DeterministicGoalResponder:
         completed = [goal for goal in goals if goal.get("estado") == "COMPLETADA"]
 
         if not goals:
-            return "Todavía no tenés metas financieras registradas."
+            return "Todavía no tienes metas financieras registradas."
         if not active:
             if completed:
-                return f"No tenés metas activas. Ya completaste {len(completed)} meta(s)."
-            return "No tenés metas financieras activas en este momento."
+                return f"No tienes metas activas. Ya completaste {len(completed)} meta(s)."
+            return "No tienes metas financieras activas en este momento."
 
         if len(active) == 1:
             return cls._describe(active[0])
 
-        lines = [f"Tenés {len(active)} metas activas:"]
+        lines = [f"Tienes {len(active)} metas activas:"]
         for goal in active[:5]:
             target = cls._decimal(goal.get("monto_objetivo", 0))
             reserved = cls._decimal(goal.get("monto_reservado", 0))
@@ -29,7 +29,7 @@ class DeterministicGoalResponder:
             remaining = max(target - reserved, Decimal("0"))
             lines.append(
                 f"- {goal.get('nombre', 'Meta')}: {progress:.1f}% completada; "
-                f"faltan USD {remaining:.2f}."
+                f"faltan {cls._format_money(remaining)}."
             )
         if len(active) > 5:
             lines.append(f"- Y {len(active) - 5} meta(s) activa(s) más.")
@@ -45,20 +45,26 @@ class DeterministicGoalResponder:
 
         message = (
             f"Tu meta “{name}” está completada en un {progress:.1f}%. "
-            f"Reservaste USD {reserved:.2f} de USD {target:.2f} y "
-            f"te faltan USD {remaining:.2f}."
+            f"Reservaste {cls._format_money(reserved)} de {cls._format_money(target)} y "
+            f"te faltan {cls._format_money(remaining)}."
         )
 
         monthly = goal.get("reserva_mensual_sugerida")
         if monthly is not None:
             monthly_value = cls._decimal(monthly)
             if monthly_value > 0:
-                message += f" La reserva mensual sugerida es de USD {monthly_value:.2f}."
+                message += f" La reserva mensual sugerida es de {cls._format_money(monthly_value)}."
 
         target_date = goal.get("fecha_objetivo")
         if target_date:
             message += f" La fecha objetivo es {cls._format_date(target_date)}."
         return message
+
+    @staticmethod
+    def _format_money(value: Decimal) -> str:
+        formatted = f"{value:,.2f}"
+        formatted = formatted.replace(",", "_").replace(".", ",").replace("_", ".")
+        return f"${formatted}"
 
     @staticmethod
     def _progress(target: Decimal, reserved: Decimal) -> float:
