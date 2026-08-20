@@ -330,7 +330,7 @@ const MODOS_IMPORTACION: Array<{
 
 export default function ImportarCsv() {
   const { usuarioId } = useAuth();
-  const { registrarEvento } = useGamification();
+  const { registrarEvento, desbloquearLogro } = useGamification();
   const [archivo, setArchivo] = useState<File | null>(null);
   const [cargando, setCargando] = useState(false);
   const [resultado, setResultado] =
@@ -434,6 +434,12 @@ export default function ImportarCsv() {
       setResultado(data);
       setTieneMovimientos(true);
       registrarEvento('csv_importado');
+
+      // Hito persistente: se desbloquea cuando una importación exitosa
+      // (CARGAR, ACTUALIZAR o SOBREESCRIBIR) termina con perfil Saludable.
+      if (normalizarPerfil(data.perfilFinanciero) === 'saludable') {
+        desbloquearLogro('perfil_saludable');
+      }
 
       const celebracion = detectarCelebracionPerfil(
         perfilAnterior,

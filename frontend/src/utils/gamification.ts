@@ -156,6 +156,28 @@ const NIVEL_TITULOS = [
  * 40% perfil de riesgo del modelo, 30% ratio ahorro/ingreso, 30% progreso de metas activas.
  */
 export function computeHealthScore(perfil: PerfilCompleto | null, goals: Goal[]): HealthScoreResult {
+  // Un usuario sin historial financiero todavía no debe heredar un score "neutral"
+  // que lo haga arrancar artificialmente en Nivel 3. Hasta que exista información
+  // financiera real, comienza en Nivel 1: Novato financiero.
+  const tieneDatosFinancieros =
+    Boolean(perfil?.perfilFinanciero) ||
+    Number(perfil?.ingresoMensual ?? 0) > 0 ||
+    Number(perfil?.gastoMensualPromedio ?? 0) > 0 ||
+    Number(perfil?.ahorroMensualEstimado ?? 0) !== 0;
+
+  if (!tieneDatosFinancieros) {
+    return {
+      score: 0,
+      level: 1,
+      titulo: NIVEL_TITULOS[0],
+      factores: [
+        { nombre: 'Perfil de riesgo', valor: 0 },
+        { nombre: 'Ahorro / ingreso', valor: 0 },
+        { nombre: 'Progreso de metas', valor: 0 },
+      ],
+    };
+  }
+
   const perfilFinancieroScore = (() => {
     switch (perfil?.perfilFinanciero) {
       case 'Saludable': return 100;

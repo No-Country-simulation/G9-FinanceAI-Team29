@@ -29,6 +29,7 @@ export type AchievementId =
   | 'admin_click_frenzy'
   | 'primera_meta'
   | 'primer_csv'
+  | 'perfil_saludable'
   | 'racha_dos_semanas'
   | 'meta_cumplida'
   | 'trivia_perfecta'
@@ -331,6 +332,14 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
     emoji: '📂',
     categoria: 'hito',
     pista: 'Importa tu primer archivo CSV de movimientos.',
+  },
+  {
+    id: 'perfil_saludable',
+    titulo: 'Perfil Saludable',
+    descripcion: 'Alcanzaste un perfil financiero Saludable.',
+    emoji: '💚',
+    categoria: 'hito',
+    pista: 'Alcanza un perfil financiero Saludable al cargar, actualizar o sobreescribir tus movimientos.',
   },
   {
     id: 'racha_dos_semanas',

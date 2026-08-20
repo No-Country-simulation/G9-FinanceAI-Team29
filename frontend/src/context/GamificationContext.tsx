@@ -480,6 +480,20 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!usuarioId || !state) return;
+
+    // Primera inicialización: registramos el nivel de partida sin mostrar una
+    // celebración falsa de "subida". A partir de ahí, solo se celebra una mejora real.
+    if (state.bestLevelSeen === 0) {
+      const inicializado = {
+        ...state,
+        bestLevelSeen: health.level,
+        ultimaSubidaNivel: null,
+      };
+      setState(inicializado);
+      persistEstado(usuarioId, inicializado);
+      return;
+    }
+
     if (health.level > state.bestLevelSeen) {
       const actualizado = { ...state, bestLevelSeen: health.level, ultimaSubidaNivel: nowNaiveIso() };
       setState(actualizado);

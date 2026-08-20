@@ -31,11 +31,19 @@ import {
   crearHtmlFuerzaPassword,
 } from '../utils/passwordSwalStrength';
 
-const money = new Intl.NumberFormat('es-AR', {
-  style: 'currency',
-  currency: 'USD',
+const moneyFormatter = new Intl.NumberFormat('es-AR', {
+  minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+
+const money = {
+  format: (value: number) => {
+    const abs = Math.abs(value);
+    return value < 0
+      ? `-$${moneyFormatter.format(abs)}`
+      : `$${moneyFormatter.format(abs)}`;
+  },
+};
 
 function ActionButton({
   children,

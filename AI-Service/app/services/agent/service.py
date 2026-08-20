@@ -810,6 +810,40 @@ class FinSightAgentService:
                 response.metadata["route"] = "recommendations_follow_up_local"
                 return response
 
+            # Follow-up determinístico para RESUMEN DEL ÚLTIMO MES.
+            # Mantiene el período real de la respuesta anterior y evita volver
+            # al gasto mensual promedio del Dashboard.
+            latest_month_summary_match = re.search(
+                r"En \*\*(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) "
+                r"de (20\d{2})\*\* gastaste \*\*(\$[\d\.]+,\d{2})\*\* en \*\*(\d+) movimiento",
+                previous_answer,
+                flags=re.IGNORECASE,
+            )
+            if latest_month_summary_match:
+                month_name = latest_month_summary_match.group(1)
+                year_text = latest_month_summary_match.group(2)
+                amount_text = latest_month_summary_match.group(3)
+                count = int(latest_month_summary_match.group(4))
+                movement_word = "movimiento" if count == 1 else "movimientos"
+
+                content = (
+                    f"El resumen corresponde específicamente a **{month_name} de {year_text}**, "
+                    f"el mes más reciente con gastos registrados hasta la fecha consultada.\n\n"
+                    f"En ese período gastaste **{amount_text}** en **{count} {movement_word}**. "
+                    "Este total se calcula sumando las transacciones reales de gasto de ese mes.\n\n"
+                    "No corresponde al **gasto mensual promedio** del Dashboard, que es una métrica "
+                    "general calculada a partir del historial financiero."
+                )
+
+                response = self._internal_response(
+                    content,
+                    Intent.EXPENSES,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "latest_month_expense_summary_follow_up"
+                return response
+
             # Follow-up determinístico para totales REALES del mes actual.
             # Debe ir antes de los handlers de métricas mensuales del Dashboard para
             # no convertir "gasté/ingresé este mes" en promedios del análisis general.
@@ -2517,6 +2551,40 @@ class FinSightAgentService:
                     )
                     response.metadata["route"] = "advice_local_fallback"
                     return response
+
+        # Resumen TRANSACCIONAL del último mes disponible.
+        # "Resume mis gastos del último mes" no debe confundirse con el
+        # gasto_mensual_promedio del Dashboard.
+        normalized_latest_month_summary = QueryNormalizer.normalize(query.corrected).strip()
+        if (
+            any(term in normalized_latest_month_summary for term in ("gasto", "gastos", "gaste"))
+            and any(
+                term in normalized_latest_month_summary
+                for term in ("ultimo mes", "mes mas reciente")
+            )
+            and any(
+                term in normalized_latest_month_summary
+                for term in ("resume", "resumen", "resumime", "resumi")
+            )
+        ):
+            try:
+                latest_month_transactions = fetch_user_transactions(usuario_id)
+                latest_month_content = self._latest_month_expense_summary_response(
+                    transactions=latest_month_transactions,
+                    today=local_today,
+                )
+                if latest_month_content is not None:
+                    response = self._internal_response(
+                        latest_month_content,
+                        Intent.EXPENSES,
+                        query,
+                        used_financial_context=True,
+                    )
+                    response.metadata["route"] = "latest_month_expense_summary_transactions"
+                    response.metadata["transaction_action"] = "expenses_latest_month_summary"
+                    return response
+            except (BackendDataError, ValueError):
+                pass
 
         # Los resúmenes/situación actual deben ser matemáticamente deterministas
         # y usar exactamente el snapshot sincronizado con el Dashboard. Dejar estas
@@ -5888,6 +5956,96 @@ class FinSightAgentService:
             return fetch_live_analysis(usuario_id)
         except (BackendDataError, ValueError):
             return analizar_usuario(usuario_id)
+
+    @classmethod
+    def _latest_month_expense_summary_response(
+        cls,
+        transactions: list[dict[str, Any]],
+        today: date,
+    ) -> str | None:
+        """Resume gastos reales del mes más reciente con movimientos hasta hoy."""
+        frame = profile_data.pd.DataFrame(transactions)
+        if (
+            frame.empty
+            or "tipo" not in frame.columns
+            or "monto" not in frame.columns
+            or "fecha" not in frame.columns
+        ):
+            return None
+
+        frame = frame[
+            frame["tipo"].astype(str).str.strip().str.upper().eq("GASTO")
+        ].copy()
+        if frame.empty:
+            return "No encontré gastos registrados."
+
+        frame["_fecha_resumen"] = profile_data.pd.to_datetime(
+            frame["fecha"],
+            errors="coerce",
+        )
+        frame = frame[
+            frame["_fecha_resumen"].notna()
+            & frame["_fecha_resumen"].dt.date.le(today)
+        ].copy()
+
+        if frame.empty:
+            return "No encontré gastos registrados hasta la fecha consultada."
+
+        latest_date = frame["_fecha_resumen"].max()
+        selected = frame[
+            frame["_fecha_resumen"].dt.year.eq(latest_date.year)
+            & frame["_fecha_resumen"].dt.month.eq(latest_date.month)
+        ].copy()
+
+        amounts = profile_data.pd.to_numeric(
+            selected["monto"],
+            errors="coerce",
+        ).fillna(0)
+        total = Decimal(str(amounts.sum()))
+        count = len(selected)
+        movement_word = "movimiento" if count == 1 else "movimientos"
+
+        month_names = (
+            "enero", "febrero", "marzo", "abril", "mayo", "junio",
+            "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+        )
+        period_name = (
+            f"{month_names[int(latest_date.month) - 1]} de {int(latest_date.year)}"
+        )
+
+        parts = [
+            f"En **{period_name}** gastaste **{cls._format_money(total)}** "
+            f"en **{count} {movement_word}**."
+        ]
+
+        if "categoria" in selected.columns:
+            category_frame = selected.copy()
+            category_frame["_monto_num"] = profile_data.pd.to_numeric(
+                category_frame["monto"],
+                errors="coerce",
+            ).fillna(0)
+            grouped = (
+                category_frame.groupby("categoria", dropna=False)["_monto_num"]
+                .sum()
+                .sort_values(ascending=False)
+            )
+
+            if not grouped.empty:
+                top_name = str(grouped.index[0] or "Sin categoría")
+                top_amount = Decimal(str(grouped.iloc[0]))
+                top_pct = (
+                    top_amount / total * Decimal("100")
+                    if total > 0
+                    else Decimal("0")
+                ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+
+                parts.append(
+                    f"La categoría con mayor peso fue **{top_name}**, con "
+                    f"**{cls._format_money(top_amount)}** "
+                    f"(**{str(top_pct).replace('.', ',')}% del gasto del mes**)."
+                )
+
+        return "\n\n".join(parts)
 
     @classmethod
     def _current_month_transaction_response(

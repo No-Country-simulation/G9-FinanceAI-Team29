@@ -40,6 +40,20 @@ const REGEX_PREGUNTA_ECONOMIA =
   /\b(inflaci[oó]n|deflaci[oó]n|pbi|producto bruto|oferta y demanda|tasa de inter[eé]s|tasas? de inter[eé]s|pol[ií]tica monetaria|banco central|econom[ií]a|macroeconom[ií]a|microeconom[ií]a|mercado burs[aá]til|bolsa de valores|devaluaci[oó]n|recesi[oó]n|pib\b)/i;
 const MENSAJE_CON_QUE_SEGUIMOS = "¿Con qué seguimos?";
 
+const ESPERA_FINSI_MIN_MS = 7000;
+const ESPERA_FINSI_MAX_MS = 10000;
+
+async function esperarTiempoMinimoFinsi(inicio: number): Promise<void> {
+  const objetivo =
+    ESPERA_FINSI_MIN_MS +
+    Math.floor(Math.random() * (ESPERA_FINSI_MAX_MS - ESPERA_FINSI_MIN_MS + 1));
+  const restante = objetivo - (Date.now() - inicio);
+
+  if (restante > 0) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, restante));
+  }
+}
+
 interface Message {
   id: number;
   role: "user" | "assistant";
@@ -1028,6 +1042,7 @@ export default function AsistenteIA() {
       previousAnswerOverride !== undefined
         ? previousAnswerOverride ?? undefined
         : ultimoMensajeAsistente?.text;
+    const inicioEspera = Date.now();
     try {
       const { answer } = await preguntarAgenteStream(
         prompt,
@@ -1037,6 +1052,7 @@ export default function AsistenteIA() {
         modoSeleccionado,
         educationTopicParaRequest,
       );
+      await esperarTiempoMinimoFinsi(inicioEspera);
       setMessages((prev) => {
         const siguientes: Message[] = [
           ...prev,

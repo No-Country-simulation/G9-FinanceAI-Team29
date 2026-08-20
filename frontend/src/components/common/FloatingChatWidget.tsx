@@ -30,6 +30,20 @@ const sugerencias = [
 
 const MENSAJE_EXPLICAME_MAS = "Explícame más";
 
+const ESPERA_FINSI_MIN_MS = 7000;
+const ESPERA_FINSI_MAX_MS = 10000;
+
+async function esperarTiempoMinimoFinsi(inicio: number): Promise<void> {
+  const objetivo =
+    ESPERA_FINSI_MIN_MS +
+    Math.floor(Math.random() * (ESPERA_FINSI_MAX_MS - ESPERA_FINSI_MIN_MS + 1));
+  const restante = objetivo - (Date.now() - inicio);
+
+  if (restante > 0) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, restante));
+  }
+}
+
 function normalizarPreguntaParaComparar(texto: string): string {
   return texto.trim().toLowerCase();
 }
@@ -167,8 +181,10 @@ export default function FloatingChatWidget() {
       startTypingSound();
     }
     const previousAnswer = [...messages].reverse().find((m) => m.role === "assistant")?.text;
+    const inicioEspera = Date.now();
     try {
       const { answer } = await preguntarAgente(pregunta, usuarioId, previousAnswer);
+      await esperarTiempoMinimoFinsi(inicioEspera);
       setMessages((prev) => [...prev, { id: prev.length + 1, role: "assistant", text: answer }]);
       setAgentTabStatus("✅ El agente ha respondido", 2000);
       if (sonidoActivo) playReceiveSound();
