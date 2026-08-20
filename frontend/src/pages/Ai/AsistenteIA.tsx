@@ -997,7 +997,7 @@ export default function AsistenteIA() {
     const numeroMensajeUsuario =
       messages.filter((message) => message.role === "user").length + 1;
     const debeMostrarDescanso =
-      numeroMensajeUsuario === 10 && !descansoMostradoRef.current;
+      numeroMensajeUsuario === 30 && !descansoMostradoRef.current;
 
     const esPreguntaRepetida =
       !ignorarRepeticion &&
