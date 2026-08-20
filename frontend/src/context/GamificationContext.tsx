@@ -60,10 +60,15 @@ const PUNTOS_POR_EVENTO: Record<EventoGamificacion, number> = {
 
 const PUNTOS_POR_LOGRO = 25;
 
-// No incluye 'coleccionista_secretos' (categoría 'hito'): completar los especiales
-// es justamente lo que lo desbloquea, así que no puede depender de sí mismo.
+// Los logros finales de cada colección no pueden depender de sí mismos.
+// Coleccionista de secretos cierra la rama de easter eggs; Leyenda de las Finanzas
+// cierra la rama de hitos normales de uso.
 const ESPECIALES_IDS: AchievementId[] = ACHIEVEMENTS_CATALOG
-  .filter((a) => a.categoria === 'especial')
+  .filter((a) => a.categoria === 'especial' && a.id !== 'coleccionista_secretos')
+  .map((a) => a.id);
+
+const HITOS_IDS: AchievementId[] = ACHIEVEMENTS_CATALOG
+  .filter((a) => a.categoria === 'hito' && a.id !== 'leyenda_finanzas')
   .map((a) => a.id);
 
 const LOGRO_DE_HITO: Partial<Record<EventoGamificacion, AchievementId>> = {
@@ -229,12 +234,20 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       }
       if (actual.logrosDesbloqueados.includes(id)) return actual;
       const nuevosLogros = [...actual.logrosDesbloqueados, id];
-      // "Coleccionista de secretos": se otorga solo, sin depender del componente que
-      // llame a desbloquearLogro, en cuanto el nuevo logro completa todos los especiales.
+      // "Coleccionista de secretos": conserva la lógica existente, pero ahora vive
+      // dentro de la colección de especiales y se excluye a sí mismo del requisito.
       const faltaColeccionista = !nuevosLogros.includes('coleccionista_secretos');
       const completoTodosLosEspeciales = ESPECIALES_IDS.every((eid) => nuevosLogros.includes(eid));
       if (id !== 'coleccionista_secretos' && faltaColeccionista && completoTodosLosEspeciales) {
         nuevosLogros.push('coleccionista_secretos');
+      }
+
+      // "Leyenda de las Finanzas": equivalente final para los hitos normales.
+      // Se obtiene únicamente al completar todos los hitos, excluyéndose a sí misma.
+      const faltaLeyenda = !nuevosLogros.includes('leyenda_finanzas');
+      const completoTodosLosHitos = HITOS_IDS.every((hid) => nuevosLogros.includes(hid));
+      if (id !== 'leyenda_finanzas' && faltaLeyenda && completoTodosLosHitos) {
+        nuevosLogros.push('leyenda_finanzas');
       }
       return {
         ...actual,

@@ -45,6 +45,7 @@ export type AchievementId =
   | 'narrador_activado'
   | 'narrador_desactivado'
   | 'coleccionista_secretos'
+  | 'leyenda_finanzas'
   | 'primer_analisis'
   | 'tour_completado'
   | 'exportar_pdf'
@@ -533,8 +534,16 @@ export const ACHIEVEMENTS_CATALOG: AchievementDef[] = [
     titulo: 'Coleccionista de secretos',
     descripcion: 'Desbloqueaste todos los easter eggs escondidos en el chat.',
     emoji: '🏆',
-    categoria: 'hito',
+    categoria: 'especial',
     pista: 'Encontrá todos los logros especiales escondidos en el chat con el asistente.',
+  },
+  {
+    id: 'leyenda_finanzas',
+    titulo: 'Leyenda de las Finanzas',
+    descripcion: 'Completaste todos los hitos de FinSightAI.',
+    emoji: '👑',
+    categoria: 'hito',
+    pista: 'Completá todos los hitos de FinSightAI.',
   },
 ];
 

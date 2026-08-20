@@ -43,6 +43,10 @@ const MENSAJE_CON_QUE_SEGUIMOS = "¿Con qué seguimos?";
 const ESPERA_FINSI_MIN_MS = 7000;
 const ESPERA_FINSI_MAX_MS = 10000;
 
+// Señal global para que las celebraciones fullscreen esperen a que termine
+// cualquier easter egg visual que ya se esté reproduciendo en el chat.
+const EASTER_EGG_PLAYBACK_EVENT = "finsight:easter-egg-playback";
+
 async function esperarTiempoMinimoFinsi(inicio: number): Promise<void> {
   const objetivo =
     ESPERA_FINSI_MIN_MS +
@@ -530,6 +534,25 @@ function EasterEggVisual({
       }
     });
   }, [messageId, isHistory]);
+
+
+  useEffect(() => {
+    if (isHistory || terminado) return;
+
+    window.dispatchEvent(
+      new CustomEvent(EASTER_EGG_PLAYBACK_EVENT, {
+        detail: { messageId, active: true },
+      }),
+    );
+
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent(EASTER_EGG_PLAYBACK_EVENT, {
+          detail: { messageId, active: false },
+        }),
+      );
+    };
+  }, [isHistory, messageId, terminado]);
 
   return (
     <div className={`relative mb-3 overflow-hidden rounded-xl border bg-[#101828] ${border}`}>

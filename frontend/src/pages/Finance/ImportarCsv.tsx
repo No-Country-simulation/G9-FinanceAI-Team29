@@ -5,6 +5,8 @@ import { importarCsv, ImportacionCsvResponse, ModoImportacionCsv, obtenerTransac
 import { useAuth } from '../../context/AuthContext';
 import { useGamification } from '../../context/GamificationContext';
 
+const PROFILE_SPLASH_PLAYBACK_EVENT = "finsight:profile-splash-playback";
+
 type CelebracionPerfil = "riesgo" | "observacion" | "observacion-caida" | "saludable" | null;
 
 function normalizarPerfil(valor: unknown): string {
@@ -343,6 +345,16 @@ export default function ImportarCsv() {
   const [tieneMovimientos, setTieneMovimientos] = useState<boolean | null>(null);
 
   useEffect(() => {
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent(PROFILE_SPLASH_PLAYBACK_EVENT, {
+          detail: { active: false },
+        }),
+      );
+    };
+  }, []);
+
+  useEffect(() => {
     if (!usuarioId) {
       setTieneMovimientos(null);
       return;
@@ -435,19 +447,29 @@ export default function ImportarCsv() {
       setTieneMovimientos(true);
       registrarEvento('csv_importado');
 
-      // Hito persistente: se desbloquea cuando una importación exitosa
-      // (CARGAR, ACTUALIZAR o SOBREESCRIBIR) termina con perfil Saludable.
-      if (normalizarPerfil(data.perfilFinanciero) === 'saludable') {
-        desbloquearLogro('perfil_saludable');
-      }
-
       const celebracion = detectarCelebracionPerfil(
         perfilAnterior,
         data.perfilFinanciero,
       );
 
       if (celebracion) {
+        // La fullscreen del cambio de perfil tiene prioridad visual.
+        // Avisamos al host ANTES de desbloquear el achievement para que
+        // ningún toast ni Champion/Indy pueda aparecer por encima.
+        window.dispatchEvent(
+          new CustomEvent(PROFILE_SPLASH_PLAYBACK_EVENT, {
+            detail: { active: true },
+          }),
+        );
+
         setCelebracionPerfil(celebracion);
+      }
+
+      // Hito persistente: se desbloquea cuando una importación exitosa
+      // (CARGAR, ACTUALIZAR o SOBREESCRIBIR) termina con perfil Saludable.
+      // Si también hay una fullscreen de perfil, el host ya sabe que debe esperar.
+      if (normalizarPerfil(data.perfilFinanciero) === 'saludable') {
+        desbloquearLogro('perfil_saludable');
       }
     } catch (err) {
       const mensaje =
@@ -928,7 +950,15 @@ export default function ImportarCsv() {
       {celebracionPerfil && (
         <CelebracionPerfilFullscreen
           tipo={celebracionPerfil}
-          onFinish={() => setCelebracionPerfil(null)}
+          onFinish={() => {
+            setCelebracionPerfil(null);
+
+            window.dispatchEvent(
+              new CustomEvent(PROFILE_SPLASH_PLAYBACK_EVENT, {
+                detail: { active: false },
+              }),
+            );
+          }}
         />
       )}
     </>
