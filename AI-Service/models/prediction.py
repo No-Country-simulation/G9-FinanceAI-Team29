@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import re
+import unicodedata
 import joblib
 import numpy as np
 import pandas as pd
@@ -9,8 +11,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MODELS_DIR = BASE_DIR / "models"
 
 RUTA_MODELO_GASTOS = MODELS_DIR / "clasificador_gastos.joblib"
+RUTA_MODELO_SUBCATEGORIA = MODELS_DIR / "clasificador_subcategoria.joblib"
 
 modelo_gastos = joblib.load(RUTA_MODELO_GASTOS)
+modelo_subcategoria = joblib.load(RUTA_MODELO_SUBCATEGORIA)
 
 
 # Traduce marcas comerciales y nombres habituales a descripciones genéricas
@@ -62,6 +66,56 @@ def normalizar_descripcion(descripcion: str) -> str:
             return descripcion_generica
 
     return texto
+
+
+def normalizar_texto_subcategoria(texto: str) -> str:
+    """
+    Normalización compatible con el clasificador de subcategorías entrenado
+    en el notebook: minúsculas, sin tildes, sin puntuación y espacios compactados.
+    """
+    texto = str(texto).lower().strip()
+    texto = unicodedata.normalize("NFKD", texto)
+    texto = "".join(
+        caracter
+        for caracter in texto
+        if not unicodedata.combining(caracter)
+    )
+    texto = re.sub(r"[^a-z0-9\s]", " ", texto)
+    texto = re.sub(r"\s+", " ", texto).strip()
+    return texto
+
+
+def predecir_subcategoria(
+    descripcion: str,
+    categoria: str,
+) -> dict:
+    """
+    Segundo nivel jerárquico:
+    descripcion + categoria predicha -> subcategoria.
+    """
+    texto_modelo = (
+        normalizar_texto_subcategoria(categoria)
+        + " __cat__ "
+        + normalizar_texto_subcategoria(descripcion)
+    )
+
+    subcategoria = modelo_subcategoria.predict([texto_modelo])[0]
+
+    confianza_subcategoria = None
+    if hasattr(modelo_subcategoria, "predict_proba"):
+        probabilidades = modelo_subcategoria.predict_proba([texto_modelo])[0]
+        clases = list(modelo_subcategoria.classes_)
+        indice = clases.index(subcategoria)
+        confianza_subcategoria = float(probabilidades[indice])
+
+    return {
+        "subcategoria_predicha": str(subcategoria),
+        "confianza_subcategoria": (
+            round(confianza_subcategoria, 4)
+            if confianza_subcategoria is not None
+            else None
+        ),
+    }
 
 
 def preparar_transaccion(
@@ -159,8 +213,15 @@ def predecir_categoria(
         probabilidades[indice]
     )
 
+    resultado_subcategoria = predecir_subcategoria(
+        descripcion=descripcion,
+        categoria=str(categoria),
+    )
+
     return {
         "categoria_predicha": str(categoria),
+        "subcategoria_predicha": resultado_subcategoria["subcategoria_predicha"],
+        "confianza_subcategoria": resultado_subcategoria["confianza_subcategoria"],
         "confianza": round(
             confianza,
             4,
@@ -170,5 +231,5 @@ def predecir_categoria(
             monto=monto,
             confianza=confianza,
         ),
-        "modelo_version": "7.1.0",
+        "modelo_version": "10.0.0",
     }

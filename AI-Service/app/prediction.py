@@ -18,8 +18,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MODELS_DIR = BASE_DIR / "models"
 
 RUTA_MODELO_GASTOS = MODELS_DIR / "clasificador_gastos.joblib"
+RUTA_MODELO_SUBCATEGORIA = MODELS_DIR / "clasificador_subcategoria.joblib"
 
-MODELO_VERSION = "8.1.0"
+MODELO_VERSION = "10.0.0"
 
 UMBRAL_FUZZY_FUERTE = 0.90
 UMBRAL_FUZZY_CORTO = 0.94
@@ -27,6 +28,7 @@ UMBRAL_CONFIANZA_BAJA = 0.45
 UMBRAL_CONFIANZA_MEDIA = 0.65
 
 modelo_gastos = joblib.load(RUTA_MODELO_GASTOS)
+modelo_subcategoria = joblib.load(RUTA_MODELO_SUBCATEGORIA)
 
 
 # ============================================================
@@ -803,6 +805,31 @@ REGLAS_TERMINOS: dict[str, dict[str, str]] = {
         "categoria": "Servicios",
         "subcategoria": "Internet",
     },
+    "servicio de fibra": {
+        "descripcion": "internet",
+        "categoria": "Servicios",
+        "subcategoria": "Internet",
+    },
+    "internet hogar": {
+        "descripcion": "internet",
+        "categoria": "Servicios",
+        "subcategoria": "Internet",
+    },
+    "internet del hogar": {
+        "descripcion": "internet",
+        "categoria": "Servicios",
+        "subcategoria": "Internet",
+    },
+    "wifi": {
+        "descripcion": "internet",
+        "categoria": "Servicios",
+        "subcategoria": "Internet",
+    },
+    "fibra": {
+        "descripcion": "internet",
+        "categoria": "Servicios",
+        "subcategoria": "Internet",
+    },
     "banda ancha": {
         "descripcion": "internet",
         "categoria": "Servicios",
@@ -1323,15 +1350,72 @@ def _confianza_fuzzy(
 # Subcategoría para resultados ML
 # ============================================================
 
+def _normalizar_texto_subcategoria(texto: str) -> str:
+    """
+    Normalización compatible con clasificador_subcategoria.joblib.
+    """
+    resultado = quitar_tildes(str(texto).lower().strip())
+    resultado = re.sub(r"[^a-z0-9\s]", " ", resultado)
+    resultado = re.sub(r"\s+", " ", resultado).strip()
+    return resultado
+
+
+def _predecir_subcategoria_ml(
+    descripcion: str,
+    categoria: str,
+) -> tuple[str, float | None]:
+    """
+    Segundo nivel jerárquico:
+    descripcion + categoria predicha -> subcategoria.
+    """
+    texto_modelo = (
+        _normalizar_texto_subcategoria(categoria)
+        + " __cat__ "
+        + _normalizar_texto_subcategoria(descripcion)
+    )
+
+    subcategoria = str(
+        modelo_subcategoria.predict([texto_modelo])[0]
+    )
+
+    confianza_subcategoria: float | None = None
+
+    if hasattr(modelo_subcategoria, "predict_proba"):
+        probabilidades = modelo_subcategoria.predict_proba(
+            [texto_modelo]
+        )[0]
+
+        clases = [
+            str(clase)
+            for clase in modelo_subcategoria.classes_
+        ]
+
+        try:
+            indice = clases.index(subcategoria)
+            confianza_subcategoria = float(
+                probabilidades[indice]
+            )
+        except (ValueError, IndexError):
+            confianza_subcategoria = float(
+                np.max(probabilidades)
+            )
+
+    return subcategoria, confianza_subcategoria
+
+
+
 def inferir_subcategoria(
     descripcion: str,
     categoria: str,
-) -> str:
+) -> tuple[str, float | None, str]:
     """
-    Intenta extraer una subcategoría incluso cuando la categoría
-    principal provino del modelo ML.
+    Intenta resolver la subcategoría sin modificar la categoría principal.
 
-    Nunca cambia la categoría principal.
+    Prioridad:
+    1. regla exacta compatible con la categoría;
+    2. fuzzy compatible con la categoría;
+    3. clasificador_subcategoria.joblib como fallback ML;
+    4. subcategoría genérica solo si el modelo falla.
     """
     texto = normalizar_texto(descripcion)
 
@@ -1341,8 +1425,10 @@ def inferir_subcategoria(
         exacta is not None
         and exacta["categoria"] == categoria
     ):
-        return str(
-            exacta["subcategoria"]
+        return (
+            str(exacta["subcategoria"]),
+            0.99,
+            "regla_exacta",
         )
 
     fuzzy = detectar_regla_fuzzy(texto)
@@ -1351,14 +1437,34 @@ def inferir_subcategoria(
         fuzzy is not None
         and fuzzy["categoria"] == categoria
     ):
-        return str(
-            fuzzy["subcategoria"]
+        return (
+            str(fuzzy["subcategoria"]),
+            _confianza_fuzzy(float(fuzzy["similitud"])),
+            "fuzzy",
         )
 
-    return SUBCATEGORIA_DEFAULT.get(
-        categoria,
-        "Otros",
-    )
+    try:
+        subcategoria_ml, confianza_subcategoria = (
+            _predecir_subcategoria_ml(
+                descripcion=descripcion,
+                categoria=categoria,
+            )
+        )
+
+        return (
+            subcategoria_ml,
+            confianza_subcategoria,
+            "ml_subcategoria",
+        )
+    except Exception:
+        return (
+            SUBCATEGORIA_DEFAULT.get(
+                categoria,
+                "Otros",
+            ),
+            None,
+            "default",
+        )
 
 
 # ============================================================
@@ -1458,7 +1564,9 @@ def predecir_categoria(
         )
 
         confianza = 0.99
+        confianza_subcategoria = 0.99
         metodo = "regla_exacta"
+        metodo_subcategoria = "regla_exacta"
 
     else:
         # ----------------------------------------------------
@@ -1483,7 +1591,9 @@ def predecir_categoria(
                 )
             )
 
+            confianza_subcategoria = confianza
             metodo = "fuzzy"
+            metodo_subcategoria = "fuzzy"
 
         else:
             # ------------------------------------------------
@@ -1502,7 +1612,11 @@ def predecir_categoria(
                 entrada
             )
 
-            subcategoria = inferir_subcategoria(
+            (
+                subcategoria,
+                confianza_subcategoria,
+                metodo_subcategoria,
+            ) = inferir_subcategoria(
                 descripcion,
                 categoria,
             )
@@ -1531,7 +1645,13 @@ def predecir_categoria(
 
         # Campos nuevos, no destructivos
         "subcategoria_predicha": subcategoria,
+        "confianza_subcategoria": (
+            round(float(confianza_subcategoria), 4)
+            if confianza_subcategoria is not None
+            else None
+        ),
         "metodo_clasificacion": metodo,
+        "metodo_subcategoria": metodo_subcategoria,
     }
 
 

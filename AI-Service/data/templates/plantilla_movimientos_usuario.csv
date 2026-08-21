@@ -1,4 +1,7 @@
-fecha,descripcion,monto,tipo,categoria,medio_pago,recurrente
-2026-07-01,Sueldo mensual,3000.00,INGRESO,Salario,Transferencia,Si
-2026-07-03,Supermercado,180.50,GASTO,Alimentacion,Tarjeta de debito,No
-2026-07-10,Cuota prestamo,250.00,GASTO,Prestamos,Debito automatico,Si
+﻿fecha,descripcion,monto,tipo,medio_pago,recurrente
+2026-08-01,Sueldo mensual,3200.00,INGRESO,Transferencia bancaria,Sí
+2026-08-02,Compra en supermercado,120.50,GASTO,Tarjeta de débito,No
+2026-08-03,Pago de internet del hogar,55.00,GASTO,Débito automático,Sí
+2026-08-05,Viaje en aplicación de transporte,18.20,GASTO,Tarjeta de crédito,No
+2026-08-07,Pago de alquiler,850.00,GASTO,Transferencia bancaria,Sí
+2026-08-10,Consulta médica,45.00,GASTO,Tarjeta de débito,No

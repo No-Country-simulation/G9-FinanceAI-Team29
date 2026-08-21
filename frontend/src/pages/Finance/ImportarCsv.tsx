@@ -798,17 +798,36 @@ export default function ImportarCsv() {
           </div>
 
           <div className="mt-5 rounded-lg bg-gray-50 p-4 text-sm text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
-            <p className="font-semibold">Columnas requeridas</p>
-
-            <p className="mt-1 break-words font-mono text-xs">
-              fecha, descripcion, monto, tipo, categoria, medio_pago,
-              recurrente
+            <p className="font-semibold text-gray-800 dark:text-white/90">
+              ¿Cómo completar la plantilla?
             </p>
+
+            <p className="mt-2 leading-5">
+              Agregá la fecha, una descripción del movimiento, el monto, si fue un
+              ingreso o un gasto, el medio de pago y si es recurrente.
+            </p>
+
+            <p className="mt-2 leading-5">
+              <strong>
+                FinSightAI detectará automáticamente la categoría y subcategoría de tus
+                gastos.
+              </strong>
+            </p>
+
+            <div className="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
+              <p className="font-semibold text-gray-800 dark:text-white/90">
+                Columnas requeridas
+              </p>
+
+              <p className="mt-1 break-words font-mono text-xs">
+                fecha, descripcion, monto, tipo, medio_pago, recurrente
+              </p>
+            </div>
 
             <a
               href="/plantilla_movimientos_usuario.csv"
               download
-              className="mt-3 inline-block font-medium text-brand-500 hover:text-brand-600"
+              className="mt-4 inline-block font-medium text-brand-500 hover:text-brand-600"
             >
               Descargar plantilla de ejemplo
             </a>

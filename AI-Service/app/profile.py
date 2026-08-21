@@ -533,7 +533,7 @@ def construir_respuesta_analisis(
         "recomendaciones": generar_recomendaciones(
             fila_metricas, categorias_principales, str(perfil_predicho)
         ),
-        "modelo_version": "7.1.0",
+        "modelo_version": "10.0.0",
     }
 
 

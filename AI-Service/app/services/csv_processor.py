@@ -17,7 +17,6 @@ REQUIRED_COLUMNS = {
     "descripcion",
     "monto",
     "tipo",
-    "categoria",
     "medio_pago",
     "recurrente",
 }
@@ -228,16 +227,11 @@ def process_user_csv(content: bytes, usuario_id: str) -> ProcessedCSV:
         row_number = int(index) + 2
         try:
             description = _normalize_text(row["descripcion"])
-            csv_category = _normalize_text(row["categoria"])
             payment_method = _normalize_text(row["medio_pago"])
 
             if not description:
                 raise CSVValidationError(
                     [f"Fila {row_number}: falta la descripción."]
-                )
-            if not csv_category:
-                raise CSVValidationError(
-                    [f"Fila {row_number}: falta la categoría."]
                 )
             if not payment_method:
                 raise CSVValidationError(
@@ -249,7 +243,7 @@ def process_user_csv(content: bytes, usuario_id: str) -> ProcessedCSV:
             transaction_type = _normalize_type(row["tipo"], row_number)
             recurring = _parse_boolean(row["recurrente"], row_number)
 
-            category = csv_category
+            category: str | None = None
             subcategory: str | None = None
 
             if transaction_type == "GASTO":
@@ -267,15 +261,38 @@ def process_user_csv(content: bytes, usuario_id: str) -> ProcessedCSV:
                         "subcategoria_predicha"
                     )
 
-                    if predicted_category:
-                        category = str(predicted_category)
+                    if not predicted_category:
+                        raise CSVValidationError(
+                            [
+                                f"Fila {row_number}: FinSightAI no pudo determinar "
+                                "la categoría de la transacción."
+                            ]
+                        )
+
+                    category = str(predicted_category)
 
                     if predicted_subcategory:
                         subcategory = str(predicted_subcategory)
 
-                except Exception:
-                    category = csv_category
-                    subcategory = None
+                except CSVValidationError:
+                    raise
+                except Exception as error:
+                    raise CSVValidationError(
+                        [
+                            f"Fila {row_number}: no se pudo clasificar "
+                            f"automáticamente la transacción: {error}"
+                        ]
+                    ) from error
+
+            else:
+                # Los ingresos no pasan por el clasificador de gastos.
+                # Se conserva una categoría compatible con el análisis actual.
+                category = "Ingresos"
+
+            if not category:
+                raise CSVValidationError(
+                    [f"Fila {row_number}: no se pudo determinar la categoría."]
+                )
 
             transactions.append(
                 {
