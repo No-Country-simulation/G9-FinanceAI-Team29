@@ -630,26 +630,6 @@ class FinSightAgentService:
                 response.metadata["route"] = "full_analysis_follow_up_priority"
                 return response
 
-            # Si no era una respuesta financiera estructurada, intentamos ampliar
-            # directamente una definición educativa reconocible por su contenido.
-            # La prioridad del resumen financiero de arriba evita que una mención
-            # incidental a estos conceptos dentro de un análisis personal secuestre
-            # el follow-up.
-            local_education_follow_up = self._local_financial_education_response(
-                query.corrected,
-                previous_answer=previous_answer,
-            )
-
-            if local_education_follow_up is not None:
-                response = self._internal_response(
-                    local_education_follow_up,
-                    Intent.FINANCIAL_EDUCATION,
-                    query,
-                    used_financial_context=False,
-                )
-                response.metadata["route"] = "financial_education_follow_up_local"
-                return response
-
             # Follow-up determinístico para la fecha actual. Evita que "Explícame más"
             # después de "¿Qué día es hoy?" caiga en el resumen financiero genérico.
             normalized_previous_date = QueryNormalizer.normalize(previous_answer).strip()
@@ -674,21 +654,90 @@ class FinSightAgentService:
                 response.metadata["route"] = "local_date_follow_up_deterministic"
                 return response
 
-            # Follow-up local para recomendaciones y presupuesto.
-            # Evita que "Explícame más" vuelva a depender de Groq/OpenRouter.
+            # IMPORTANTE: recomendaciones/presupuesto se resuelven ANTES que educación
+            # financiera. Las preguntas rápidas pueden producir redacciones variables
+            # ("Revisa el detalle...", "Analiza...", "Prioriza...", etc.) que mencionan
+            # déficit de forma incidental. Esa palabra no debe secuestrar "Explícame más".
             normalized_previous_advice = QueryNormalizer.normalize(previous_answer)
+
             advice_follow_up_markers = (
                 "revisar el gasto de mayor peso",
                 "deberias revisar principalmente",
                 "revisa con mayor detalle las tres categorias",
+                "revisa el detalle de las tres categorias con mayor peso",
+                "revisa el detalle de las tres categorias",
+                "tres categorias con mayor peso",
                 "para mejorar tu capacidad de ahorro",
                 "para reducir tus gastos",
                 "tus prioridades actuales pueden ordenarse",
                 "para ordenar mejor tus deudas",
                 "base para tu presupuesto mensual",
                 "empieza controlando",
+                "cuenta de ahorro separada",
+                "crear el habito de transferir",
+                "destinalo a una cuenta de ahorro",
+                "opciones de ajuste que reduzcan el gasto mensual",
+                "buscar la orientacion de un asesor financiero",
             )
-            if any(marker in normalized_previous_advice for marker in advice_follow_up_markers):
+
+            advice_action_markers = (
+                "revisa",
+                "revisar",
+                "analiza",
+                "analizar",
+                "prioriza",
+                "priorizar",
+                "considera",
+                "considerar",
+                "destina",
+                "destinar",
+                "reduce",
+                "reducir",
+                "ajusta",
+                "ajustar",
+                "ordena",
+                "ordenar",
+                "controla",
+                "controlar",
+                "compara",
+                "comparar",
+            )
+            advice_financial_markers = (
+                "gasto",
+                "gastos",
+                "categoria",
+                "categorias",
+                "ahorro",
+                "ahorrar",
+                "deuda",
+                "deudas",
+                "ingreso",
+                "ingresos",
+                "presupuesto",
+                "margen",
+            )
+
+            advice_action_count = sum(
+                1 for marker in advice_action_markers
+                if marker in normalized_previous_advice
+            )
+            advice_financial_count = sum(
+                1 for marker in advice_financial_markers
+                if marker in normalized_previous_advice
+            )
+
+            looks_like_financial_advice = (
+                any(
+                    marker in normalized_previous_advice
+                    for marker in advice_follow_up_markers
+                )
+                or (
+                    advice_action_count >= 2
+                    and advice_financial_count >= 2
+                )
+            )
+
+            if looks_like_financial_advice:
                 analysis = self._get_analysis(usuario_id)
                 metrics = analysis.get("metricas") if isinstance(analysis, dict) else {}
                 metrics = metrics if isinstance(metrics, dict) else {}
@@ -764,11 +813,19 @@ class FinSightAgentService:
                     parts.append(sentence + ".")
 
                 if ahorro is not None:
-                    parts.append(
-                        f"El margen mensual estimado es **{self._format_money(Decimal(str(ahorro)))}**. "
-                        "Cualquier ajuste sostenible del gasto aumenta ese margen, siempre que los ingresos "
-                        "y las demás obligaciones se mantengan."
-                    )
+                    ahorro_d = Decimal(str(ahorro))
+                    if ahorro_d < 0:
+                        parts.append(
+                            f"Antes de aumentar el ahorro, primero necesitas recuperar un margen mensual positivo: "
+                            f"el balance estimado actual es **{self._format_money(ahorro_d)}**. "
+                            "Cada reducción sostenible del gasto mejora directamente ese margen."
+                        )
+                    else:
+                        parts.append(
+                            f"El margen mensual estimado es **{self._format_money(ahorro_d)}**. "
+                            "Cualquier ajuste sostenible del gasto aumenta ese margen, siempre que los ingresos "
+                            "y las demás obligaciones se mantengan."
+                        )
 
                 debt_topic_markers = (
                     "ordenar mejor tus deudas",
@@ -795,8 +852,8 @@ class FinSightAgentService:
                     )
                 else:
                     parts.append(
-                        "La prioridad es actuar primero sobre los rubros de mayor peso y medir el efecto de cada cambio "
-                        "antes de asumir nuevos objetivos o compromisos."
+                        "Para ahorrar más, la prioridad es actuar primero sobre los rubros de mayor peso, "
+                        "medir cuánto margen libera cada ajuste y recién después separar ese excedente para ahorro."
                     )
 
                 content = "\n\n".join(parts)
@@ -807,6 +864,25 @@ class FinSightAgentService:
                     used_financial_context=True,
                 )
                 response.metadata["route"] = "recommendations_follow_up_local"
+                return response
+
+            # Solo si la respuesta anterior NO parece una recomendación financiera
+            # intentamos ampliar una definición educativa reconocible por su contenido.
+            # Así "déficit" puede aparecer dentro de consejos, perfil o presupuesto sin
+            # convertirse automáticamente en el tema principal del follow-up.
+            local_education_follow_up = self._local_financial_education_response(
+                query.corrected,
+                previous_answer=previous_answer,
+            )
+
+            if local_education_follow_up is not None:
+                response = self._internal_response(
+                    local_education_follow_up,
+                    Intent.FINANCIAL_EDUCATION,
+                    query,
+                    used_financial_context=False,
+                )
+                response.metadata["route"] = "financial_education_follow_up_local"
                 return response
 
             # Follow-up determinístico para RESUMEN DEL ÚLTIMO MES.
@@ -1126,10 +1202,11 @@ class FinSightAgentService:
             # después de una definición de déficit.
             normalized_previous_education = QueryNormalizer.normalize(previous_answer)
             deficit_follow_up_markers = (
+                # Solo firmas inequívocas de una definición educativa de déficit.
+                # "saldo negativo" o "equilibrar el presupuesto" pueden aparecer
+                # incidentalmente en recomendaciones y no deben secuestrar el follow-up.
                 "el deficit es la situacion",
                 "un deficit ocurre",
-                "saldo negativo",
-                "equilibrar el presupuesto",
             )
             if (
                 "deficit" in normalized_previous_education
