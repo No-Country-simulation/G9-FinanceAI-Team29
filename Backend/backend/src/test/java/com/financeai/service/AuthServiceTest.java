@@ -1,8 +1,10 @@
 package com.financeai.service;
 
+import com.financeai.exception.EmailNoConfirmadoException;
 import com.financeai.model.EstadoUsuario;
 import com.financeai.model.PasswordResetToken;
 import com.financeai.model.Usuario;
+import com.financeai.repository.EmailConfirmationTokenRepository;
 import com.financeai.repository.PasswordResetTokenRepository;
 import com.financeai.repository.UsuarioRepository;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -31,11 +33,12 @@ class AuthServiceTest {
 
     private final UsuarioRepository repo = mock(UsuarioRepository.class);
     private final PasswordResetTokenRepository resetRepo = mock(PasswordResetTokenRepository.class);
+    private final EmailConfirmationTokenRepository confirmRepo = mock(EmailConfirmationTokenRepository.class);
     private final EmailService email = mock(EmailService.class);
     private final PasswordEncoder encoder = new BCryptPasswordEncoder();
     private final JwtService jwt = new JwtService(3600);
     private final AuthService auth =
-            new AuthService(repo, encoder, jwt, resetRepo, email, "http://localhost");
+            new AuthService(repo, encoder, jwt, resetRepo, confirmRepo, email, "http://localhost");
 
     @Test
     void registrar_hashea_la_password_y_arma_el_id() {
@@ -92,6 +95,18 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> auth.login("nadie@x.com", "secret123"))
                 .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void login_email_sin_confirmar_falla() {
+        Usuario u = new Usuario();
+        u.setPasswordHash(encoder.encode("secret123"));
+        u.setEstado(EstadoUsuario.ACTIVO);
+        u.setEmailConfirmado(false);
+        given(repo.findByEmailIgnoreCase("ana@x.com")).willReturn(Optional.of(u));
+
+        assertThatThrownBy(() -> auth.login("ana@x.com", "secret123"))
+                .isInstanceOf(EmailNoConfirmadoException.class);
     }
 
     @Test

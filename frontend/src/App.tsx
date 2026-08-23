@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import ResetPassword from "./pages/AuthPages/ResetPassword";
+import ConfirmarCuenta from "./pages/AuthPages/ConfirmarCuenta";
 import EmailPreview from "./pages/Dev/EmailPreview";
 import MermaidPreview from "./pages/Dev/MermaidPreview";
 import NotFound from "./pages/OtherPage/NotFound";
@@ -69,6 +70,7 @@ export default function App() {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/confirmar" element={<ConfirmarCuenta />} />
 
           {/* Ruta oculta sin enlace en el menú: preview de correos de Supabase */}
           <Route path="/dev/email-preview" element={<EmailPreview />} />

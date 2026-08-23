@@ -1,8 +1,11 @@
 package com.financeai.service;
 
+import com.financeai.exception.EmailNoConfirmadoException;
+import com.financeai.model.EmailConfirmationToken;
 import com.financeai.model.EstadoUsuario;
 import com.financeai.model.PasswordResetToken;
 import com.financeai.model.Usuario;
+import com.financeai.repository.EmailConfirmationTokenRepository;
 import com.financeai.repository.PasswordResetTokenRepository;
 import com.financeai.repository.UsuarioRepository;
 import org.slf4j.Logger;
@@ -35,11 +38,13 @@ public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final long RESET_TTL_HORAS = 1;
+    private static final long CONFIRM_TTL_HORAS = 24;
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final PasswordResetTokenRepository resetTokenRepository;
+    private final EmailConfirmationTokenRepository confirmTokenRepository;
     private final EmailService emailService;
     private final String siteUrl;
 
@@ -47,12 +52,14 @@ public class AuthService {
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        PasswordResetTokenRepository resetTokenRepository,
+                       EmailConfirmationTokenRepository confirmTokenRepository,
                        EmailService emailService,
                        @Value("${app.site-url:http://localhost}") String siteUrl) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.resetTokenRepository = resetTokenRepository;
+        this.confirmTokenRepository = confirmTokenRepository;
         this.emailService = emailService;
         this.siteUrl = siteUrl.replaceAll("/+$", "");
     }
@@ -71,8 +78,11 @@ public class AuthService {
         usuario.setApellido(apellido.trim());
         usuario.setPasswordHash(passwordEncoder.encode(password));
         usuario.setEstado(EstadoUsuario.ACTIVO);
+        usuario.setEmailConfirmado(false);
 
-        return usuarioRepository.save(usuario);
+        Usuario guardado = usuarioRepository.save(usuario);
+        enviarEmailConfirmacion(guardado);
+        return guardado;
     }
 
     /** Verifica credenciales y devuelve el JWT propio. Mensaje genérico para no filtrar info. */
@@ -88,6 +98,10 @@ public class AuthService {
         }
         if (usuario.getEstado() == EstadoUsuario.ELIMINADO) {
             throw new BadCredentialsException("Esta cuenta fue dada de baja.");
+        }
+        if (!usuario.estaEmailConfirmado()) {
+            throw new EmailNoConfirmadoException(
+                    "Confirmá tu correo para poder ingresar. Revisá tu casilla (y el spam).");
         }
 
         return jwtService.generarToken(usuario.getId(), usuario.getEmail());
@@ -160,6 +174,57 @@ public class AuthService {
 
         token.setUsado(true);
         resetTokenRepository.save(token);
+    }
+
+    /** Genera el token de confirmación y manda el email. Lo usan el registro y el reenvío. */
+    private void enviarEmailConfirmacion(Usuario usuario) {
+        String tokenPlano = generarTokenSeguro();
+
+        EmailConfirmationToken token = new EmailConfirmationToken();
+        token.setUsuario(usuario);
+        token.setTokenHash(sha256(tokenPlano));
+        token.setExpiraAt(LocalDateTime.now().plusHours(CONFIRM_TTL_HORAS));
+        confirmTokenRepository.save(token);
+
+        String confirmUrl = siteUrl + "/confirmar?token=" + tokenPlano;
+        log.info("[confirm] Enlace de confirmación para {}: {}", usuario.getEmail(), confirmUrl);
+        emailService.enviarConfirmacion(usuario.getEmail(), usuario.getNombre(), confirmUrl);
+    }
+
+    /** Valida el token de confirmación (existe, no usado, no vencido) y confirma el email. */
+    @Transactional
+    public void confirmarEmail(String tokenPlano) {
+        EmailConfirmationToken token = confirmTokenRepository.findByTokenHash(sha256(tokenPlano))
+                .orElseThrow(() -> new IllegalArgumentException("El enlace de confirmación no es válido."));
+
+        if (token.isUsado()) {
+            throw new IllegalArgumentException("Este enlace ya fue utilizado. Probá iniciar sesión.");
+        }
+        if (token.getExpiraAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("El enlace de confirmación expiró. Pedí uno nuevo.");
+        }
+
+        Usuario usuario = token.getUsuario();
+        usuario.setEmailConfirmado(true);
+        usuarioRepository.save(usuario);
+
+        token.setUsado(true);
+        confirmTokenRepository.save(token);
+    }
+
+    /** Reenvía la confirmación. Silencioso si el email no existe, está eliminado o ya confirmado. */
+    @Transactional
+    public void reenviarConfirmacion(String email) {
+        String emailNorm = email.trim().toLowerCase();
+        var maybe = usuarioRepository.findByEmailIgnoreCase(emailNorm);
+        if (maybe.isEmpty()) {
+            return;
+        }
+        Usuario usuario = maybe.get();
+        if (usuario.getEstado() == EstadoUsuario.ELIMINADO || usuario.estaEmailConfirmado()) {
+            return;
+        }
+        enviarEmailConfirmacion(usuario);
     }
 
     /** Token aleatorio de 256 bits en base64url (el que viaja en el email). */

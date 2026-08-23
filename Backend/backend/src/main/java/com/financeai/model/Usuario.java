@@ -75,6 +75,10 @@ public class Usuario {
     @Column(name = "fecha_eliminacion")
     private LocalDateTime fechaEliminacion;
 
+    // NULL = confirmado (cuentas previas). Los registros nuevos arrancan en false.
+    @Column(name = "email_confirmado")
+    private Boolean emailConfirmado;
+
     // updatedAt: se actualiza en cada modificación (ver normalizarEstado()).
     @Column(name = "fecha_actualizacion")
     private LocalDateTime fechaActualizacion;
@@ -100,6 +104,18 @@ public class Usuario {
         this.activo = true;
         this.estado = EstadoUsuario.ACTIVO;
         this.ultimaActividad = LocalDateTime.now();
+    }
+
+    public boolean estaEmailConfirmado() {
+        return !Boolean.FALSE.equals(emailConfirmado);
+    }
+
+    public Boolean getEmailConfirmado() {
+        return emailConfirmado;
+    }
+
+    public void setEmailConfirmado(Boolean emailConfirmado) {
+        this.emailConfirmado = emailConfirmado;
     }
 
     public String getId() {
