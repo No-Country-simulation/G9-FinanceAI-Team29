@@ -96,6 +96,22 @@ export default function SignInForm() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[Login] Error de autenticación:", msg, err);
+
+      // Cuenta sin confirmar: ofrecemos reenviar el correo.
+      if (/email_no_confirmado/i.test(msg)) {
+        const r = await Swal.fire({
+          icon: "info",
+          title: "Confirmá tu correo",
+          text: "Tenés que confirmar tu cuenta antes de ingresar. Revisá tu casilla (y el spam).",
+          showCancelButton: true,
+          confirmButtonText: "Reenviar correo",
+          cancelButtonText: "Cerrar",
+          confirmButtonColor: "#465fff",
+        });
+        if (r.isConfirmed) await reenviarConfirmacion(email.trim());
+        return;
+      }
+
       let titulo = "Inicio de sesión fallido";
       let texto = msg;
       if (/servidor_iniciando/i.test(msg)) {
@@ -107,6 +123,22 @@ export default function SignInForm() {
       await mostrarError(titulo, texto);
     } finally {
       setEnviando(false);
+    }
+  };
+
+  const reenviarConfirmacion = async (correo: string) => {
+    try {
+      await fetch(`${API_BASE}/auth/v2/resend-confirmation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: correo.trim().toLowerCase() }),
+      });
+      await mostrarExito(
+        "Correo reenviado",
+        "Si tu cuenta está pendiente de confirmación, te reenviamos el enlace. Revisá tu casilla (y el spam)."
+      );
+    } catch {
+      await mostrarError("No se pudo reenviar", "Ocurrió un error de red. Intenta nuevamente.");
     }
   };
 

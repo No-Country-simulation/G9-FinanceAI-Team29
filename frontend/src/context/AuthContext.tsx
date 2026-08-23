@@ -165,6 +165,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('SERVIDOR_INICIANDO');
       }
       const data = await response.json().catch(() => ({}));
+      // La cuenta existe pero falta confirmar el email (403).
+      if (data.code === 'EMAIL_NO_CONFIRMADO') {
+        throw new Error('EMAIL_NO_CONFIRMADO');
+      }
       if (data.mensaje) {
         throw new Error(data.mensaje);
       }

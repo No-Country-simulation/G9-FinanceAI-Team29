@@ -47,6 +47,12 @@ public class EmailService {
         enviar(to, "Restablecé tu contraseña de FinSightAI", htmlReset(saludo, resetUrl));
     }
 
+    /** Envía el correo de confirmación de cuenta (al registrarse) con el enlace al frontend. */
+    public void enviarConfirmacion(String to, String nombre, String confirmUrl) {
+        String saludo = (nombre != null && !nombre.isBlank()) ? nombre.trim() : "Hola";
+        enviar(to, "Confirmá tu cuenta de FinSightAI", htmlConfirmacion(saludo, confirmUrl));
+    }
+
     /** Envía el recordatorio de eventos/metas próximos (lista de "titulo — fecha"). */
     public void enviarRecordatorio(String to, String nombre, List<String> items, int diasAnticipacion) {
         String saludo = (nombre != null && !nombre.isBlank()) ? nombre.trim() : to;
@@ -119,5 +125,23 @@ public class EmailService {
               <p style="font-size:12px;line-height:1.6;color:#6b7280;margin:0">El enlace vence en 1 hora. Si el botón no funciona, copiá y pegá esta dirección:<br><span style="color:#465fff;word-break:break-all">%s</span></p>
             </div>
             """.formatted(logo, saludo, resetUrl, resetUrl);
+    }
+
+    private String htmlConfirmacion(String saludo, String confirmUrl) {
+        String logo = (logoUrl == null || logoUrl.isBlank())
+                ? ""
+                : "<img src=\"" + logoUrl + "\" alt=\"FinSightAI\" height=\"48\" style=\"margin-bottom:16px\"/>";
+        return """
+            <div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1f2937">
+              %s
+              <h1 style="font-size:20px;margin:0 0 12px">Confirmá tu cuenta</h1>
+              <p style="font-size:14px;line-height:1.6;margin:0 0 16px">Hola %s, ¡gracias por registrarte en FinSightAI! Para activar tu cuenta y poder ingresar, confirmá tu correo haciendo clic en el botón:</p>
+              <p style="margin:24px 0">
+                <a href="%s" style="background:#465fff;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:600;display:inline-block">Confirmar mi cuenta</a>
+              </p>
+              <p style="font-size:12px;line-height:1.6;color:#6b7280;margin:0 0 8px">Si no creaste esta cuenta, podés ignorar este correo.</p>
+              <p style="font-size:12px;line-height:1.6;color:#6b7280;margin:0">El enlace vence en 24 horas. Si el botón no funciona, copiá y pegá esta dirección:<br><span style="color:#465fff;word-break:break-all">%s</span></p>
+            </div>
+            """.formatted(logo, saludo, confirmUrl, confirmUrl);
     }
 }

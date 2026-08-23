@@ -89,7 +89,7 @@ export default function SignUpForm() {
 
       await mostrarExito(
         "¡Cuenta creada!",
-        "Tu cuenta se creó correctamente. Ya podés iniciar sesión.",
+        "Te enviamos un correo para confirmar tu cuenta. Revisá tu casilla (y el spam) y hacé clic en el enlace antes de iniciar sesión.",
       );
       navigate("/signin");
     } catch (err) {
