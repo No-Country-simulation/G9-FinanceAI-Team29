@@ -11,6 +11,7 @@ import { useAuth } from "../../context/AuthContext";
 import { obtenerPerfilCompleto } from "../../services/api";
 import AuthLegalFooter from "./AuthLegalFooter";
 import AuthBrandWithMascot from "./AuthBrandWithMascot";
+import RiveButton from "./RiveButton";
 
 const ESPERA_USUARIO_MS = 6000;
 const INTERVALO_POLL_MS = 100;
@@ -258,6 +259,9 @@ export default function SignInForm() {
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
+                </div>
+                <div>
+                  <RiveButton type="submit" />
                 </div>
                 <div>
                   <Button type="submit" className="w-full" size="sm" disabled={enviando}>
