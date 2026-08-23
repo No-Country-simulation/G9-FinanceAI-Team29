@@ -29,7 +29,6 @@ tmp/
 .agents
 .env
 *.bat
-*.md
 
 # Excepciones: scripts y guía para que el equipo pueda levantar el proyecto
 !levantar.bat
