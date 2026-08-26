@@ -9,6 +9,7 @@ export default function AuthLegalFooter() {
       <p>
         &copy; {new Date().getFullYear()} - <TeamCredit />
       </p>
+
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
         <Link
           to="/terminos"
@@ -17,13 +18,25 @@ export default function AuthLegalFooter() {
         >
           Términos y Condiciones
         </Link>
+
         <span aria-hidden="true">&middot;</span>
+
         <Link
           to="/privacidad"
           state={{ from: location.pathname }}
           className="whitespace-nowrap hover:text-gray-700 dark:hover:text-gray-300"
         >
           Política de Privacidad
+        </Link>
+
+        <span aria-hidden="true">&middot;</span>
+
+        <Link
+          to="/mision-vision"
+          state={{ from: location.pathname }}
+          className="whitespace-nowrap hover:text-gray-700 dark:hover:text-gray-300"
+        >
+          Misión y Visión
         </Link>
       </div>
     </div>

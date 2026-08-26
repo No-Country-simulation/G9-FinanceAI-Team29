@@ -22,6 +22,7 @@ import Juegos from "./pages/Gamificacion/Juegos";
 import ImportarCsv from "./pages/Finance/ImportarCsv";
 import Terminos from "./pages/Legal/Terminos";
 import PoliticaPrivacidad from "./pages/Legal/PoliticaPrivacidad";
+import MisionVision from "./pages/Legal/MisionVision";
 import { AuthProvider } from "./context/AuthContext";
 import { PerfilDataProvider } from "./context/PerfilDataContext";
 import { GamificationProvider } from "./context/GamificationContext";
@@ -40,50 +41,128 @@ export default function App() {
     <>
       <Router>
         <ConsoleBanner />
+
         <AuthProvider>
-        <PerfilDataProvider>
-        <GamificationProvider>
-        <ScrollToTop />
-        <Routes>
-          {/* Dashboard Layout (rutas privadas) */}
-          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-            <Route index path="/" element={<Home />} />
-            <Route path="/calendario-financiero" element={<Calendar />} />
-            <Route path="/educacion-financiera" element={<EducacionFinanciera />} />
+          <PerfilDataProvider>
+            <GamificationProvider>
+              <ScrollToTop />
 
-            {/* Finance Pages */}
-            <Route path="/transacciones" element={<Transacciones />} />
-            <Route path="/importar-csv" element={<ImportarCsv />} />
-            <Route path="/analisis" element={<Analisis />} />
-            <Route path="/recomendaciones" element={<Recomendaciones />} />
-            <Route path="/metas" element={<Metas />} />
-            <Route path="/asistente-ia" element={<AsistenteIA />} />
-            <Route path="/modo-matrix" element={<ModoMatrix />} />
-            <Route path="/juegos" element={<Juegos />} />
+              <Routes>
+                {/* Dashboard Layout (rutas privadas) */}
+                <Route
+                  element={
+                    <ProtectedRoute>
+                      <AppLayout />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index path="/" element={<Home />} />
+                  <Route
+                    path="/calendario-financiero"
+                    element={<Calendar />}
+                  />
+                  <Route
+                    path="/educacion-financiera"
+                    element={<EducacionFinanciera />}
+                  />
 
-            {/* Others Page */}
-            <Route path="/profile" element={<UserProfiles />} />
-            <Route path="/soporte" element={<Soporte />} />
-          </Route>
+                  {/* Finance Pages */}
+                  <Route
+                    path="/transacciones"
+                    element={<Transacciones />}
+                  />
+                  <Route
+                    path="/importar-csv"
+                    element={<ImportarCsv />}
+                  />
+                  <Route
+                    path="/analisis"
+                    element={<Analisis />}
+                  />
+                  <Route
+                    path="/recomendaciones"
+                    element={<Recomendaciones />}
+                  />
+                  <Route
+                    path="/metas"
+                    element={<Metas />}
+                  />
+                  <Route
+                    path="/asistente-ia"
+                    element={<AsistenteIA />}
+                  />
+                  <Route
+                    path="/modo-matrix"
+                    element={<ModoMatrix />}
+                  />
+                  <Route
+                    path="/juegos"
+                    element={<Juegos />}
+                  />
 
-          {/* Auth Layout */}
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/confirmar" element={<ConfirmarCuenta />} />
+                  {/* Others Page */}
+                  <Route
+                    path="/profile"
+                    element={<UserProfiles />}
+                  />
+                  <Route
+                    path="/soporte"
+                    element={<Soporte />}
+                  />
+                </Route>
 
-          {/* Ruta oculta sin enlace en el menú: preview de correos de Supabase */}
-          <Route path="/dev/email-preview" element={<EmailPreview />} />
-          <Route path="/dev/mermaid-preview" element={<MermaidPreview />} />
-          <Route path="/terminos" element={<Terminos />} />
-          <Route path="/privacidad" element={<PoliticaPrivacidad />} />
+                {/* Auth Layout */}
+                <Route
+                  path="/signin"
+                  element={<SignIn />}
+                />
+                <Route
+                  path="/signup"
+                  element={<SignUp />}
+                />
+                <Route
+                  path="/reset-password"
+                  element={<ResetPassword />}
+                />
+                <Route
+                  path="/confirmar"
+                  element={<ConfirmarCuenta />}
+                />
 
-          {/* Fallback Route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <TabTitleManager />
-        </GamificationProvider>
-        </PerfilDataProvider>
+                {/* Dev */}
+                <Route
+                  path="/dev/email-preview"
+                  element={<EmailPreview />}
+                />
+                <Route
+                  path="/dev/mermaid-preview"
+                  element={<MermaidPreview />}
+                />
+
+                {/* Legal / Institucional */}
+                <Route
+                  path="/terminos"
+                  element={<Terminos />}
+                />
+                <Route
+                  path="/privacidad"
+                  element={<PoliticaPrivacidad />}
+                />
+                <Route
+                  path="/mision-vision"
+                  element={<MisionVision />}
+                />
+
+                {/* Fallback Route */}
+                <Route
+                  path="*"
+                  element={<NotFound />}
+                />
+              </Routes>
+
+              <TabTitleManager />
+            </GamificationProvider>
+          </PerfilDataProvider>
         </AuthProvider>
       </Router>
     </>
