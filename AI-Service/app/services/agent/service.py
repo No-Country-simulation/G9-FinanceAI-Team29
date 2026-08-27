@@ -56,6 +56,11 @@ class FinSightAgentService:
         # Consultas posteriores: aparece aleatoriamente para no saturar.
         self._crypto_king_seen_users: set[str] = set()
 
+        # Estado conversacional de creación de metas por usuario.
+        # No dependemos únicamente de previous_answer porque el frontend puede
+        # no reenviarlo en todos los turnos.
+        self._pending_goal_creations: dict[str, dict[str, str]] = {}
+
     async def chat(
         self,
         usuario_id: str,
@@ -230,6 +235,38 @@ class FinSightAgentService:
 
         query = self._prepare_query(question)
 
+        # Si la respuesta anterior indica que ya estamos dentro del flujo de
+        # creación de una meta, continuarlo AQUÍ, antes de Educación Financiera.
+        # Esto es stateless: funciona incluso con varios workers/procesos.
+        previous_goal_context = QueryNormalizer.normalize(previous_answer or "")
+        has_goal_creation_context = (
+            ("finsi-goal-draft" in (previous_answer or "").lower() or "finsi-goal-flow-active" in (previous_answer or "").lower())
+            or "que quieres conseguir con esta meta" in previous_goal_context
+            or "que queres conseguir con esta meta" in previous_goal_context
+            or "cuanto dinero necesitas para alcanzarla" in previous_goal_context
+            or "para que fecha te gustaria alcanzar esta meta" in previous_goal_context
+            or (
+                "antes de crearla revisa los datos" in previous_goal_context
+                and "quieres que cree esta meta" in previous_goal_context
+            )
+        )
+
+        if has_goal_creation_context:
+            goal_creation_response = self._goal_creation_conversation(
+                usuario_id=usuario_id,
+                question=query.original,
+                previous_answer=previous_answer,
+            )
+            if goal_creation_response is not None:
+                response = self._internal_response(
+                    goal_creation_response,
+                    Intent.GOALS,
+                    query,
+                    used_financial_context=True,
+                )
+                response.metadata["route"] = "goal_creation_conversation_early"
+                return response
+
         # Fecha actual local del usuario. Se resuelve de forma determinística para
         # no depender del conocimiento temporal del LLM ni mezclarla con finanzas.
         normalized_date_query = QueryNormalizer.normalize(query.corrected).strip()
@@ -362,6 +399,23 @@ class FinSightAgentService:
             "contame mas",
             "cuentame mas",
         }
+        # Si ya estamos dentro del flujo de creación de una meta,
+        # una respuesta como "un fondo de emergencia" debe interpretarse
+        # como dato de la meta y NO como una consulta educativa.
+        previous_goal_context = QueryNormalizer.normalize(previous_answer or "")
+
+        goal_creation_in_progress = (
+            ("finsi-goal-draft" in (previous_answer or "").lower() or "finsi-goal-flow-active" in (previous_answer or "").lower())
+            or "que quieres conseguir con esta meta" in previous_goal_context
+            or "que queres conseguir con esta meta" in previous_goal_context
+            or "cuanto dinero necesitas para alcanzarla" in previous_goal_context
+            or "para que fecha te gustaria alcanzar esta meta" in previous_goal_context
+            or (
+                "antes de crearla revisa los datos" in previous_goal_context
+                and "quieres que cree esta meta" in previous_goal_context
+            )
+        )
+
         local_education = None
         if normalized_local_education_query not in local_education_expand_terms:
             local_education = self._local_financial_education_response(
@@ -372,6 +426,7 @@ class FinSightAgentService:
         if (
             early_intent.intent == Intent.FINANCIAL_EDUCATION
             and local_education is not None
+            and not goal_creation_in_progress
         ):
             response = self._internal_response(
                 local_education,
@@ -413,6 +468,7 @@ class FinSightAgentService:
         if (
             early_intent.intent == Intent.FINANCIAL_EDUCATION
             and not early_explicit_expand
+            and not goal_creation_in_progress
         ):
             # Las preguntas educativas generales no necesitan acceder al
             # perfil financiero personal. Las tarjetas educativas contextuales
@@ -2071,7 +2127,7 @@ class FinSightAgentService:
         # reclasificarse como una consulta nueva.
         previous_goal_context = QueryNormalizer.normalize(previous_answer or "")
         has_goal_creation_context = (
-            "finsi-goal-draft" in (previous_answer or "").lower()
+            ("finsi-goal-draft" in (previous_answer or "").lower() or "finsi-goal-flow-active" in (previous_answer or "").lower())
             or "que quieres conseguir con esta meta" in previous_goal_context
             or "cuanto dinero necesitas para alcanzarla" in previous_goal_context
             or "para que fecha te gustaria alcanzar esta meta" in previous_goal_context
@@ -2172,7 +2228,27 @@ class FinSightAgentService:
         # Se evalúa antes de la consulta general de metas para que preguntas como
         # "¿para qué sirven las metas?" no terminen mostrando solamente el listado.
         goal_creation_response = None
-        if advisor_intent_result.intent != Intent.FINANCIAL_EDUCATION:
+
+        # Si ya venimos de una pregunta del flujo de creación de metas,
+        # ese contexto tiene prioridad aunque la respuesta actual también
+        # pueda parecer Educación Financiera (ej. "un fondo de emergencia").
+        previous_goal_context = QueryNormalizer.normalize(previous_answer or "")
+        continuing_goal_creation = (
+            ("finsi-goal-draft" in (previous_answer or "").lower() or "finsi-goal-flow-active" in (previous_answer or "").lower())
+            or "que quieres conseguir con esta meta" in previous_goal_context
+            or "que queres conseguir con esta meta" in previous_goal_context
+            or "cuanto dinero necesitas para alcanzarla" in previous_goal_context
+            or "para que fecha te gustaria alcanzar esta meta" in previous_goal_context
+            or (
+                "antes de crearla revisa los datos" in previous_goal_context
+                and "quieres que cree esta meta" in previous_goal_context
+            )
+        )
+
+        if (
+            advisor_intent_result.intent != Intent.FINANCIAL_EDUCATION
+            or continuing_goal_creation
+        ):
             goal_creation_response = self._goal_creation_conversation(
                 usuario_id=usuario_id,
                 question=query.original,
@@ -4970,11 +5046,36 @@ class FinSightAgentService:
     @staticmethod
     def _affirmative_answer(question: str) -> bool:
         normalized = QueryNormalizer.normalize(question).strip()
-        return normalized in {
+
+        # Respuestas afirmativas cortas y directas.
+        if normalized in {
             "si", "sí", "dale", "ok", "okay", "bueno", "claro",
             "por favor", "si quiero", "quiero", "creala", "crealo",
-            "crear", "hagamosla", "hagamoslo",
-        }
+            "crear", "hagamosla", "hagamoslo", "hacelo", "hazlo",
+            "adelante", "confirmo",
+        }:
+            return True
+
+        # Confirmaciones naturales dentro del flujo de creación.
+        # Ejemplos:
+        # - "sí créame la meta por favor"
+        # - "sí, créala"
+        # - "dale, hacelo"
+        # - "quiero que la crees"
+        # - "confirmo la meta"
+        confirmation_patterns = (
+            r"\bsi\b.*\b(?:crea|creame|creala|crealo|crear|hazlo|hacelo|confirma|confirmo)\b",
+            r"\bdale\b.*\b(?:crea|creame|creala|crealo|hazlo|hacelo|confirma)\b",
+            r"\b(?:creame|creala|crealo|crea)\b.*\b(?:meta|objetivo)\b",
+            r"\bquiero\b.*\b(?:crear|crees|crearla|hacerla)\b",
+            r"\bconfirmo\b.*\b(?:meta|objetivo|creacion)\b",
+            r"\badelante\b.*\b(?:crea|creala|crealo|hazlo|hacelo)\b",
+        )
+
+        return any(
+            re.search(pattern, normalized)
+            for pattern in confirmation_patterns
+        )
 
     @staticmethod
     def _negative_answer(question: str) -> bool:
@@ -5158,14 +5259,183 @@ class FinSightAgentService:
             r"\bme (?:puedes|podes) crear (?:una )?meta\b",
         )
         if any(re.search(pattern, normalized) for pattern in direct_creation_patterns):
+            self._pending_goal_creations[usuario_id] = {"step": "name"}
             return (
                 "¡Perfecto! ¿Qué quieres conseguir con esta meta? "
                 "Por ejemplo: **comprar una PC**, **pagar una deuda** o "
                 "**crear un fondo de emergencia**."
             )
 
-        # Pregunta educativa: explicar primero, no listar metas.
-        if self._is_goal_explanation_query(question):
+        # Si el flujo está activo, usamos estado del backend en vez de depender
+        # exclusivamente de previous_answer.
+        pending = self._pending_goal_creations.get(usuario_id)
+
+        if pending is not None:
+            step = pending.get("step", "name")
+
+            if step == "name":
+                if len(question.strip()) < 2:
+                    return "Cuéntame brevemente qué quieres conseguir con esta meta."
+
+                name = question.strip().rstrip(".")
+                pending["name"] = name
+                pending["step"] = "amount"
+                return (
+                    f"Perfecto. La meta será **{name}**. "
+                    "¿Cuánto dinero necesitas para alcanzarla?"
+                )
+
+            if step == "amount":
+                amount = self._extract_goal_amount(question)
+                if amount is None:
+                    return (
+                        "No pude reconocer el monto. Escríbelo, por ejemplo, como "
+                        "**$500.000**, **1500000** o **100 dólares**."
+                    )
+
+                amount_text = str(
+                    amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                )
+                pending["amount"] = amount_text
+                pending["step"] = "date"
+                return (
+                    f"Objetivo: **{self._format_money(amount)}**. "
+                    "¿Para qué fecha te gustaría alcanzar esta meta? "
+                    "Puedes responder, por ejemplo, **20 de marzo de 2027**, "
+                    "**diciembre de 2026** o **15/12/2026**."
+                )
+
+            if step == "date":
+                target_date = self._extract_goal_date(question)
+                if target_date is None:
+                    return (
+                        "No pude reconocer la fecha. Puedes escribirla como "
+                        "**20 de marzo de 2027**, **diciembre de 2026** "
+                        "o **15/12/2026**."
+                    )
+
+                if target_date < date.today():
+                    return (
+                        "La fecha objetivo debe ser futura. "
+                        "Indícame una fecha posterior a hoy."
+                    )
+
+                pending["date"] = target_date.isoformat()
+                pending["step"] = "confirm"
+
+                name = pending.get("name", "Nueva meta")
+                try:
+                    amount = Decimal(pending.get("amount", ""))
+                except InvalidOperation:
+                    self._pending_goal_creations.pop(usuario_id, None)
+                    return (
+                        "Perdí el monto de la meta. Empecemos nuevamente: "
+                        "¿qué quieres conseguir con esta meta?"
+                    )
+
+                return (
+                    "Antes de crearla, revisa los datos:\n\n"
+                    f"• **Meta:** {name}\n"
+                    f"• **Objetivo:** {self._format_money(amount)}\n"
+                    f"• **Fecha:** {target_date.strftime('%d/%m/%Y')}\n\n"
+                    "**¿Quieres que cree esta meta?**"
+                )
+
+            if step == "confirm":
+                if self._negative_answer(question):
+                    self._pending_goal_creations.pop(usuario_id, None)
+                    return (
+                        "De acuerdo, no creé la meta. "
+                        "Si quieres, podemos empezar nuevamente."
+                    )
+
+                if not self._affirmative_answer(question):
+                    return "Responde **Sí** para crear la meta o **No** para cancelarla."
+
+                name = pending.get("name", "").strip()
+                amount_raw = pending.get("amount", "").strip()
+                date_raw = pending.get("date", "").strip()
+
+                try:
+                    amount = Decimal(amount_raw)
+                    target_date = date.fromisoformat(date_raw)
+                except (InvalidOperation, ValueError):
+                    self._pending_goal_creations.pop(usuario_id, None)
+                    return (
+                        "No pude recuperar todos los datos de la meta. "
+                        "Empecemos nuevamente: ¿qué quieres conseguir con esta meta?"
+                    )
+
+                category = "OTRO"
+                normalized_name = QueryNormalizer.normalize(name)
+
+                if any(
+                    term in normalized_name
+                    for term in ("deuda", "credito", "tarjeta", "prestamo")
+                ):
+                    category = "DEUDA"
+                elif any(
+                    term in normalized_name
+                    for term in ("emergencia", "fondo de emergencia")
+                ):
+                    category = "EMERGENCIA"
+                elif any(
+                    term in normalized_name
+                    for term in ("viaje", "vacaciones")
+                ):
+                    category = "VIAJE"
+                elif any(
+                    term in normalized_name
+                    for term in ("comprar", "compra", "pc", "auto", "casa", "celular")
+                ):
+                    category = "COMPRA"
+                elif any(
+                    term in normalized_name
+                    for term in ("ahorrar", "ahorro")
+                ):
+                    category = "AHORRO"
+
+                try:
+                    created = self.goal_repository.create(
+                        {
+                            "usuario_id": usuario_id,
+                            "nombre": name,
+                            "descripcion": "Meta creada por Finsi desde el chat.",
+                            "categoria": category,
+                            "monto_objetivo": float(amount),
+                            "fecha_objetivo": target_date.isoformat(),
+                        }
+                    )
+                except (ValueError, BackendDataError) as error:
+                    return (
+                        "No pude crear la meta en este momento. "
+                        f"El backend respondió: {str(error)}"
+                    )
+
+                self._pending_goal_creations.pop(usuario_id, None)
+                created_name = str(created.get("nombre") or name)
+
+                return (
+                    f"¡Listo! Creé la meta **{created_name}** por "
+                    f"{self._format_money(amount)}, con fecha objetivo "
+                    f"**{target_date.strftime('%d/%m/%Y')}**. 🎯\n\n"
+                    "**¿Quieres que analice tus finanzas y te prepare un plan para alcanzarla?**"
+                )
+
+        # Pregunta educativa: explicar primero solo si NO estamos ya
+        # dentro del flujo conversacional de creación de una meta.
+        creating_goal = (
+            "que quieres conseguir con esta meta" in previous_normalized
+            or "que queres conseguir con esta meta" in previous_normalized
+            or "cuanto dinero necesitas para alcanzarla" in previous_normalized
+            or "para que fecha te gustaria alcanzar esta meta" in previous_normalized
+            or "antes de crearla revisa los datos" in previous_normalized
+            or bool(draft.get("name"))
+            or bool(draft.get("amount"))
+            or bool(draft.get("date"))
+        )
+
+        if not creating_goal and self._is_goal_explanation_query(question):
             return (
                 "Las **metas financieras** sirven para convertir algo que quieres "
                 "conseguir en un objetivo concreto. Puedes indicar cuánto necesitas "
@@ -5216,7 +5486,7 @@ class FinSightAgentService:
                 and not draft.get("amount")
                 and (
                     "no pude reconocer el monto" in previous_normalized
-                    or "finsi-goal-draft" in (previous_answer or "").lower()
+                    or ("finsi-goal-draft" in (previous_answer or "").lower() or "finsi-goal-flow-active" in (previous_answer or "").lower())
                 )
             )
         )
@@ -5250,7 +5520,7 @@ class FinSightAgentService:
                 and (
                     "no pude reconocer la fecha" in previous_normalized
                     or "la fecha objetivo debe ser futura" in previous_normalized
-                    or "finsi-goal-draft" in (previous_answer or "").lower()
+                    or ("finsi-goal-draft" in (previous_answer or "").lower() or "finsi-goal-flow-active" in (previous_answer or "").lower())
                 )
             )
         )

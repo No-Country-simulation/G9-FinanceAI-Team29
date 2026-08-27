@@ -5,7 +5,7 @@ import PageMeta from "../../components/common/PageMeta";
 import PromptComposer from "../../components/ai/PromptComposer";
 import { PlusIcon, ChatIcon, BoltIcon, TrashBinIcon, CloseIcon } from "../../icons";
 import { mostrarError } from "../../utils/alerts";
-import { preguntarAgenteStream } from "../../services/api";
+import { preguntarAgenteStream, obtenerPerfilCompleto } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useGamification } from "../../context/GamificationContext";
 import { detectarLogroEnRespuesta } from "../../utils/achievements";
@@ -126,6 +126,16 @@ function puedeMostrarExplicameMas(texto: string): boolean {
   // Las respuestas sobre el equipo/creadores tienen su propio flujo interactivo
   // con botones "Sí / No"; no deben mostrar el follow-up "Explícame más".
   if (REGEX_RESPUESTA_CREADOR.test(limpio)) {
+    return false;
+  }
+
+  // El abrazo virtual es una respuesta conversacional/easter egg.
+  // No debe mostrar el botón "Explícame más".
+  if (
+    /\babraz(?:o|os|arte)\b/i.test(limpio) ||
+    /\babrazo virtual\b/i.test(limpio) ||
+    /\bhug\b/i.test(limpio)
+  ) {
     return false;
   }
 
@@ -801,7 +811,7 @@ function MatrixPillSplash({ tipo, cerrando }: { tipo: "roja" | "azul"; cerrando:
 }
 
 export default function AsistenteIA() {
-  const { usuarioId, email, session, signOut } = useAuth();
+  const { usuarioId, email, signOut } = useAuth();
   const { registrarEvento, desbloquearLogro } = useGamification();
   const location = useLocation();
   const navigate = useNavigate();
@@ -855,6 +865,8 @@ export default function AsistenteIA() {
   const gotSplashMostradoRef = useRef<number | null>(null);
   const [matrixSplash, setMatrixSplash] = useState<{ tipo: "roja" | "azul"; fase: "visible" | "cerrando" } | null>(null);
 
+  const [nombreBienvenida, setNombreBienvenida] = useState("Usuario");
+
   useEffect(() => {
     const ultimoMensaje = messages[messages.length - 1];
 
@@ -907,14 +919,44 @@ export default function AsistenteIA() {
     void audio.play().catch(salir);
   }, [messages, signOut]);
 
-  const nombreBienvenida = useMemo(() => {
-    const metadata = session?.user.user_metadata;
-    const nombre = typeof metadata?.nombre === "string" ? metadata.nombre.trim() : "";
-    const nombreAlternativo =
-      typeof metadata?.name === "string" ? metadata.name.trim().split(/\s+/)[0] : "";
+  useEffect(() => {
+    let cancelado = false;
 
-    return nombre || nombreAlternativo || email?.split("@")[0] || "Usuario";
-  }, [email, session?.user.user_metadata]);
+    const cargarNombreUsuario = async () => {
+      if (!usuarioId) {
+        setNombreBienvenida("Usuario");
+        return;
+      }
+
+      try {
+        const perfil = await obtenerPerfilCompleto(usuarioId);
+
+        if (cancelado) return;
+
+        const nombre =
+          typeof perfil?.nombre === "string"
+            ? perfil.nombre.trim()
+            : "";
+
+        setNombreBienvenida(nombre || "Usuario");
+      } catch (error) {
+        console.error(
+          "No se pudo cargar el nombre del usuario para Finsi:",
+          error,
+        );
+
+        if (!cancelado) {
+          setNombreBienvenida("Usuario");
+        }
+      }
+    };
+
+    void cargarNombreUsuario();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [usuarioId]);
 
   useEffect(() => {
     setChatsGuardados(cargarChatsGuardados(usuarioId));

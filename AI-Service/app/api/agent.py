@@ -66,6 +66,32 @@ def _first_message_answer(question: str, answer: str) -> str:
     return f"{_FIRST_MESSAGE_INTRO}\n\n{cleaned_answer}"
 
 
+def _is_goal_creation_follow_up(previous_answer: str | None) -> bool:
+    """Detecta de forma determinística si Finsi está creando una meta.
+
+    No depende del clasificador de intención de la respuesta actual. Se basa
+    únicamente en las preguntas que Finsi genera dentro del flujo de creación.
+    """
+    if not previous_answer:
+        return False
+
+    previous = _normalize_text(previous_answer)
+
+    signatures = (
+        "que quieres conseguir con esta meta",
+        "que queres conseguir con esta meta",
+        "cuanto dinero necesitas para alcanzarla",
+        "para que fecha te gustaria alcanzar esta meta",
+        "antes de crearla revisa los datos",
+        "quieres que cree esta meta",
+    )
+
+    return (
+        "finsi goal draft" in previous
+        or any(signature in previous for signature in signatures)
+    )
+
+
 router = APIRouter(
     prefix="/agent",
     tags=["Agent"],
@@ -106,19 +132,26 @@ agent = FinSightAgentService()
 
 
 def _run_agent_chat(request: "ChatRequest"):
-    """Ejecuta el flujo async del agente fuera del event loop principal.
+    """Ejecuta el flujo async del agente fuera del event loop principal."""
+    previous_answer = request.previous_answer
 
-    El agente usa clientes HTTP síncronos para consultar Spring. Si se ejecuta
-    directamente dentro del event loop de Uvicorn, puede bloquear al propio
-    AI-Service e impedir que Spring consulte /health o /analysis, generando un
-    bloqueo circular. run_in_threadpool + asyncio.run mantiene libre el loop
-    principal para atender esas llamadas internas.
-    """
+    # Cuando la respuesta anterior pertenece inequívocamente al flujo de creación
+    # de una meta, añadimos un marcador interno que service.py ya reconoce.
+    # El marcador nunca se muestra al usuario; solo evita que frases como
+    # "un fondo de emergencia" o "sí crea la meta" sean reclasificadas como
+    # Educación Financiera.
+    if _is_goal_creation_follow_up(previous_answer):
+        if previous_answer and "finsi-goal-flow-active" not in previous_answer:
+            previous_answer = (
+                f"{previous_answer}\n"
+                "<!-- finsi-goal-flow-active -->"
+            )
+
     return asyncio.run(
         agent.chat(
             usuario_id=request.usuario_id,
             question=request.question,
-            previous_answer=request.previous_answer,
+            previous_answer=previous_answer,
             time_zone=request.time_zone,
             assistant_mode=request.assistant_mode,
             education_topic=request.education_topic,
@@ -176,8 +209,6 @@ async def _stream_plain_answer(request: "ChatRequest") -> AsyncIterator[str]:
             request,
         )
     except ValueError as error:
-        # Propaga el mensaje (p.ej. "no posee transacciones") tal cual lo hace
-        # /agent/chat, ya que el frontend detecta el flujo "sin datos" por texto.
         yield _sse({"status": "error", "message": str(error)})
         return
     except Exception:
@@ -197,12 +228,7 @@ async def _stream_plain_answer(request: "ChatRequest") -> AsyncIterator[str]:
 
 
 async def _stream_summary_answer(request: "ChatRequest") -> AsyncIterator[str]:
-    """Flujo narrado para el resumen financiero.
-
-    El resultado final delega en FinSightAgentService.chat(), igual que el resto
-    de las consultas. Así el resumen usa el mismo snapshot financiero sincronizado
-    con el Dashboard y evita una segunda ruta de cálculo con métricas históricas.
-    """
+    """Flujo narrado para el resumen financiero."""
     yield _sse(
         {"status": "step", "message": "Finsi está revisando tus datos financieros..."}
     )
@@ -244,11 +270,15 @@ async def _stream_summary_answer(request: "ChatRequest") -> AsyncIterator[str]:
 
 @router.post("/chat/stream")
 async def chat_stream(request: ChatRequest) -> StreamingResponse:
-    """Variante con streaming de estado (SSE) para el ejemplo de "resumen
-    financiero". Para el resto de las preguntas cae al flujo normal, con un
-    único evento final, para no duplicar toda la lógica de `chat()`."""
+    """Variante con streaming de estado (SSE)."""
     intent_result = agent.intent_detector.detect_result(request.question)
-    if intent_result.intent == Intent.SUMMARY:
+
+    # IMPORTANTE: si estamos dentro del flujo de creación de meta, no permitimos
+    # que la intención de la respuesta actual (por ejemplo FINANCIAL_EDUCATION)
+    # cambie de generador o rompa la continuidad.
+    if _is_goal_creation_follow_up(request.previous_answer):
+        generator = _stream_plain_answer(request)
+    elif intent_result.intent == Intent.SUMMARY:
         generator = _stream_summary_answer(request)
     else:
         generator = _stream_plain_answer(request)
