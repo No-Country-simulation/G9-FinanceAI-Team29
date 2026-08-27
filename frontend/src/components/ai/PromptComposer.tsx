@@ -44,6 +44,13 @@ function obtenerConstructorReconocimiento(): SpeechRecognitionConstructor | null
 const NUM_BARRAS = 40;
 const NIVEL_INACTIVO = Array(NUM_BARRAS).fill(3);
 
+// El reconocedor de voz del navegador no conoce la marca "Finsi" (es un nombre
+// propio inventado) y la escucha fonéticamente como "fin si" / "fin sí" /
+// "finsy" / "finci", separándola en dos palabras. La reunimos en "Finsi".
+function normalizarNombreFinsi(texto: string): string {
+  return texto.replace(/\bfin[\s-]?(?:s[ií]|sy|ci|cy)\b/gi, "Finsi");
+}
+
 function MicrofonoIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -173,7 +180,8 @@ export default function PromptComposer({
           interim += resultado[0].transcript;
         }
       }
-      const combinado = [baseValueRef.current, `${finalTranscriptRef.current}${interim}`.trim()]
+      const dictado = normalizarNombreFinsi(`${finalTranscriptRef.current}${interim}`.trim());
+      const combinado = [baseValueRef.current, dictado]
         .filter(Boolean)
         .join(" ");
       setValue(combinado);
