@@ -40,8 +40,8 @@ const REGEX_PREGUNTA_ECONOMIA =
   /\b(inflaci[oó]n|deflaci[oó]n|pbi|producto bruto|oferta y demanda|tasa de inter[eé]s|tasas? de inter[eé]s|pol[ií]tica monetaria|banco central|econom[ií]a|macroeconom[ií]a|microeconom[ií]a|mercado burs[aá]til|bolsa de valores|devaluaci[oó]n|recesi[oó]n|pib\b)/i;
 const MENSAJE_CON_QUE_SEGUIMOS = "¿Con qué seguimos?";
 
-const ESPERA_FINSI_MIN_MS = 3000;
-const ESPERA_FINSI_MAX_MS = 3000;
+const ESPERA_FINSI_MIN_MS = 800;
+const ESPERA_FINSI_MAX_MS = 1500;
 
 // Señal global para que las celebraciones fullscreen esperen a que termine
 // cualquier easter egg visual que ya se esté reproduciendo en el chat.
