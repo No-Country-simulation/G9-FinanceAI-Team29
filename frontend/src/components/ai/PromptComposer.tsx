@@ -81,8 +81,17 @@ export default function PromptComposer({
   const soportaDictado = obtenerConstructorReconocimiento() !== null;
 
   const detenerDictado = () => {
-    recognitionRef.current?.stop();
+    const recognition = recognitionRef.current;
     recognitionRef.current = null;
+    if (recognition) {
+      // stop() es asíncrono y dispara un último onresult que, tras enviar,
+      // vuelve a escribir el texto en la casilla. Desconectamos los handlers
+      // antes de parar para que ese evento tardío no repueble el input.
+      recognition.onresult = null;
+      recognition.onend = null;
+      recognition.onerror = null;
+      recognition.stop();
+    }
 
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
@@ -96,6 +105,10 @@ export default function PromptComposer({
     }
     setEscuchando(false);
     setNiveles(NIVEL_INACTIVO);
+    // Limpiamos el acumulado para que la próxima grabación empiece de cero y no
+    // arrastre lo dictado antes.
+    baseValueRef.current = "";
+    finalTranscriptRef.current = "";
   };
 
   useEffect(() => () => detenerDictado(), []);
@@ -103,6 +116,9 @@ export default function PromptComposer({
   const iniciarDictado = async () => {
     const Ctor = obtenerConstructorReconocimiento();
     if (!Ctor) return;
+
+    // Sonido corto al tocar el botón de grabar, para dar feedback inmediato.
+    void new Audio("/images/task/sonidoDeMicro.wav").play().catch(() => {});
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -172,6 +188,9 @@ export default function PromptComposer({
 
   const submit = () => {
     if (!value.trim()) return;
+    // Al enviar, apagamos el micrófono si estaba grabando: si no, seguía
+    // escuchando y acumulaba lo dictado antes con lo nuevo.
+    if (escuchando) detenerDictado();
     onSubmit(value.trim(), model);
     setValue("");
   };

@@ -1123,7 +1123,7 @@ export default function AsistenteIA() {
 
     if (REGEX_PREGUNTA_ECONOMIA.test(prompt)) desbloquearLogro('pregunta_economia');
 
-    if (esPreguntaRepetida) {
+    if (false && esPreguntaRepetida) { // rickroll por pregunta repetida desactivado (presentacion)
       setAgentTabStatus("💬 El agente está escribiendo...");
       if (sonidoActivo) playSendSound();
       setMessages((prev) => {
