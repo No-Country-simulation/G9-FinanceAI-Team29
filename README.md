@@ -12,7 +12,8 @@
   <img src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white" alt="Java 21">
   <img src="https://img.shields.io/badge/FastAPI-Python-009688?logo=fastapi&logoColor=white" alt="FastAPI">
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white" alt="Supabase">
-  <img src="https://img.shields.io/badge/Vercel%20%2B%20Render-Deploy-000000?logo=vercel&logoColor=white" alt="Vercel + Render">
+  <img src="https://img.shields.io/badge/OCI-Deploy-F80000?logo=oracle&logoColor=white" alt="Oracle Cloud Infrastructure">
+  <img src="https://img.shields.io/badge/Vercel%20%2B%20Render-(Opcional)-000000?logo=vercel&logoColor=white" alt="Vercel + Render Opcional">
 </p>
 
 <p align="center">
@@ -303,7 +304,7 @@ Notebook completo, ejecutable en Google Colab: [`Data-Science/FinSightAI_DataSci
 - ✅ Gamificación y notificaciones (push + email)
 - ✅ Despliegue en Vercel (frontend) y Render (Backend / AI-Service)
 - ✅ Auditoría de seguridad inicial (OWASP)
-- ⬜ Presentación final del proyecto
+- ✅ Presentación final del proyecto
 
 </td>
 <td width="22%" align="center" valign="middle">
