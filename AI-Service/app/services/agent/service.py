@@ -5087,33 +5087,80 @@ class FinSightAgentService:
 
     @staticmethod
     def _extract_goal_amount(question: str) -> Decimal | None:
-        raw = (question or "").strip()
-        match = re.search(
-            r"(?:\$|ars\s*)?(\d+(?:\.\d{3})*(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)",
-            raw,
-            flags=re.IGNORECASE,
-        )
-        if not match:
-            return None
+            raw = (question or "").strip()
 
-        value = match.group(1)
-        if "." in value and "," in value:
-            value = value.replace(".", "").replace(",", ".")
-        elif value.count(".") > 1:
-            value = value.replace(".", "")
-        elif "." in value:
-            left, right = value.rsplit(".", 1)
-            if len(right) == 3:
-                value = left.replace(".", "") + right
-        elif "," in value:
-            value = value.replace(",", ".")
+            # Captura números completos con separadores de miles/decimales.
+            # Ejemplos válidos:
+            # 10000
+            # 10,000
+            # 10.000
+            # 10,000.50
+            # 10.000,50
+            # $10000
+            # 10000 dólares
+            match = re.search(
+                r"(?:USD|US\$|U\$S|ARS|\$)?\s*"
+                r"(\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)",
+                raw,
+                flags=re.IGNORECASE,
+            )
 
-        try:
-            amount = Decimal(value)
-        except InvalidOperation:
-            return None
-        return amount if amount > 0 else None
+            if not match:
+                return None
 
+            value = match.group(1).strip()
+
+            try:
+                # Tiene punto Y coma.
+                if "." in value and "," in value:
+                    last_dot = value.rfind(".")
+                    last_comma = value.rfind(",")
+
+                    if last_comma > last_dot:
+                        # Formato latino:
+                        # 10.000,50 -> 10000.50
+                        value = value.replace(".", "").replace(",", ".")
+                    else:
+                        # Formato internacional:
+                        # 10,000.50 -> 10000.50
+                        value = value.replace(",", "")
+
+                elif "," in value:
+                    parts = value.split(",")
+
+                    # 10,000 / 1,000,000
+                    # La coma funciona como separador de miles.
+                    if (
+                        len(parts) > 1
+                        and all(len(part) == 3 for part in parts[1:])
+                    ):
+                        value = "".join(parts)
+
+                    # 100,50 -> 100.50
+                    else:
+                        value = value.replace(",", ".")
+
+                elif "." in value:
+                    parts = value.split(".")
+
+                    # 10.000 / 1.000.000
+                    # El punto funciona como separador de miles.
+                    if (
+                        len(parts) > 1
+                        and all(len(part) == 3 for part in parts[1:])
+                    ):
+                        value = "".join(parts)
+
+                    # 100.50 queda como decimal.
+                    else:
+                        value = value
+
+                amount = Decimal(value)
+
+            except (InvalidOperation, ValueError):
+                return None
+
+            return amount if amount > 0 else None
     @staticmethod
     def _extract_goal_date(question: str) -> date | None:
         normalized = QueryNormalizer.normalize(question)
